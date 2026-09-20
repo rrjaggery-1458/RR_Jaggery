@@ -1,0 +1,37 @@
+# Multi-stage build for RR Jaggery Microservices
+# Stage 1: Build stage
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+WORKDIR /workspace
+
+# Copy parent and common-library POMs
+COPY services/pom.xml ./services/pom.xml
+COPY services/common-library/pom.xml ./services/common-library/pom.xml
+
+ARG SERVICE_NAME
+COPY services/${SERVICE_NAME}/pom.xml ./services/${SERVICE_NAME}/pom.xml
+
+# Download dependencies offline
+RUN cd services && mvn -B -pl common-library,${SERVICE_NAME} dependency:go-offline || true
+
+# Copy source code
+COPY services/common-library ./services/common-library
+COPY services/${SERVICE_NAME} ./services/${SERVICE_NAME}
+
+# Build JAR
+RUN cd services && mvn -B clean package -pl common-library,${SERVICE_NAME} -am -DskipTests
+
+# Stage 2: Runtime image
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+ARG SERVICE_NAME
+COPY --from=builder /workspace/services/${SERVICE_NAME}/target/*.jar app.jar
+
+USER appuser
+
+# Optimize JVM for low-cost VPS memory constraints
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

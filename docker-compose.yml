@@ -1,0 +1,231 @@
+version: '3.8'
+
+networks:
+  rr-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rr_jaggery_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql:ro
+    networks:
+      - rr-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rr_jaggery_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rr-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rr-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: auth-service
+    container_name: rr-auth-service
+    restart: unless-stopped
+    environment:
+      AUTH_SERVICE_PORT: 8081
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  commerce-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: commerce-service
+    container_name: rr-commerce-service
+    restart: unless-stopped
+    environment:
+      COMMERCE_SERVICE_PORT: 8082
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  customer-ledger-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: customer-ledger-service
+    container_name: rr-customer-ledger-service
+    restart: unless-stopped
+    environment:
+      CUSTOMER_LEDGER_SERVICE_PORT: 8083
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: inventory-service
+    container_name: rr-inventory-service
+    restart: unless-stopped
+    environment:
+      INVENTORY_SERVICE_PORT: 8084
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  procurement-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: procurement-service
+    container_name: rr-procurement-service
+    restart: unless-stopped
+    environment:
+      PROCUREMENT_SERVICE_PORT: 8085
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  production-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: production-service
+    container_name: rr-production-service
+    restart: unless-stopped
+    environment:
+      PRODUCTION_SERVICE_PORT: 8086
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  finance-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: finance-service
+    container_name: rr-finance-service
+    restart: unless-stopped
+    environment:
+      FINANCE_SERVICE_PORT: 8087
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.service
+      args:
+        SERVICE_NAME: notification-service
+    container_name: rr-notification-service
+    restart: unless-stopped
+    environment:
+      NOTIFICATION_SERVICE_PORT: 8088
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rr-network
+
+  gateway:
+    image: nginx:alpine
+    container_name: rr-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - auth-service
+      - commerce-service
+      - customer-ledger-service
+      - inventory-service
+      - procurement-service
+      - production-service
+      - finance-service
+      - notification-service
+    networks:
+      - rr-network

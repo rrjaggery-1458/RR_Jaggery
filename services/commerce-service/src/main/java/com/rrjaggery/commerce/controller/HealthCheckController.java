@@ -1,0 +1,26 @@
+package com.rrjaggery.commerce.controller;
+
+import com.rrjaggery.common.dto.ApiResponse;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/commerce")
+public class HealthCheckController {
+
+    @GetMapping("/health")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getHealth() {
+        Map<String, Object> healthInfo = Map.of(
+                "service", "commerce-service",
+                "status", "UP",
+                "port", 8082,
+                "schema", "commerce_schema",
+                "version", "1.0.0-SNAPSHOT"
+        );
+        return ResponseEntity.ok(ApiResponse.ok(healthInfo));
+    }
+}

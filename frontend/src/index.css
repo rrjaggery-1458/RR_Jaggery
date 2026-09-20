@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-amber-500 selection:text-slate-950;
+    min-height: 100vh;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.glass-card:hover {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.jaggery-gradient {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #78350f 100%);
+}
+
+.jaggery-text-gradient {
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
