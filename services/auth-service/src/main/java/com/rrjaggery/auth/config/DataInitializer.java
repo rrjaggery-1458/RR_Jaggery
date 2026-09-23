@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @Component
@@ -27,7 +26,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        // 1. Seed / enforce default Admin
+        // 1. Seed / enforce default Admin — ROLE_ADMIN ONLY
         if (!userRepository.existsByEmail("admin@rrjaggery.com")) {
             User admin = new User(
                     "admin@rrjaggery.com",
@@ -40,17 +39,19 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(admin);
             System.out.println("Seeded Default Admin: admin@rrjaggery.com / Admin@123 (Role: ADMIN only)");
         } else {
-            // Ensure admin has Role.ADMIN ONLY
+            // Enforce admin has ROLE_ADMIN ONLY — explicitly remove any extra roles (e.g. stale CUSTOMER)
             userRepository.findByEmail("admin@rrjaggery.com").ifPresent(admin -> {
-                if (!admin.getRoles().equals(Set.of(Role.ADMIN))) {
+                Set<Role> current = new HashSet<>(admin.getRoles());
+                boolean hasExtraRoles = current.size() != 1 || !current.contains(Role.ADMIN);
+                if (hasExtraRoles) {
                     admin.setRoles(Set.of(Role.ADMIN));
                     userRepository.save(admin);
-                    System.out.println("Enforced single authoritative Role.ADMIN for admin@rrjaggery.com");
+                    System.out.println("Enforced ADMIN-only role for admin@rrjaggery.com (removed extra: " + current + ")");
                 }
             });
         }
 
-        // 2. Seed default Manager
+        // 2. Seed default Manager — ROLE_MANAGER ONLY
         if (!userRepository.existsByEmail("manager@rrjaggery.com")) {
             User manager = new User(
                     "manager@rrjaggery.com",
@@ -65,7 +66,7 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("Seeded Default Manager: manager@rrjaggery.com / Manager@123");
         }
 
-        // 3. Seed demo Retail Customer
+        // 3. Seed demo Retail Customer — ROLE_CUSTOMER ONLY
         if (!userRepository.existsByEmail("retail@example.com")) {
             User retail = new User(
                     "retail@example.com",
@@ -79,11 +80,11 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println("Seeded Demo Retail Customer: retail@example.com / Retail@123");
         }
 
-        // 4. Migrate wholesale login accounts (disable login, keep customer_type REGISTERED_WHOLESALE)
+        // 4. Migrate/enforce all users — no legacy roles, wholesale disabled
         userRepository.findAll().forEach(user -> {
             boolean updated = false;
 
-            // Disable wholesale portal login
+            // Disable wholesale portal login (keep customer_type REGISTERED_WHOLESALE for business records)
             if (user.getCustomerType() == CustomerType.REGISTERED_WHOLESALE && user.isEnabled()) {
                 user.setEnabled(false);
                 updated = true;
