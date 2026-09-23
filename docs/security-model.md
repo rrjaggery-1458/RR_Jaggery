@@ -1,5 +1,10 @@
 # RR Jaggery Traders — Security Model & Threat Mitigation
 
+> **Last Updated:** Pre-Sprint 6 Business Access Model Revision
+> **Authoritative Roles:** `ADMIN` · `MANAGER` · `CUSTOMER`
+
+---
+
 ## 1. Authentication & Session Strategy
 
 The platform employs a stateless JSON Web Token (JWT) architecture with stateful revocation capabilities via Redis.
@@ -11,7 +16,7 @@ sequenceDiagram
     participant Gateway as Nginx / Edge
     participant Auth as Auth Service
     participant Redis as Redis Session Cache
-    participant Downstream as Downstream Services (Commerce, Finance, etc.)
+    participant Downstream as Downstream Services (Commerce, Inventory, etc.)
 
     Client->>Gateway: POST /api/v1/auth/login { email, password }
     Gateway->>Auth: Forward Login Request
@@ -27,15 +32,46 @@ sequenceDiagram
 
 ---
 
-## 2. Role-Based Access Control (RBAC) Matrix
+## 2. Authoritative Portal Roles
 
-| Role | Description | Storefront | Admin ERP | Production | Inventory | Finance |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| `ROLE_CUSTOMER` | Self-registered retail/wholesale user | Read/Write (Self) | Denied | Denied | Denied | Denied |
-| `ROLE_ADMIN` | Business Owner / General Manager | Full Access | Full Access | Full Access | Full Access | Full Access |
-| `ROLE_PRODUCTION_MANAGER` | Plant & Manufacturing Supervisor | Denied | Restricted | Full Access | Read/Consume | Read Costs |
-| `ROLE_INVENTORY_STAFF` | Warehouse & Gatekeeper | Denied | Restricted | Denied | Full Access | Denied |
-| `ROLE_FINANCE` | Accountant / Payroll Manager | Denied | View Only | Read Costs | Denied | Full Access |
+The application enforces **exactly three** portal login roles. All legacy internal operational roles (`PRODUCTION_MANAGER`, `EMPLOYEE`, `INVENTORY_STAFF`, `FINANCE`, `REGISTERED_WHOLESALE`) have been removed as login roles.
+
+### 2.1 Role Definitions
+
+| Role | Authority String | Description |
+| :--- | :--- | :--- |
+| `ADMIN` | `ROLE_ADMIN` | Business Owner / General Manager. Full platform access including user management, master data, executive dashboard, and all operational modules. |
+| `MANAGER` | `ROLE_MANAGER` | Operations Supervisor. Full access to Procurement, Inventory, Production, Customer/Wholesale Ledger, and Offline Orders. No access to User Management or Master Configuration. |
+| `CUSTOMER` | `ROLE_CUSTOMER` | Retail Customer. Access strictly limited to the customer-facing storefront: product browsing, cart, self-placed orders, and self-profile. |
+
+### 2.2 RBAC Access Matrix
+
+| Module | `ADMIN` | `MANAGER` | `CUSTOMER` |
+| :--- | :---: | :---: | :---: |
+| Customer Storefront | ✅ Full | ✅ Full | ✅ Self only |
+| Procurement | ✅ Full | ✅ Full | ❌ Denied |
+| Inventory | ✅ Full | ✅ Full | ❌ Denied |
+| Production | ✅ Full | ✅ Full | ❌ Denied |
+| Customer/Wholesale Ledger | ✅ Full | ✅ Full | ❌ Denied |
+| Offline Orders | ✅ Full | ✅ Full | ❌ Denied |
+| Executive Dashboard | ✅ Full | ❌ Denied | ❌ Denied |
+| User Management | ✅ Full | ❌ Denied | ❌ Denied |
+| Master Configuration | ✅ Full | ❌ Denied | ❌ Denied |
+
+### 2.3 Seeded Default Accounts
+
+| Email | Role | Purpose |
+| :--- | :--- | :--- |
+| `admin@rrjaggery.com` | `ADMIN` | Platform owner / general manager |
+| `manager@rrjaggery.com` | `MANAGER` | Default operations supervisor |
+| `retail@example.com` | `CUSTOMER` | Sample retail customer |
+
+### 2.4 Non-Login Business Records
+
+The following entity types are **business records only** and carry **no portal login**:
+
+- **Wholesale Customers** — Stored in `customer_schema.customers` with `customer_type = 'WHOLESALE'`. All historical records, GSTIN, credit terms, MOQ, ledger entries, and manager-entered orders are preserved. Managed internally by ADMIN/MANAGER.
+- **Employees** — Internal workforce records. All operational tasks are performed by MANAGER-role accounts. No separate employee portal login exists.
 
 ---
 
@@ -59,7 +95,8 @@ sequenceDiagram
 - Idempotency keys (`X-Idempotency-Key` HTTP header) are required for offline order submissions and payment disbursements to prevent duplicate billing.
 
 ### 3.5 Security Audit Logging
-Sensitive operations (privilege escalation, manual ledger adjustments, production batch cancellations, employee wage modifications) emit immutable audit records to `auth_schema.security_audit_log`:
+Sensitive operations (privilege escalation, manual ledger adjustments, production batch cancellations, Manager account lifecycle changes) emit immutable audit records to `auth_schema.security_audit_log`:
+
 ```sql
 CREATE TABLE security_audit_log (
     id UUID PRIMARY KEY,
@@ -74,3 +111,15 @@ CREATE TABLE security_audit_log (
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL
 );
 ```
+
+---
+
+## 4. Role Migration History
+
+| Legacy Role | Pre-Revision Status | Post-Revision Status |
+| :--- | :--- | :--- |
+| `PRODUCTION_MANAGER` | Portal login role | **Removed.** Migrated to `MANAGER`. |
+| `EMPLOYEE` | Portal login role | **Removed.** Accounts disabled; operations via `MANAGER`. |
+| `INVENTORY_STAFF` | Portal login role | **Removed.** Absorbed into `MANAGER`. |
+| `FINANCE` | Portal login role | **Removed.** Will be addressed in Sprint 6 Finance module under `ADMIN`/`MANAGER` access. |
+| `REGISTERED_WHOLESALE` | Portal login role for wholesale customers | **Removed.** Wholesale customers are business records only; no portal login. |
