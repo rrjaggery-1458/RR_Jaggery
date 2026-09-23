@@ -57,6 +57,16 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.ok(updated, "User status updated successfully."));
     }
 
+    @PostMapping("/users/{id}/toggle-status")
+    public ResponseEntity<ApiResponse<UserDto>> toggleUserStatus(@PathVariable UUID id) {
+        UserDto current = adminUserService.getAllUsers().stream()
+                .filter(u -> u.getId().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        UserDto updated = adminUserService.toggleUserEnabled(id, !current.isEnabled());
+        return ResponseEntity.ok(ApiResponse.ok(updated, "User status toggled successfully."));
+    }
+
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<AdminStatsDto>> getStats() {
         return ResponseEntity.ok(ApiResponse.ok(adminUserService.getStats()));

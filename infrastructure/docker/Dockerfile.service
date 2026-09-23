@@ -1,43 +1,10 @@
-# Multi-stage build for RR Jaggery Microservices
-# Stage 1: Build stage
-FROM maven:3.9-eclipse-temurin-21-alpine AS builder
-WORKDIR /workspace
-
-# Copy parent POM
-COPY services/pom.xml ./services/pom.xml
-
-# Copy ALL service pom.xml files so Maven can validate the parent POM module list
-# (Parent pom.xml declares all modules; Maven refuses to build if any declared module dir is missing)
-COPY services/common-library/pom.xml ./services/common-library/pom.xml
-COPY services/auth-service/pom.xml ./services/auth-service/pom.xml
-COPY services/commerce-service/pom.xml ./services/commerce-service/pom.xml
-COPY services/customer-ledger-service/pom.xml ./services/customer-ledger-service/pom.xml
-COPY services/inventory-service/pom.xml ./services/inventory-service/pom.xml
-COPY services/procurement-service/pom.xml ./services/procurement-service/pom.xml
-COPY services/production-service/pom.xml ./services/production-service/pom.xml
-COPY services/finance-service/pom.xml ./services/finance-service/pom.xml
-COPY services/notification-service/pom.xml ./services/notification-service/pom.xml
-
-ARG SERVICE_NAME
-
-# Download dependencies offline (for the target service only)
-RUN cd services && mvn -B -pl common-library,${SERVICE_NAME} dependency:go-offline || true
-
-# Copy source code
-COPY services/common-library ./services/common-library
-COPY services/${SERVICE_NAME} ./services/${SERVICE_NAME}
-
-# Build JAR
-RUN cd services && mvn -B clean package -pl common-library,${SERVICE_NAME} -am -DskipTests
-
-# Stage 2: Runtime image
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 ARG SERVICE_NAME
-COPY --from=builder /workspace/services/${SERVICE_NAME}/target/*.jar app.jar
+COPY services/${SERVICE_NAME}/target/${SERVICE_NAME}-*.jar app.jar
 
 USER appuser
 
