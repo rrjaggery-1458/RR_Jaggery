@@ -606,7 +606,7 @@ export function AddCustomerModal({
                 className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
               >
                 <option value="OFFLINE_WHOLESALE">Offline Wholesale (Mill Buyer)</option>
-                <option value="REGISTERED_WHOLESALE">Registered Wholesale (Online Account)</option>
+                <option value="REGISTERED_WHOLESALE">Registered Wholesale (Business Record)</option>
               </select>
             </div>
 

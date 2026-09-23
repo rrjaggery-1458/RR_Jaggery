@@ -1,4 +1,4 @@
-﻿RR JAGGERY TRADERS
+RR JAGGERY TRADERS
 E-Commerce + Manufacturing + Inventory + Ledger Management Platform
 Product Requirements, Architecture, Agile Sprint Plan & DevOps Roadmap
 Version 1.0 | September 2026
@@ -20,16 +20,19 @@ Provide owner/admin dashboards and operational reports.
 Use Agile, Docker, CI/CD and DevOps practices throughout development.
 Keep initial infrastructure and operating costs as low as practical.
 3. Users and Roles
+[AMENDMENT - Pre-Sprint 6 Business Access Model Revision, September 2026]
+The portal login roles in this section have been formally revised. See docs/ACCESS_MODEL_REVISION.md for the full amendment. The table below reflects the APPROVED, AUTHORITATIVE role model. All sprints from Sprint 6 onward must comply.
 
 --- TABLE START ---
 | Role | Primary Responsibilities | Access |
-| Customer - Retail | Browse products, cart, online orders, payments, invoices, order tracking | Own account/data |
-| Customer - Registered Wholesale | Bulk ordering, negotiated/wholesale pricing, invoices, account history | Own business account/data |
-| Offline/Unregistered Wholesale | Business record maintained by staff; no website login required | Admin-managed |
-| Owner/Admin | Full business operations, finance, stock, production, reports and user management | Full |
-| Production Manager | Raw materials, production batches, stages, yield, wastage and finished stock | Production + relevant inventory |
-| Employee | Assigned work, attendance and permitted operational functions | Restricted |
+| ADMIN | Full platform: inventory, procurement, production, customer/wholesale ledger, product catalogue, user management, executive dashboard, master configuration. Includes all MANAGER capabilities. | Full |
+| MANAGER | Operational: inventory, procurement, production, customer/wholesale management, offline orders, supplier ledger, payroll entry (Sprint 6+) | All operational modules |
+| CUSTOMER | Retail customer portal only: product browsing, cart, self-placed online orders, self-profile | Own account/data only |
+| Wholesale Customer (no portal login) | Business record only. GSTIN, credit terms, MOQ, ledger, offline orders entered by Manager/Admin. No website login. | Admin/Manager-managed |
+| Employee (no portal login) | Internal business record only. Attendance, salary, payroll entered by Manager/Admin. No website login. | Admin/Manager-managed |
 --- TABLE END ---
+
+Removed as portal login roles (Pre-Sprint 6): PRODUCTION_MANAGER (migrated to MANAGER), EMPLOYEE (accounts disabled), INVENTORY_STAFF (absorbed into MANAGER), REGISTERED_WHOLESALE as a login role (portal logins disabled; wholesale business records fully preserved).
 
 4. Functional Requirements
 4.1 E-Commerce
@@ -516,7 +519,7 @@ You are the lead software architect, senior full-stack engineer, DevOps engineer
 Sprint 0 – Foundation
 Implement Sprint 0 only for RR Jaggery Traders.First inspect the approved requirements and current repository. Create the repository structure, service templates, React frontend shell, Docker Compose development environment, PostgreSQL setup, shared configuration conventions, GitHub Actions CI skeleton, health endpoints, README, architecture documentation and development standards.Do not implement full business features yet.Run the complete build and startup flow. Fix all setup errors. At the end, report files created, commands run, test results and remaining Sprint 0 tasks.
 Sprint 1 – Authentication & Products
-Implement Sprint 1 only.Build secure authentication and role-based authorization, then implement product/category management and customer-facing product browsing.Roles must include ADMIN, PRODUCTION_MANAGER, EMPLOYEE and CUSTOMER, with customer type RETAIL/REGISTERED_WHOLESALE where appropriate.Implement DTO validation, error handling, tests, Swagger documentation and responsive React screens.Use real PostgreSQL persistence. Do not use mock persistence.Verify login, role restrictions, product CRUD and public catalogue through browser testing.
+Implement Sprint 1 only.Build secure authentication and role-based authorization, then implement product/category management and customer-facing product browsing.Roles must include ADMIN, MANAGER and CUSTOMER only. PRODUCTION_MANAGER and EMPLOYEE are NOT portal login roles. Wholesale customers (WHOLESALE customer_type) and employees are business records with no portal login. Self-registration creates CUSTOMER (RETAIL) accounts only. See docs/ACCESS_MODEL_REVISION.md for the authoritative access model.Implement DTO validation, error handling, tests, Swagger documentation and responsive React screens.Use real PostgreSQL persistence. Do not use mock persistence.Verify login, role restrictions, product CRUD and public catalogue through browser testing.
 Sprint 2 – Cart, Checkout & Orders
 Implement Sprint 2.Build cart, address management, checkout, order creation, order items, order status workflow, order history and admin order management.Keep payment integration behind a clean interface so a real payment provider can be added later.Implement invoice data structures and make order creation transaction-safe.Test the complete retail flow from login → product → cart → checkout → order → admin processing.Do not mark complete until the browser flow and backend integration tests pass.
 Sprint 3 – Wholesale, Offline Customers & Ledger

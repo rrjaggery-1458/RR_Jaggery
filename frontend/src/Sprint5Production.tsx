@@ -161,7 +161,7 @@ const statusColors: Record<BatchStatus, { bg: string; text: string; border: stri
   CANCELLED: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30' }
 };
 
-export function Sprint5Production({ token, userName = 'PRODUCTION_MANAGER' }: Props) {
+export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
   const [subTab, setSubTab] = useState<'batches' | 'recipes'>('batches');
   const [statusFilter, setStatusFilter] = useState<BatchStatus | 'ALL'>('ALL');
   const [batches, setBatches] = useState<ProductionBatchDto[]>([]);
@@ -911,7 +911,7 @@ function CreateBatchModal({
   const [targetProductName, setTargetProductName] = useState(preselectedRecipe?.outputProductName || 'Organic Jaggery 500g');
   const [plannedQuantity, setPlannedQuantity] = useState<number>(preselectedRecipe?.standardBatchSize || 100);
   const [unitOfMeasure, setUnitOfMeasure] = useState('KG');
-  const [supervisor, setSupervisor] = useState(userName || 'PRODUCTION_MANAGER');
+  const [supervisor, setSupervisor] = useState(userName || 'MANAGER');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

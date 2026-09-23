@@ -242,7 +242,7 @@ public class ProductionService {
         consumption.setConsumedQuantity(request.getConsumedQuantity());
         consumption.setUnitOfMeasure(request.getUnitOfMeasure() != null ? request.getUnitOfMeasure().trim().toUpperCase(Locale.ROOT) : "KG");
         consumption.setConsumedAt(Instant.now());
-        consumption.setActor(request.getActor() != null ? request.getActor() : "PRODUCTION_MANAGER");
+        consumption.setActor(request.getActor() != null ? request.getActor() : "MANAGER");
         consumption.setNotes(request.getNotes());
         consumption.setIdempotencyKey(idempotencyKey);
 
@@ -311,7 +311,7 @@ public class ProductionService {
         output.setBatchLot(batchLot);
         output.setQualityGrade(request.getQualityGrade() != null ? request.getQualityGrade() : "A_GRADE");
         output.setProducedAt(Instant.now());
-        output.setActor(request.getActor() != null ? request.getActor() : "PRODUCTION_MANAGER");
+        output.setActor(request.getActor() != null ? request.getActor() : "MANAGER");
         output.setNotes(request.getNotes());
         output.setIdempotencyKey(idempotencyKey);
 
@@ -379,7 +379,7 @@ public class ProductionService {
         wastage.setReason(request.getReason());
         wastage.setWastageType(request.getWastageType() != null ? request.getWastageType() : "SCRAP");
         wastage.setRecordedAt(Instant.now());
-        wastage.setActor(request.getActor() != null ? request.getActor() : "PRODUCTION_MANAGER");
+        wastage.setActor(request.getActor() != null ? request.getActor() : "MANAGER");
         wastage.setIdempotencyKey(idempotencyKey);
 
         wastageRepository.save(wastage);

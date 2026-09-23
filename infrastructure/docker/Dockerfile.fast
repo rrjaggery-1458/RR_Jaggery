@@ -1,0 +1,13 @@
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+ARG SERVICE_NAME
+COPY services/${SERVICE_NAME}/target/${SERVICE_NAME}-*.jar app.jar
+
+USER appuser
+
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

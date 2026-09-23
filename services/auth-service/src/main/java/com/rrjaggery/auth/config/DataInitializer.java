@@ -27,7 +27,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        // 1. Seed default Admin
+        // 1. Seed / enforce default Admin
         if (!userRepository.existsByEmail("admin@rrjaggery.com")) {
             User admin = new User(
                     "admin@rrjaggery.com",
@@ -38,15 +38,14 @@ public class DataInitializer implements CommandLineRunner {
             );
             admin.setRoles(Set.of(Role.ADMIN));
             userRepository.save(admin);
-            System.out.println("Seeded Default Admin: admin@rrjaggery.com / Admin@123");
+            System.out.println("Seeded Default Admin: admin@rrjaggery.com / Admin@123 (Role: ADMIN only)");
         } else {
-            // Ensure admin has Role.ADMIN
+            // Ensure admin has Role.ADMIN ONLY
             userRepository.findByEmail("admin@rrjaggery.com").ifPresent(admin -> {
-                if (!admin.getRoles().contains(Role.ADMIN)) {
-                    Set<Role> roles = new HashSet<>(admin.getRoles());
-                    roles.add(Role.ADMIN);
-                    admin.setRoles(roles);
+                if (!admin.getRoles().equals(Set.of(Role.ADMIN))) {
+                    admin.setRoles(Set.of(Role.ADMIN));
                     userRepository.save(admin);
+                    System.out.println("Enforced single authoritative Role.ADMIN for admin@rrjaggery.com");
                 }
             });
         }
