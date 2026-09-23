@@ -90,13 +90,13 @@ cd ../services/auth-service
 
 ## 5. Agile Sprint Roadmap
 
-- **Sprint 0:** Foundation, Architecture & DevOps Skeleton *(Current)*
-- **Sprint 1:** Authentication & Product Catalogue
-- **Sprint 2:** Cart, Checkout & Orders
-- **Sprint 3:** Customer, Wholesale & Ledger (Offline Wholesaler Focus)
-- **Sprint 4:** Inventory & Procurement
-- **Sprint 5:** Production Management
-- **Sprint 6:** Costing, Expenses & Payroll
+- **Sprint 0:** Foundation, Architecture & DevOps Skeleton `[ACCEPTED]`
+- **Sprint 1:** Authentication & Product Catalogue `[ACCEPTED]`
+- **Sprint 2:** Cart, Checkout & Orders `[ACCEPTED]`
+- **Sprint 3:** Customer, Wholesale & Ledger (Offline Wholesaler Focus) `[ACCEPTED]`
+- **Sprint 4:** Inventory & Procurement `[ACCEPTED]`
+- **Sprint 5:** Production Management `[ACCEPTED]`
+- **Sprint 6:** Costing, Expenses & Payroll *(Next)*
 - **Sprint 7:** Dashboard, Reports & Notifications
 - **Sprint 8:** Hardening, Security & Production Readiness
 - **Sprint 9:** Production Deployment & Stabilization

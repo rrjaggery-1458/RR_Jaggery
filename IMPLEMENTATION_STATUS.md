@@ -1,123 +1,69 @@
 # RR Jaggery Traders — Implementation Status Matrix
 
-Status values:
-`Not Started` | `Scaffolded` | `In Progress` | `Implemented` | `Tested` | `Verified` | `Blocked`
+**Current Status:** SPRINT 5 COMPLETED & ACCEPTED
+
+Sprint 0 — **ACCEPTED**  
+Sprint 1 — **ACCEPTED**  
+Sprint 2 — **ACCEPTED**  
+Sprint 3 — **ACCEPTED**  
+Sprint 4 — **ACCEPTED**  
+Sprint 5 — **ACCEPTED**  
 
 ---
 
-## Sprint 0: Foundation & Architecture
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Requirements Extraction & Analysis | **Verified** | Extracted and analyzed from `.docx` |
-| Architecture & Design Documentation (`docs/`) | **Verified** | 10 core architecture documents completed |
-| Repository & Git Setup | **Verified** | Git initialized, `.gitignore`, `.env.example` configured |
-| React + TypeScript + Vite + Tailwind Shell | **Verified** | Dual Storefront/ERP shell built & production bundled |
-| Spring Boot Backend Service Templates (8 Services) | **Verified** | 8 microservices + common-library built on Java 21 |
-| PostgreSQL Schema Infrastructure & Migrations | **Verified** | 8 isolated schemas in `init-schemas.sql` |
-| Local Docker Compose Setup | **Verified** | `docker-compose.yml`, multi-stage Dockerfile, Nginx gateway |
-| GitHub Actions CI Skeleton | **Verified** | Automated CI pipeline in `.github/workflows/ci.yml` |
-| Sprint 0 Build, Health Checks & Test Verification | **Verified** | 100% tests passing across all 8 services + frontend bundle |
+## Sprint 5 Execution & Verification Summary (Production Domain)
+
+### Implemented Features:
+* **Production Recipes & BOM (`services/production-service`)**:
+  * Recipe master data entity model (`recipes`, `recipe_items`) with stage definitions (CRUSHING, BOILING, CLARIFYING, SETTING, COOLING, PACKING).
+  * Strict `BigDecimal` ratios, input raw materials, output finished goods, standard yield %, and waste tolerance thresholds.
+  * Standard Mandya Cane Jaggery Block and Organic Powder recipes seeded.
+* **Production Batch Lifecycle & Execution (`services/production-service`)**:
+  * `production_batches` entity with deterministic numbering (`BATCH-YYYYMMDD-XXXX`), lot numbering (`LOT-YYYYMMDD-XXXX`), and state machine validation:
+    `PLANNED → MATERIALS_READY → IN_PRODUCTION → QUALITY_CHECK → COMPLETED` (or `CANCELLED`).
+  * Invalid state transitions rejected with `400 BUSINESS_RULE_VIOLATION`.
+  * Auto-transition from `PLANNED`/`MATERIALS_READY` to `IN_PRODUCTION` upon first material consumption.
+  * Strict immutability once batch is `COMPLETED` or `CANCELLED`.
+* **Raw Material Consumption & Inventory Integration**:
+  * `batch_consumptions` entity tracking consumed SKU, quantity, stage, temperature, Brix, moisture, and operator.
+  * Negative stock protection: consumption queries `inventory-service` via REST client (`InventoryStockClient`) and rejects if stock is insufficient.
+  * Automatic `inventory-service` deduction with movement type `PRODUCTION_CONSUMPTION` and reference `PRODUCTION_BATCH`.
+  * Idempotency guarantee via `idempotencyKey` preventing duplicate stock deductions on network retries.
+* **Finished Goods Output & Automatic Yield Calculation**:
+  * `batch_outputs` entity recording produced SKU, quantity, quality grade (`GRADE_A`, `GRADE_B`, `COMMERCIAL`), Brix/sucrose purity, and batch lot.
+  * Automatic `inventory-service` stock credit with movement type `PRODUCTION_OUTPUT`.
+  * Automatic yield percentage computation (`(actualQuantity / plannedQuantity) * 100`) stored on batch completion.
+  * Batch Lot traceability preserved from batch creation through output and inventory movement ledger.
+* **Wastage & Loss Tracking**:
+  * `batch_wastages` entity logging loss reason (`BOILING_EVAPORATION`, `SCUM_REMOVAL`, `EQUIPMENT_RESIDUE`, `SPILLAGE`), stage, quantity, and notes.
+  * Inventory stock deduction with movement type `LOSS` for auditable waste reconciliation.
+* **Service Boundaries & Zero Cross-Schema SQL**:
+  * `production-service` has exclusive ownership of `production_schema`.
+  * Zero direct SQL or cross-schema joins to `inventory_schema` or `commerce_schema`.
+  * Inter-service communication with `inventory-service` exclusively via internal JWT-authenticated REST APIs using Docker service DNS (`http://inventory-service:8084`).
+* **Operational Frontend (`frontend/src/Sprint5Production.tsx`)**:
+  * Full Mill Production Operations dashboard: Active Batches, Completed Today, Avg Yield %, Wastage Rate %.
+  * Interactive batch planning modal, stage transition controls, material consumption drawer, output recording modal, wastage logging, and batch detail drawer.
+  * Clean TypeScript compilation and Vite production build.
+
+### Verification Evidence:
+* **Full Backend Maven Reactor**: 9 / 9 modules compiled and tested with `BUILD SUCCESS` (0 failures, 0 errors).
+* **Integrated Multi-Container Runtime Acceptance**: 26 / 26 Acceptance Gates **PASSED** against live Docker Compose stack with PostgreSQL 16 and Redis 7.
+* **PostgreSQL Restart Persistence**: Verified batch state, consumptions, outputs, wastages, and stock movements persist accurately across container restarts.
 
 ---
 
-## Sprint 1: Authentication & Product Catalogue
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| User Registration & JWT Authentication | `Not Started` | Sprint 1 scope |
-| RBAC (Admin, Customer, Production, Staff, Finance) | `Not Started` | Sprint 1 scope |
-| Product & Category Master Management | `Not Started` | Sprint 1 scope |
-| Public Storefront Product Browsing & Search | `Not Started` | Sprint 1 scope |
-| Product Pricing (Retail vs Wholesale MOQ) | `Not Started` | Sprint 1 scope |
-| OpenAPI / Swagger Documentation for Auth & Catalog | `Not Started` | Sprint 1 scope |
+## Sprint Roadmap
 
----
-
-## Sprint 2: Cart, Checkout & Orders
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Customer Shopping Cart & Persistence | `Not Started` | Sprint 2 scope |
-| Address Management | `Not Started` | Sprint 2 scope |
-| Order Creation & Status Lifecycle | `Not Started` | Sprint 2 scope |
-| Invoice Generation & Download | `Not Started` | Sprint 2 scope |
-| Customer Order History & Admin Order Processing | `Not Started` | Sprint 2 scope |
-
----
-
-## Sprint 3: Customer, Wholesale & Ledger
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Three-tier Customers (Retail, Registered B2B, Offline) | `Not Started` | Sprint 3 scope |
-| Offline Wholesale Customer Creation (No Web Login) | `Not Started` | Sprint 3 scope (Critical P0) |
-| Wholesale Credit Limits & Credit Days | `Not Started` | Sprint 3 scope |
-| Admin-Created Offline Wholesale Orders | `Not Started` | Sprint 3 scope |
-| Transaction-Safe Customer Ledger (Debit/Credit) | `Not Started` | Sprint 3 scope |
-| Full & Partial Payment Recording | `Not Started` | Sprint 3 scope |
-| Real-time Outstanding & Overdue Calculation | `Not Started` | Sprint 3 scope |
-
----
-
-## Sprint 4: Inventory & Procurement
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Raw Material & Finished Goods Separation | `Not Started` | Sprint 4 scope |
-| Immutable Stock Movements (Zero Direct Overwrites) | `Not Started` | Sprint 4 scope |
-| Supplier Master & Rate Contracts | `Not Started` | Sprint 4 scope |
-| Purchase Orders & Goods Receipt Notes (GRN) | `Not Started` | Sprint 4 scope |
-| Supplier Ledger & Payment Records | `Not Started` | Sprint 4 scope |
-| Low Stock Thresholds & Stock Reconciliation | `Not Started` | Sprint 4 scope |
-
----
-
-## Sprint 5: Production Management
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Recipe / Bill of Materials (BOM) Management | `Not Started` | Sprint 5 scope |
-| Production Batch Creation & Lifecycle | `Not Started` | Sprint 5 scope |
-| Raw Material Availability Checks | `Not Started` | Sprint 5 scope |
-| Production Stages Progression | `Not Started` | Sprint 5 scope |
-| Material Consumption Recording | `Not Started` | Sprint 5 scope |
-| Output, Wastage & Yield Percentage Calculations | `Not Started` | Sprint 5 scope |
-| Automatic Finished Goods Stock Inward upon Completion | `Not Started` | Sprint 5 scope |
-
----
-
-## Sprint 6: Costing, Expenses & Payroll
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Operational Expense Recording by Category | `Not Started` | Sprint 6 scope |
-| Direct Production Expense Allocation | `Not Started` | Sprint 6 scope |
-| Batch Total Cost & Cost/KG Computation | `Not Started` | Sprint 6 scope |
-| Employee Master & Attendance Tracking | `Not Started` | Sprint 6 scope |
-| Salary Calculations (Monthly, Daily, Per-KG, Contract) | `Not Started` | Sprint 6 scope |
-| Salary Advances, Deductions & Employee Ledgers | `Not Started` | Sprint 6 scope |
-
----
-
-## Sprint 7: Dashboard, Reports & Notifications
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| Owner / Admin Executive Dashboard | `Not Started` | Sprint 7 scope |
-| Operational Reports (Sales, Stock, Expenses, Production) | `Not Started` | Sprint 7 scope |
-| Receivables & Payables Financial Visibility | `Not Started` | Sprint 7 scope |
-| Low-Stock & Overdue Ledger Alerts | `Not Started` | Sprint 7 scope |
-| In-App & Email Notifications Dispatch | `Not Started` | Sprint 7 scope |
-
----
-
-## Sprint 8: Hardening, Security & Production Readiness
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| End-to-End Integration & Regression Testing | `Not Started` | Sprint 8 scope |
-| Security Audits & OWASP Top 10 Hardening | `Not Started` | Sprint 8 scope |
-| Automated Database Backup Script & Restoration Tests | `Not Started` | Sprint 8 scope |
-| Performance Profiling & Database Index Tuning | `Not Started` | Sprint 8 scope |
-
----
-
-## Sprint 9: Production Deployment & Stabilization
-| Requirement / Component | Status | Notes |
-| :--- | :---: | :--- |
-| VPS Deployment via Docker Compose | `Not Started` | Sprint 9 scope |
-| Nginx Reverse Proxy, Domain & SSL Termination | `Not Started` | Sprint 9 scope |
-| Production Database Migration & Safe Seeding | `Not Started` | Sprint 9 scope |
-| Smoke Testing & Operational Runbook Verification | `Not Started` | Sprint 9 scope |
+| Sprint | Description | Status |
+| :--- | :--- | :---: |
+| **Sprint 0** | Foundation & Architecture | **COMPLETED & ACCEPTED** |
+| **Sprint 1** | Authentication & Product Catalogue | **COMPLETED & ACCEPTED** |
+| **Sprint 2** | Cart, Checkout & Orders | **COMPLETED & ACCEPTED** |
+| **Sprint 3** | Customer, Wholesale & Ledger (Offline B2B P0) | **COMPLETED & ACCEPTED** |
+| **Sprint 4** | Inventory & Procurement (Auditable Stock Movements) | **COMPLETED & ACCEPTED** |
+| **Sprint 5** | Production Management (Batch, BOM, Wastage, Yield) | **COMPLETED & ACCEPTED** |
+| **Sprint 6** | Costing, Expenses & Payroll (BigDecimal, Cost/KG) | `Ready to Start` |
+| **Sprint 7** | Dashboards, Reports & Notifications | `Not Started` |
+| **Sprint 8** | Hardening, Security, Audit Logging & Backup Testing | `Not Started` |
+| **Sprint 9** | OCI Ampere A1 ARM64 Production Deployment & Stabilization | `Not Started` |

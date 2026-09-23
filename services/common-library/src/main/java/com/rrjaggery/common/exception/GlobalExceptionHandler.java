@@ -38,6 +38,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(error));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalStateException(IllegalStateException ex) {
+        log.warn("Illegal state encountered: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse("BUSINESS_RULE_VIOLATION", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(error));
+    }
+
+    @ExceptionHandler({SecurityException.class, org.springframework.security.access.AccessDeniedException.class})
+    public ResponseEntity<ApiResponse<Void>> handleSecurityException(Exception ex) {
+        log.warn("Security/AccessDenied exception encountered: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse("FORBIDDEN", ex.getMessage() != null ? ex.getMessage() : "Access is denied.");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error(error));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("Unhandled internal server error", ex);
