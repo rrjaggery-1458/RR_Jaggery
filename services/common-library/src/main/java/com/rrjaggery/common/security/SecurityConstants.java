@@ -8,8 +8,11 @@ public final class SecurityConstants {
     public static final String TOKEN_PREFIX = "Bearer ";
 
     public static final String ROLE_ADMIN = "ROLE_ADMIN";
+    public static final String ROLE_MANAGER = "ROLE_MANAGER";
     public static final String ROLE_CUSTOMER = "ROLE_CUSTOMER";
+    @Deprecated
     public static final String ROLE_PRODUCTION_MANAGER = "ROLE_PRODUCTION_MANAGER";
+    @Deprecated
     public static final String ROLE_EMPLOYEE = "ROLE_EMPLOYEE";
 
     public static final String CLAIM_USER_ID = "userId";

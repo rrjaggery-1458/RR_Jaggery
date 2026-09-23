@@ -28,7 +28,7 @@ public class OfflineOrderController {
     }
 
     @PostMapping("/offline-orders")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<OfflineOrderDto> createOfflineOrder(
             @Valid @RequestBody CreateOfflineOrderRequest req,
             HttpServletRequest request) {
@@ -38,7 +38,7 @@ public class OfflineOrderController {
     }
 
     @GetMapping("/offline-orders")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<List<OfflineOrderDto>> getAllOfflineOrders() {
         List<OfflineOrderDto> orders = offlineOrderService.getAllOfflineOrders();
         return ResponseEntity.ok(orders);
@@ -50,7 +50,7 @@ public class OfflineOrderController {
             HttpServletRequest request) {
         CustomerLedgerSecurityUtils.AuthenticatedUser user = securityUtils.getAuthenticatedUser(request);
         OfflineOrderDto order = offlineOrderService.getOfflineOrderById(orderId);
-        if (!user.isAdmin() && !order.getCustomerId().equals(user.getUserId())) {
+        if (!user.isAdminOrManager() && !order.getCustomerId().equals(user.getUserId())) {
             throw new SecurityException("Cannot access offline order of another customer.");
         }
         return ResponseEntity.ok(order);
@@ -62,7 +62,7 @@ public class OfflineOrderController {
             HttpServletRequest request) {
         CustomerLedgerSecurityUtils.AuthenticatedUser user = securityUtils.getAuthenticatedUser(request);
         OfflineInvoiceDto invoice = offlineOrderService.getOfflineInvoice(orderId);
-        if (!user.isAdmin() && !invoice.getCustomerId().equals(user.getUserId())) {
+        if (!user.isAdminOrManager() && !invoice.getCustomerId().equals(user.getUserId())) {
             throw new SecurityException("Cannot access offline invoice of another customer.");
         }
         return ResponseEntity.ok(invoice);
@@ -73,7 +73,7 @@ public class OfflineOrderController {
             @PathVariable UUID customerId,
             HttpServletRequest request) {
         CustomerLedgerSecurityUtils.AuthenticatedUser user = securityUtils.getAuthenticatedUser(request);
-        if (!user.isAdmin() && !customerId.equals(user.getUserId())) {
+        if (!user.isAdminOrManager() && !customerId.equals(user.getUserId())) {
             throw new SecurityException("Cannot view orders of another customer.");
         }
         List<OfflineOrderDto> orders = offlineOrderService.getCustomerOfflineOrders(customerId);

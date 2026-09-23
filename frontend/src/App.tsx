@@ -6,7 +6,8 @@ import {
   Building2, ChevronRight, Eye, EyeOff, AlertCircle,
   TrendingUp, Loader2, Plus, Edit2, X, Check,
   Sparkles, Info, ShoppingCart, Trash2, CreditCard,
-  FileText, Truck, Printer, Receipt, ArrowLeft, Users, Factory
+  FileText, Truck, Printer, Receipt, ArrowLeft, Users, Factory,
+  Shield, BarChart3, AlertTriangle
 } from 'lucide-react';
 import {
   CustomerDirectoryPage,
@@ -438,8 +439,10 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
             >
               {loading ? <><Spinner size={4} /><span>Signing In…</span></> : <><LogIn className="h-4 w-4" /><span>Sign In</span></>}
             </button>
-            <p className="text-center text-[11px] text-slate-500">
-              Demo Admin: <span className="font-mono text-amber-400/80">admin@rrjaggery.com</span> / <span className="font-mono text-amber-400/80">Admin@123</span>
+            <p className="text-center text-[11px] text-slate-400 space-y-1">
+              <div>Admin: <span className="font-mono text-amber-400 font-semibold">admin@rrjaggery.com</span> / <span className="font-mono text-amber-400">Admin@123</span></div>
+              <div>Manager: <span className="font-mono text-amber-400 font-semibold">manager@rrjaggery.com</span> / <span className="font-mono text-amber-400">Manager@123</span></div>
+              <div>Customer: <span className="font-mono text-amber-400 font-semibold">retail@example.com</span> / <span className="font-mono text-amber-400">Retail@123</span></div>
             </p>
           </form>
         ) : (
@@ -469,6 +472,17 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
               />
             </div>
             <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Phone (Optional)</label>
+              <input
+                id="reg-phone"
+                type="tel"
+                value={regForm.phone}
+                onChange={e => setRegForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="+91 98765 43210"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
+              />
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
               <input
                 id="reg-password"
@@ -481,38 +495,16 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Account Type</label>
-              <select
-                id="reg-customertype"
-                value={regForm.customerType}
-                onChange={e => setRegForm(f => ({ ...f, customerType: e.target.value }))}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 transition"
-              >
-                <option value="RETAIL">Retail Customer</option>
-                <option value="REGISTERED_WHOLESALE">Registered Wholesale (B2B)</option>
-              </select>
-            </div>
-            {regForm.customerType === 'REGISTERED_WHOLESALE' && (
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Business Name</label>
-                <input
-                  id="reg-businessname"
-                  type="text"
-                  value={regForm.businessName}
-                  onChange={e => setRegForm(f => ({ ...f, businessName: e.target.value }))}
-                  placeholder="Mandya Organics Pvt Ltd"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition"
-                />
-              </div>
-            )}
+            <p className="text-[11px] text-slate-400">
+              Registration creates a retail customer storefront account. Wholesale B2B accounts are managed internally by administrators.
+            </p>
             <button
               id="register-submit"
               type="submit"
               disabled={loading}
               className="w-full mt-2 py-2.5 rounded-xl jaggery-gradient text-slate-950 font-bold text-sm shadow-lg shadow-amber-600/20 hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2 transition"
             >
-              {loading ? <><Spinner size={4} /><span>Creating Account…</span></> : <><UserPlus className="h-4 w-4" /><span>Create Account</span></>}
+              {loading ? <><Spinner size={4} /><span>Creating Account…</span></> : <><UserPlus className="h-4 w-4" /><span>Create Customer Account</span></>}
             </button>
           </form>
         )}
@@ -2355,8 +2347,577 @@ function SprintRoadmap() {
 
 // ─── Admin Dashboard ───────────────────────────────────────────────────────────
 
+// ─── Admin Overview (Real-Data Executive Dashboard) ──────────────────────────
+
+function AdminOverview({ auth }: { auth: AuthState }) {
+  const [loading, setLoading] = useState(true);
+  const [authStats, setAuthStats] = useState<{
+    totalUsers: number; adminCount: number; managerCount: number;
+    retailCustomerCount: number; wholesaleCustomerCount: number; disabledCount: number;
+  } | null>(null);
+  const [inventoryCount, setInventoryCount] = useState<number>(0);
+  const [lowStockCount, setLowStockCount] = useState<number>(0);
+  const [supplierCount, setSupplierCount] = useState<number>(0);
+  const [poCount, setPoCount] = useState<number>(0);
+  const [batchCount, setBatchCount] = useState<number>(0);
+  const [activeBatchCount, setActiveBatchCount] = useState<number>(0);
+  const [wholesaleBusinessCount, setWholesaleBusinessCount] = useState<number>(0);
+
+  const fetchOverviewData = useCallback(async () => {
+    if (!auth.token) return;
+    setLoading(true);
+    try {
+      const headers = authHeaders(auth.token);
+      
+      // Auth stats
+      try {
+        const res = await fetch(`${AUTH_BASE}/admin/stats`, { headers });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.success) setAuthStats(body.data);
+        }
+      } catch (e) {
+        console.warn('Auth stats fetch failed', e);
+      }
+
+      // Inventory stats
+      try {
+        const [itemsRes, lowRes] = await Promise.all([
+          fetch('http://localhost:8084/api/v1/inventory/items', { headers }),
+          fetch('http://localhost:8084/api/v1/inventory/items/low-stock', { headers }),
+        ]);
+        if (itemsRes.ok) {
+          const body = await itemsRes.json();
+          if (body.success && Array.isArray(body.data)) setInventoryCount(body.data.length);
+        }
+        if (lowRes.ok) {
+          const body = await lowRes.json();
+          if (body.success && Array.isArray(body.data)) setLowStockCount(body.data.length);
+        }
+      } catch (e) {
+        console.warn('Inventory stats fetch failed', e);
+      }
+
+      // Procurement stats
+      try {
+        const [supRes, poRes] = await Promise.all([
+          fetch('http://localhost:8085/api/v1/procurement/suppliers', { headers }),
+          fetch('http://localhost:8085/api/v1/procurement/purchase-orders', { headers }),
+        ]);
+        if (supRes.ok) {
+          const body = await supRes.json();
+          if (body.success && Array.isArray(body.data)) setSupplierCount(body.data.length);
+        }
+        if (poRes.ok) {
+          const body = await poRes.json();
+          if (body.success && Array.isArray(body.data)) setPoCount(body.data.length);
+        }
+      } catch (e) {
+        console.warn('Procurement stats fetch failed', e);
+      }
+
+      // Production stats
+      try {
+        const prodRes = await fetch('http://localhost:8086/api/v1/production/batches', { headers });
+        if (prodRes.ok) {
+          const body = await prodRes.json();
+          if (body.success && Array.isArray(body.data)) {
+            setBatchCount(body.data.length);
+            const active = body.data.filter((b: any) => b.status === 'IN_PROGRESS' || b.status === 'PLANNED').length;
+            setActiveBatchCount(active);
+          }
+        }
+      } catch (e) {
+        console.warn('Production stats fetch failed', e);
+      }
+
+      // Wholesale Business records
+      try {
+        const custRes = await fetch('http://localhost:8083/api/v1/customers', { headers });
+        if (custRes.ok) {
+          const data = await custRes.json();
+          if (Array.isArray(data)) setWholesaleBusinessCount(data.length);
+        }
+      } catch (e) {
+        console.warn('Customer records fetch failed', e);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [auth.token]);
+
+  useEffect(() => {
+    fetchOverviewData();
+  }, [fetchOverviewData]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-3">
+        <Spinner size={6} />
+        <p className="text-xs text-slate-400">Loading live operational and system metrics…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-amber-400" />
+            Executive Overview & Operational Metrics
+          </h2>
+          <p className="text-xs text-slate-400">
+            Authoritative real-time aggregation across all active microservices (Sprints 0–5).
+          </p>
+        </div>
+        <button
+          onClick={fetchOverviewData}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-xl text-xs font-semibold transition"
+        >
+          <RefreshCw className="h-3.5 w-3.5 text-amber-400" /> Refresh Metrics
+        </button>
+      </div>
+
+      {/* Grid of Real-Data Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Users Card */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Auth & User Accounts</span>
+            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-400"><Users className="h-4 w-4" /></span>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{authStats?.totalUsers ?? 0}</div>
+            <p className="text-xs text-slate-400 mt-1">
+              <span className="text-red-400 font-bold">{authStats?.adminCount ?? 0}</span> Admin •{' '}
+              <span className="text-blue-400 font-bold">{authStats?.managerCount ?? 0}</span> Managers •{' '}
+              <span className="text-emerald-400 font-bold">{authStats?.retailCustomerCount ?? 0}</span> Retail Customers
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 font-mono">
+            Auth Service: auth_schema.users
+          </div>
+        </div>
+
+        {/* Wholesale Businesses Card */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Wholesale Businesses (B2B)</span>
+            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400"><Building2 className="h-4 w-4" /></span>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{wholesaleBusinessCount}</div>
+            <p className="text-xs text-amber-400/90 mt-1">
+              Internal business records (No portal login)
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 font-mono">
+            Ledger Service: customer_schema.customers
+          </div>
+        </div>
+
+        {/* Inventory Items Card */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inventory & Materials</span>
+            <span className="p-2 rounded-xl bg-purple-500/10 text-purple-400"><Package className="h-4 w-4" /></span>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{inventoryCount}</div>
+            <p className="text-xs text-slate-400 mt-1">
+              {lowStockCount > 0 ? (
+                <span className="text-amber-400 font-bold flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 inline" /> {lowStockCount} items below reorder level
+                </span>
+              ) : (
+                <span className="text-emerald-400 font-bold">All stock levels healthy</span>
+              )}
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 font-mono">
+            Inventory Service: inventory_schema
+          </div>
+        </div>
+
+        {/* Procurement Card */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cane Procurement & POs</span>
+            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400"><Truck className="h-4 w-4" /></span>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{poCount}</div>
+            <p className="text-xs text-slate-400 mt-1">
+              <span className="text-emerald-400 font-bold">{supplierCount}</span> active cane & packing suppliers
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 font-mono">
+            Procurement Service: procurement_schema
+          </div>
+        </div>
+
+        {/* Production Card */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mill Production Batches</span>
+            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400"><Factory className="h-4 w-4" /></span>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{batchCount}</div>
+            <p className="text-xs text-slate-400 mt-1">
+              <span className="text-indigo-400 font-bold">{activeBatchCount}</span> in-progress / planned batches
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 font-mono">
+            Production Service: production_schema
+          </div>
+        </div>
+
+        {/* Operating Expenses (Sprint 6 Placeholder) */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800/60 bg-slate-900/30 space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Milling Expenses</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Sprint 6</span>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-400 italic">Not available yet</div>
+            <p className="text-xs text-slate-500 mt-1">
+              Operating expenses & diesel costing scheduled in Sprint 6.
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-600 pt-2 border-t border-slate-800/60 font-mono">
+            Finance Service: finance_schema (Upcoming)
+          </div>
+        </div>
+
+        {/* Payroll (Sprint 6 Placeholder) */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800/60 bg-slate-900/30 space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mill Payroll & Wages</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Sprint 6</span>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-400 italic">Not available yet</div>
+            <p className="text-xs text-slate-500 mt-1">
+              Piece-rate boiling and packaging wages scheduled in Sprint 6.
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-600 pt-2 border-t border-slate-800/60 font-mono">
+            Finance Service: finance_schema (Upcoming)
+          </div>
+        </div>
+
+        {/* Direct Workforce (Sprint 6 Placeholder) */}
+        <div className="glass-card rounded-2xl p-5 border border-slate-800/60 bg-slate-900/30 space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mill Workforce</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Sprint 6</span>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-slate-400 italic">Not available yet</div>
+            <p className="text-xs text-slate-500 mt-1">
+              Internal employee business records (no login) scheduled in Sprint 6.
+            </p>
+          </div>
+          <div className="text-[11px] text-slate-600 pt-2 border-t border-slate-800/60 font-mono">
+            Finance Service: finance_schema (Upcoming)
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin User Management ──────────────────────────────────────────────────
+
+function AdminUserManagement({ auth }: { auth: AuthState }) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    email: '', password: '', fullName: '', phone: '',
+  });
+  const [createLoading, setCreateLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const fetchUsers = useCallback(async () => {
+    if (!auth.token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/admin/users`, { headers: authHeaders(auth.token) });
+      if (res.ok) {
+        const body = await res.json();
+        if (body.success) setUsers(body.data);
+      }
+    } catch {
+      setError('Cannot load users list.');
+    } finally {
+      setLoading(false);
+    }
+  }, [auth.token]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  async function handleCreateManager(e: React.FormEvent) {
+    e.preventDefault();
+    if (!auth.token) return;
+    setError('');
+    setSuccess('');
+    setCreateLoading(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/admin/managers`, {
+        method: 'POST',
+        headers: authHeaders(auth.token),
+        body: JSON.stringify(createForm),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccess(`Manager account ${body.data.email} created successfully!`);
+        setCreateForm({ email: '', password: '', fullName: '', phone: '' });
+        setShowCreateModal(false);
+        fetchUsers();
+      } else {
+        setError(body.error?.message ?? 'Failed to create manager account.');
+      }
+    } catch {
+      setError('Cannot reach Auth Service.');
+    } finally {
+      setCreateLoading(false);
+    }
+  }
+
+  async function handleToggleEnabled(userId: string, currentStatus: boolean) {
+    if (!auth.token) return;
+    try {
+      const res = await fetch(`${AUTH_BASE}/admin/users/${userId}/enabled`, {
+        method: 'PATCH',
+        headers: authHeaders(auth.token),
+        body: JSON.stringify({ enabled: !currentStatus }),
+      });
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        alert('Failed to update user status.');
+      }
+    } catch {
+      alert('Error connecting to Auth Service.');
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <Shield className="h-5 w-5 text-amber-400" />
+            User & Access Management (3-Role System)
+          </h2>
+          <p className="text-xs text-slate-400">
+            Authoritative login access: ADMIN, MANAGER, and CUSTOMER. Wholesale accounts have portal logins disabled.
+          </p>
+        </div>
+        <button
+          id="btn-add-manager"
+          onClick={() => { setShowCreateModal(true); setError(''); setSuccess(''); }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl jaggery-gradient text-slate-950 font-bold text-xs shadow-md hover:brightness-110 transition"
+        >
+          <Plus className="h-4 w-4" /> Add Operations Manager
+        </button>
+      </div>
+
+      {success && (
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* User Table */}
+      <div className="glass-card rounded-2xl border border-slate-800 overflow-hidden">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-2">
+            <Spinner size={6} />
+            <span className="text-xs text-slate-400">Loading user accounts…</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-900/80 text-slate-400 uppercase font-semibold border-b border-slate-800">
+                <tr>
+                  <th className="px-5 py-3.5">User / Full Name</th>
+                  <th className="px-5 py-3.5">Email & Phone</th>
+                  <th className="px-5 py-3.5">Account Type</th>
+                  <th className="px-5 py-3.5">Assigned Roles</th>
+                  <th className="px-5 py-3.5">Login Status</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {users.map(u => {
+                  return (
+                    <tr key={u.id} className="hover:bg-slate-900/40 transition">
+                      <td className="px-5 py-4 font-medium text-white">
+                        <div className="font-bold">{u.fullName}</div>
+                        {u.businessName && <div className="text-[11px] text-slate-400">{u.businessName}</div>}
+                      </td>
+                      <td className="px-5 py-4 text-slate-300 font-mono text-[11px]">
+                        <div>{u.email}</div>
+                        {u.phone && <div className="text-slate-500">{u.phone}</div>}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          u.customerType === 'INTERNAL' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                          : u.customerType === 'REGISTERED_WHOLESALE' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                        }`}>
+                          {u.customerType}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {u.roles.map(r => (
+                            <span key={r} className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              r === 'ADMIN' ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                              : r === 'MANAGER' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                            }`}>
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`flex items-center gap-1.5 text-[11px] font-semibold ${
+                          u.enabled ? 'text-emerald-400' : 'text-red-400'
+                        }`}>
+                          <span className={`h-2 w-2 rounded-full ${u.enabled ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                          {u.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        {u.email !== auth.user?.email && (
+                          <button
+                            onClick={() => handleToggleEnabled(u.id, u.enabled)}
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition ${
+                              u.enabled
+                                ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                            }`}
+                          >
+                            {u.enabled ? 'Disable Login' : 'Enable Login'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Create Manager Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative">
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-amber-400" />
+              Add Operations Manager
+            </h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Operations Managers have full operational access to Inventory, Procurement, Mill Production, and Wholesale Ledgers.
+            </p>
+            <form onSubmit={handleCreateManager} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-400 font-semibold uppercase">Full Name</label>
+                <input
+                  id="form-manager-name"
+                  type="text"
+                  required
+                  value={createForm.fullName}
+                  onChange={e => setCreateForm(f => ({ ...f, fullName: e.target.value }))}
+                  placeholder="Suresh Gowda"
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-400 font-semibold uppercase">Email Address (Login ID)</label>
+                <input
+                  id="form-manager-email"
+                  type="email"
+                  required
+                  value={createForm.email}
+                  onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="manager2@rrjaggery.com"
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-400 font-semibold uppercase">Phone Number</label>
+                <input
+                  id="form-manager-phone"
+                  type="tel"
+                  value={createForm.phone}
+                  onChange={e => setCreateForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="+91 98451 23456"
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-slate-400 font-semibold uppercase">Initial Password</label>
+                <input
+                  id="form-manager-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={createForm.password}
+                  onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Min 6 characters"
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <button
+                id="submit-create-manager"
+                type="submit"
+                disabled={createLoading}
+                className="w-full mt-4 py-2.5 rounded-xl jaggery-gradient text-slate-950 font-bold text-xs shadow-lg shadow-amber-600/20 hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+              >
+                {createLoading ? <><Spinner size={4} /><span>Creating Manager Account…</span></> : <><Check className="h-4 w-4" /><span>Create Manager Account</span></>}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Admin & Manager Operations Portal ────────────────────────────────────────
+
 function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onViewInvoice: (orderId: string) => void }) {
-  const [tab, setTab] = useState<'customers' | 'orders' | 'catalogue' | 'operations' | 'production' | 'services' | 'roadmap'>('customers');
+  const isAdmin = auth.user?.roles.includes('ADMIN') ?? false;
+
+  const [tab, setTab] = useState<'overview' | 'users' | 'customers' | 'orders' | 'catalogue' | 'operations' | 'production' | 'services' | 'roadmap'>(
+    isAdmin ? 'overview' : 'customers'
+  );
   const [activeLedgerCustomer, setActiveLedgerCustomer] = useState<Customer | null>(null);
   const [activePaymentCustomer, setActivePaymentCustomer] = useState<Customer | null>(null);
   const [isCreateOfflineOrderOpen, setIsCreateOfflineOrderOpen] = useState(false);
@@ -2387,20 +2948,42 @@ function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onViewInvoic
         <div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
             <LayoutDashboard className="h-7 w-7 text-amber-500" />
-            Admin & Mill Master ERP
+            {isAdmin ? 'Admin Master ERP' : 'Operations Manager Portal'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
             Logged in as <span className="text-amber-400 font-semibold">{auth.user?.fullName}</span>
-            <span className="ml-2 px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-[10px] font-bold">ADMIN</span>
+            {isAdmin ? (
+              <span className="ml-2 px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-full text-[10px] font-bold">ADMIN</span>
+            ) : (
+              <span className="ml-2 px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-[10px] font-bold">MANAGER</span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+          {isAdmin && (
+            <button
+              id="tab-btn-overview"
+              onClick={() => setTab('overview')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition ${tab === 'overview' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+            >
+              <BarChart3 className="h-3.5 w-3.5 inline mr-1" />Overview
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              id="tab-btn-users"
+              onClick={() => setTab('users')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition ${tab === 'users' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Shield className="h-3.5 w-3.5 inline mr-1" />User Access
+            </button>
+          )}
           <button
             id="tab-btn-customers"
             onClick={() => setTab('customers')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition ${tab === 'customers' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
           >
-            <Users className="h-3.5 w-3.5 inline mr-1" />Customers & B2B
+            <Users className="h-3.5 w-3.5 inline mr-1" />Wholesale & B2B
           </button>
           <button
             id="tab-btn-admin-orders"
@@ -2447,6 +3030,8 @@ function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onViewInvoic
         </div>
       </div>
 
+      {isAdmin && tab === 'overview' && <AdminOverview auth={auth} />}
+      {isAdmin && tab === 'users' && <AdminUserManagement auth={auth} />}
       {tab === 'customers' && (
         <CustomerDirectoryPage
           token={auth.token || ''}
@@ -2457,8 +3042,8 @@ function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onViewInvoic
       )}
       {tab === 'orders' && <AdminOrderManagement auth={auth} onViewInvoice={onViewInvoice} />}
       {tab === 'catalogue' && <AdminCatalogue auth={auth} />}
-      {tab === 'operations' && <Sprint4Operations token={auth.token || ''} userName={auth.user?.fullName || 'ADMIN'} />}
-      {tab === 'production' && <Sprint5Production token={auth.token || ''} userName={auth.user?.fullName || 'PRODUCTION_MANAGER'} />}
+      {tab === 'operations' && <Sprint4Operations token={auth.token || ''} userName={auth.user?.fullName || (isAdmin ? 'ADMIN' : 'MANAGER')} />}
+      {tab === 'production' && <Sprint5Production token={auth.token || ''} userName={auth.user?.fullName || (isAdmin ? 'ADMIN' : 'MANAGER')} />}
       {tab === 'services' && <ServiceHealthMonitor />}
       {tab === 'roadmap' && <SprintRoadmap />}
 
@@ -2524,6 +3109,8 @@ export function App() {
   const [cart, setCart] = useState<Cart | null>(null);
 
   const isAdmin = auth.user?.roles.includes('ADMIN') ?? false;
+  const isManager = auth.user?.roles.includes('MANAGER') ?? false;
+  const isInternal = isAdmin || isManager;
 
   // Fetch user cart
   const fetchCart = useCallback(async () => {
@@ -2600,7 +3187,7 @@ export function App() {
 
   function handleLogin(token: string, user: User) {
     setAuth({ token, user });
-    if (user.roles.includes('ADMIN')) {
+    if (user.roles.includes('ADMIN') || user.roles.includes('MANAGER')) {
       setView('admin');
     } else {
       setView('storefront');
@@ -2664,13 +3251,13 @@ export function App() {
                 </button>
               )}
 
-              {isAdmin && (
+              {isInternal && (
                 <button
                   id="nav-admin"
                   onClick={() => setView('admin')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'admin' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
                 >
-                  <Building2 className="h-3.5 w-3.5" /> <span>Admin Portal</span>
+                  <Building2 className="h-3.5 w-3.5" /> <span>{isAdmin ? 'Admin Portal' : 'Operations Portal'}</span>
                 </button>
               )}
             </div>
@@ -2706,7 +3293,7 @@ export function App() {
                 <div className="hidden sm:block text-right">
                   <div id="user-display-name" className="text-xs font-semibold text-white">{auth.user?.fullName}</div>
                   <div className="text-[10px] text-amber-400 font-medium">
-                    {auth.user?.customerType === 'INTERNAL' ? 'Administrator' : auth.user?.customerType}
+                    {isAdmin ? 'Administrator' : isManager ? 'Operations Manager' : 'Customer'}
                   </div>
                 </div>
                 <button
@@ -2737,7 +3324,7 @@ export function App() {
             onViewInvoice={id => setActiveInvoiceOrderId(id)}
             onBackToStore={() => setView('storefront')}
           />
-        ) : isAdmin ? (
+        ) : isInternal ? (
           <AdminDashboard
             auth={auth}
             onViewInvoice={id => setActiveInvoiceOrderId(id)}
@@ -2803,7 +3390,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800 bg-slate-900/40 py-6 text-center text-xs text-slate-500">
-        <p>RR Jaggery Traders • Unified Commercial & Mill ERP Platform • Sprint 3 — Customer, Wholesale & Ledger</p>
+        <p>RR Jaggery Traders • Unified Commercial & Mill ERP Platform • Access Model Revision (Pre-Sprint 6)</p>
       </footer>
     </div>
   );

@@ -43,7 +43,7 @@ public class InventoryStockClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(jwtTokenProvider.generateToken(
-                "production-service", "production-service@internal", List.of("PRODUCTION_MANAGER", "EMPLOYEE"), "INTERNAL"));
+                "production-service", "production-service@internal", List.of("ROLE_MANAGER", "ROLE_ADMIN"), "INTERNAL"));
         return headers;
     }
 
@@ -94,7 +94,7 @@ public class InventoryStockClient {
         payload.put("reason", "PRODUCTION_CONSUMPTION");
         payload.put("referenceType", "PRODUCTION_BATCH");
         payload.put("referenceId", idempotencyKey != null ? idempotencyKey : batchNumber + "::CONSUMPTION::" + sku);
-        payload.put("actor", actor == null || actor.isBlank() ? "PRODUCTION_MANAGER" : actor);
+        payload.put("actor", actor == null || actor.isBlank() ? "MANAGER" : actor);
         payload.put("notes", notes == null ? "Raw material consumed for batch " + batchNumber : notes);
 
         executeStockAdjustment(payload, "consumption for SKU " + sku);
@@ -123,7 +123,7 @@ public class InventoryStockClient {
         payload.put("reason", "PRODUCTION_OUTPUT");
         payload.put("referenceType", "PRODUCTION_BATCH");
         payload.put("referenceId", idempotencyKey != null ? idempotencyKey : batchNumber + "::OUTPUT::" + sku);
-        payload.put("actor", actor == null || actor.isBlank() ? "PRODUCTION_MANAGER" : actor);
+        payload.put("actor", actor == null || actor.isBlank() ? "MANAGER" : actor);
         payload.put("notes", notes == null ? "Finished goods produced from batch " + batchNumber + " (Lot: " + batchLot + ")" : notes);
 
         executeStockAdjustment(payload, "output for SKU " + sku);
@@ -150,7 +150,7 @@ public class InventoryStockClient {
         payload.put("reason", "LOSS");
         payload.put("referenceType", "PRODUCTION_BATCH");
         payload.put("referenceId", idempotencyKey != null ? idempotencyKey : batchNumber + "::WASTAGE::" + sku);
-        payload.put("actor", actor == null || actor.isBlank() ? "PRODUCTION_MANAGER" : actor);
+        payload.put("actor", actor == null || actor.isBlank() ? "MANAGER" : actor);
         payload.put("notes", (reason != null ? reason : "Production wastage/loss: " + wastageType) + " for batch " + batchNumber);
 
         executeStockAdjustment(payload, "wastage for SKU " + sku);

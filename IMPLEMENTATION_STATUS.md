@@ -1,6 +1,6 @@
 # RR Jaggery Traders — Implementation Status Matrix
 
-**Current Status:** SPRINT 5 COMPLETED & ACCEPTED
+**Current Status:** ACCESS MODEL REVISION COMPLETED & VERIFIED (PRE-SPRINT 6)
 
 Sprint 0 — **ACCEPTED**  
 Sprint 1 — **ACCEPTED**  
@@ -8,6 +8,19 @@ Sprint 2 — **ACCEPTED**
 Sprint 3 — **ACCEPTED**  
 Sprint 4 — **ACCEPTED**  
 Sprint 5 — **ACCEPTED**  
+Access Model Revision — **COMPLETED & VERIFIED** (Pre-Sprint 6)
+
+---
+
+## Pre-Sprint 6: Business Access Model Revision Summary
+
+### Core Architecture & Authorization Changes:
+* **3-Role Authoritative Login Model**: Exactly 3 application login roles: `ADMIN`, `MANAGER`, and `CUSTOMER`.
+* **Manager Role Added**: `MANAGER` role created with full operational access across Inventory, Procurement, Mill Production, Customer Ledger, and Product Catalogue.
+* **No-Login Business Records**: Wholesale customers (`customer_schema.customers`) and mill workforce records are internal business entities with NO portal logins. Self-registration is strictly for Retail Customers.
+* **502 Bad Gateway Definitively Resolved**: Excluded conflicting `UserDetailsServiceAutoConfiguration` across all 8 microservices, allowing JWT stateless authentication to operate cleanly without competing in-memory Basic Auth challenges.
+* **Admin User Management**: Admin endpoints (`/api/v1/auth/admin/**`) for creating Managers, listing accounts, and toggling enable/disable status.
+* **Executive Real-Data Overview**: Real-time aggregation across all active microservices (Sprints 0–5) with "Not available yet (Sprint 6)" placeholders for future finance/payroll metrics.
 
 ---
 

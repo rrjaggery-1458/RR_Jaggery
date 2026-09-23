@@ -27,18 +27,22 @@ public class CustomerLedgerSecurityUtils {
         private final String email;
         private final String customerType;
         private final boolean isAdmin;
+        private final boolean isManager;
 
-        public AuthenticatedUser(UUID userId, String email, String customerType, boolean isAdmin) {
+        public AuthenticatedUser(UUID userId, String email, String customerType, boolean isAdmin, boolean isManager) {
             this.userId = userId;
             this.email = email;
             this.customerType = customerType;
             this.isAdmin = isAdmin;
+            this.isManager = isManager;
         }
 
         public UUID getUserId() { return userId; }
         public String getEmail() { return email; }
         public String getCustomerType() { return customerType; }
         public boolean isAdmin() { return isAdmin; }
+        public boolean isManager() { return isManager; }
+        public boolean isAdminOrManager() { return isAdmin || isManager; }
     }
 
     public AuthenticatedUser getAuthenticatedUser(HttpServletRequest request) {
@@ -63,8 +67,9 @@ public class CustomerLedgerSecurityUtils {
 
                 List<String> roles = tokenProvider.getRolesFromToken(token);
                 boolean isAdmin = roles != null && roles.stream().anyMatch(r -> r.contains("ADMIN"));
+                boolean isManager = roles != null && roles.stream().anyMatch(r -> r.contains("MANAGER"));
 
-                return new AuthenticatedUser(userId, email, customerType, isAdmin);
+                return new AuthenticatedUser(userId, email, customerType, isAdmin, isManager);
             }
         }
 
@@ -76,7 +81,10 @@ public class CustomerLedgerSecurityUtils {
             boolean isAdmin = auth.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .anyMatch(a -> a.contains("ADMIN"));
-            return new AuthenticatedUser(userId, name, "RETAIL", isAdmin);
+            boolean isManager = auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .anyMatch(a -> a.contains("MANAGER"));
+            return new AuthenticatedUser(userId, name, "RETAIL", isAdmin, isManager);
         }
 
         throw new SecurityException("Full authentication is required to access this resource.");

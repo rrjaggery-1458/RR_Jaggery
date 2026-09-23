@@ -49,7 +49,7 @@ public class AuthService {
                 passwordEncoder.encode(request.getPassword()),
                 request.getFullName().trim(),
                 request.getPhone(),
-                request.getCustomerType() != null ? request.getCustomerType() : CustomerType.RETAIL
+                CustomerType.RETAIL
         );
 
         user.setBusinessName(request.getBusinessName());

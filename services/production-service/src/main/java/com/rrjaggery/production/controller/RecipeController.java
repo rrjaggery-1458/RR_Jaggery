@@ -25,7 +25,7 @@ public class RecipeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<RecipeDto>> createRecipe(@Valid @RequestBody CreateRecipeRequest request) {
         RecipeDto created = recipeService.createRecipe(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -33,25 +33,25 @@ public class RecipeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<List<RecipeDto>>> getAllRecipes() {
         return ResponseEntity.ok(ApiResponse.ok(recipeService.getAllRecipes()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<RecipeDto>> getRecipeById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(recipeService.getRecipeById(id)));
     }
 
     @GetMapping("/code/{code}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<RecipeDto>> getRecipeByCode(@PathVariable String code) {
         return ResponseEntity.ok(ApiResponse.ok(recipeService.getRecipeByCode(code)));
     }
 
     @GetMapping("/product/{sku}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<List<RecipeDto>>> getRecipesByOutputSku(@PathVariable String sku) {
         return ResponseEntity.ok(ApiResponse.ok(recipeService.getRecipesByOutputSku(sku)));
     }

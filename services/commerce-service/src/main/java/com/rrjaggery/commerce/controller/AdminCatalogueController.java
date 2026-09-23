@@ -19,7 +19,7 @@ import java.util.UUID;
 @CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/v1/commerce/admin")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 public class AdminCatalogueController {
 
     private final CategoryService categoryService;

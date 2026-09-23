@@ -72,4 +72,27 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.token").exists());
     }
+
+    @Test
+    void testManagerLoginSuccess() throws Exception {
+        LoginRequest req = new LoginRequest("manager@rrjaggery.com", "Manager@123");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.token").exists())
+                .andExpect(jsonPath("$.data.user.email").value("manager@rrjaggery.com"))
+                .andExpect(jsonPath("$.data.user.roles[0]").value("MANAGER"));
+    }
+
+    @Test
+    void testWholesaleLoginDisabled() throws Exception {
+        LoginRequest req = new LoginRequest("wholesale@example.com", "Wholesale@123");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 }

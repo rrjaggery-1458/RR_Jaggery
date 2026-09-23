@@ -25,7 +25,7 @@ public class ProductionController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> createBatch(@Valid @RequestBody CreateBatchRequest request) {
         ProductionBatchDto created = productionService.createBatch(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -33,32 +33,32 @@ public class ProductionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<List<ProductionBatchDto>>> getBatches(
             @RequestParam(required = false) BatchStatus status) {
         return ResponseEntity.ok(ApiResponse.ok(productionService.getAllBatches(status)));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> getBatchById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(productionService.getBatchById(id)));
     }
 
     @GetMapping("/number/{batchNumber}")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> getBatchByNumber(@PathVariable String batchNumber) {
         return ResponseEntity.ok(ApiResponse.ok(productionService.getBatchByNumber(batchNumber)));
     }
 
     @GetMapping("/{id}/availability")
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<MaterialAvailabilityDto>> checkMaterialAvailability(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(productionService.checkMaterialAvailability(id)));
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> updateBatchStatus(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateBatchStatusRequest request) {
@@ -66,7 +66,7 @@ public class ProductionController {
     }
 
     @PostMapping("/{id}/consume")
-    @PreAuthorize("hasAnyRole('ADMIN','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> recordConsumption(
             @PathVariable UUID id,
             @Valid @RequestBody BatchConsumptionRequest request) {
@@ -74,7 +74,7 @@ public class ProductionController {
     }
 
     @PostMapping("/{id}/output")
-    @PreAuthorize("hasAnyRole('ADMIN','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> recordOutput(
             @PathVariable UUID id,
             @Valid @RequestBody BatchOutputRequest request) {
@@ -82,7 +82,7 @@ public class ProductionController {
     }
 
     @PostMapping("/{id}/wastage")
-    @PreAuthorize("hasAnyRole('ADMIN','PRODUCTION_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<ProductionBatchDto>> recordWastage(
             @PathVariable UUID id,
             @Valid @RequestBody BatchWastageRequest request) {

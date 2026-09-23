@@ -29,7 +29,7 @@ public class CustomerController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<List<CustomerDto>> getAllCustomers(
             @RequestParam(required = false) CustomerType type,
             @RequestParam(required = false) String search) {
@@ -38,7 +38,7 @@ public class CustomerController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<CustomerDto> createCustomer(
             @Valid @RequestBody CreateCustomerRequest req,
             HttpServletRequest request) {
@@ -53,14 +53,14 @@ public class CustomerController {
             HttpServletRequest request) {
         CustomerLedgerSecurityUtils.AuthenticatedUser user = securityUtils.getAuthenticatedUser(request);
         CustomerDto customer = customerService.getCustomerById(id);
-        if (!user.isAdmin() && !customer.getId().equals(user.getUserId()) && (customer.getAuthUserId() == null || !customer.getAuthUserId().equals(user.getUserId()))) {
+        if (!user.isAdminOrManager() && !customer.getId().equals(user.getUserId()) && (customer.getAuthUserId() == null || !customer.getAuthUserId().equals(user.getUserId()))) {
             throw new SecurityException("Cannot view customer profile of another user.");
         }
         return ResponseEntity.ok(customer);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<CustomerDto> updateCustomer(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateCustomerRequest req) {

@@ -5,6 +5,28 @@ All notable changes to the **RR Jaggery Traders** platform will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - Pre-Sprint 6: Business Access Model Revision & Gateway 502 Resolution
+
+### Added
+- **3-Role Authoritative Access Model (`ADMIN`, `MANAGER`, `CUSTOMER`):**
+  * `MANAGER` role added to `Role` enum and `SecurityConstants` with full operational permissions across Inventory, Procurement, Mill Production, Customer Ledger, and Product Catalogue.
+  * `AdminUserController` and `AdminUserService` in `auth-service` supporting Admin creation of Managers (`POST /api/v1/auth/admin/managers`), listing all user accounts (`GET /api/v1/auth/admin/users`), editing details (`PUT /api/v1/auth/admin/users/{id}`), toggling login status (`PATCH /api/v1/auth/admin/users/{id}/enabled`), and real-time user statistics (`GET /api/v1/auth/admin/stats`).
+  * Default seed for Operations Manager (`manager@rrjaggery.com` / `Manager@123`).
+  * Admin User Management UI in frontend for managing internal staff accounts.
+  * Executive Overview Real-Data Dashboard in frontend aggregating live metrics from active microservices (Sprints 0–5) with explicit "Not available yet (Sprint 6)" placeholders for future finance/payroll metrics.
+
+### Changed
+- **502 Bad Gateway Root Cause Fix:**
+  * Excluded `UserDetailsServiceAutoConfiguration` across all 8 Spring Boot microservices (`auth-service`, `commerce-service`, `customer-ledger-service`, `inventory-service`, `procurement-service`, `production-service`, `finance-service`, `notification-service`).
+  * Resolved conflict where default in-memory UserDetailsService triggered Basic Auth challenge on JWT bearer requests, returning 401 upstream and 502 at the Nginx reverse proxy.
+- **Role & Authorization Migration:**
+  * Replaced legacy `PRODUCTION_MANAGER` and `EMPLOYEE` in all `@PreAuthorize` method annotations across all controllers with `ADMIN` and `MANAGER`.
+  * Preserved `customer_schema.customers` wholesale business records (no portal login, managed internally by Admin/Manager).
+  * Safely disabled portal login for `wholesale@example.com` (`enabled = false`) while preserving classification (`customer_type = REGISTERED_WHOLESALE`).
+  * Updated self-registration in `auth-service` and frontend to strictly create `CUSTOMER` role with `RETAIL` customer type.
+
+---
+
 ## [1.4.0] - Sprint 5: Production Management (Batches, BOM/Recipes, Consumption, Output, Wastage, Yield)
 
 ### Added

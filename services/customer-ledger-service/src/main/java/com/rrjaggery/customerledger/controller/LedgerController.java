@@ -30,7 +30,7 @@ public class LedgerController {
     }
 
     @PostMapping("/{customerId}/payments")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<CustomerPaymentDto> recordPayment(
             @PathVariable UUID customerId,
             @Valid @RequestBody RecordPaymentRequest req,
@@ -47,7 +47,7 @@ public class LedgerController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             HttpServletRequest request) {
         CustomerLedgerSecurityUtils.AuthenticatedUser user = securityUtils.getAuthenticatedUser(request);
-        if (!user.isAdmin() && !customerId.equals(user.getUserId())) {
+        if (!user.isAdminOrManager() && !customerId.equals(user.getUserId())) {
             throw new SecurityException("Cannot access ledger statement of another customer.");
         }
         CustomerStatementDto statement = ledgerService.getCustomerStatement(customerId, from, to);
@@ -59,7 +59,7 @@ public class LedgerController {
             @PathVariable UUID customerId,
             HttpServletRequest request) {
         CustomerLedgerSecurityUtils.AuthenticatedUser user = securityUtils.getAuthenticatedUser(request);
-        if (!user.isAdmin() && !customerId.equals(user.getUserId())) {
+        if (!user.isAdminOrManager() && !customerId.equals(user.getUserId())) {
             throw new SecurityException("Cannot access payment history of another customer.");
         }
         List<CustomerPaymentDto> payments = ledgerService.getCustomerPayments(customerId);

@@ -7,6 +7,7 @@
 - [x] **Sprint 3:** Customer, Wholesale & Ledger (Offline B2B wholesale, credit cycles, partial payments, running ledger balance).
 - [x] **Sprint 4:** Inventory & Procurement (Raw materials/FG stock ledger, POs, Goods Receipts, auditable stock movements).
 - [x] **Sprint 5:** Production Management (Recipe/BOM master, batch execution, material consumption, output recording, yield %, loss tracking, multi-container runtime verified).
+- [x] **Pre-Sprint 6:** Business Access Model Revision (3 authoritative login roles: ADMIN, MANAGER, CUSTOMER; 502 root cause resolved across all 8 microservices; wholesale and employee accounts managed as internal no-login records).
 
 ---
 
