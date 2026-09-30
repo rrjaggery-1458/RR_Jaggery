@@ -7,8 +7,15 @@ import {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const CUSTOMER_LEDGER_BASE = 'http://localhost:8083/api/v1/customers';
-export const COMMERCE_BASE = 'http://localhost:8082/api/v1/commerce';
+const getApiBaseUrl = (port: number, servicePath: string) => {
+  if (typeof window !== 'undefined' && (window.location.port === '' || window.location.port === '80')) {
+    return `/api/v1/${servicePath}`;
+  }
+  return `http://localhost:${port}/api/v1/${servicePath}`;
+};
+
+export const CUSTOMER_LEDGER_BASE = getApiBaseUrl(8083, 'customers');
+export const COMMERCE_BASE = getApiBaseUrl(8082, 'commerce');
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
