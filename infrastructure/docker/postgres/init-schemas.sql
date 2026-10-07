@@ -218,6 +218,59 @@ CREATE SCHEMA IF NOT EXISTS production_schema;
 -- 7. Factory Operating Expenses, Cost Allocation & Worker Payroll Schema
 CREATE SCHEMA IF NOT EXISTS finance_schema;
 
+CREATE TABLE IF NOT EXISTS finance_schema.operating_expenses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    category VARCHAR(60) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'CASH',
+    payee_vendor VARCHAR(150),
+    description VARCHAR(500),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS finance_schema.employees (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_code VARCHAR(50) NOT NULL UNIQUE,
+    full_name VARCHAR(150) NOT NULL,
+    designation VARCHAR(100) NOT NULL,
+    phone VARCHAR(30),
+    wage_type VARCHAR(30) NOT NULL DEFAULT 'DAILY',
+    rate_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    joining_date DATE DEFAULT CURRENT_DATE,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS finance_schema.attendance (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID NOT NULL REFERENCES finance_schema.employees(id) ON DELETE CASCADE,
+    attendance_date DATE NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'PRESENT',
+    overtime_hours NUMERIC(6, 2) NOT NULL DEFAULT 0.00,
+    notes VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CONSTRAINT uk_employee_date UNIQUE (employee_id, attendance_date)
+);
+
+CREATE TABLE IF NOT EXISTS finance_schema.payroll_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id UUID NOT NULL REFERENCES finance_schema.employees(id) ON DELETE RESTRICT,
+    period_month INTEGER NOT NULL,
+    period_year INTEGER NOT NULL,
+    days_worked NUMERIC(6, 2) DEFAULT 0.00,
+    overtime_hours NUMERIC(6, 2) DEFAULT 0.00,
+    base_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    bonus_allowance NUMERIC(12, 2) DEFAULT 0.00,
+    deductions NUMERIC(12, 2) DEFAULT 0.00,
+    net_amount_paid NUMERIC(12, 2) NOT NULL CHECK (net_amount_paid > 0),
+    payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'CASH',
+    reference_notes VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
 -- 8. Transactional Alerts, Emails & Push Notifications Schema
 CREATE SCHEMA IF NOT EXISTS notification_schema;
 

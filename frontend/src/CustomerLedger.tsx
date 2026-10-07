@@ -8,7 +8,7 @@ import {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const getApiBaseUrl = (port: number, servicePath: string) => {
-  if (typeof window !== 'undefined' && (window.location.port === '' || window.location.port === '80')) {
+  if (import.meta.env.PROD || (typeof window !== 'undefined' && (window.location.port === '' || window.location.port === '80' || window.location.port === '443'))) {
     return `/api/v1/${servicePath}`;
   }
   return `http://localhost:${port}/api/v1/${servicePath}`;
@@ -240,49 +240,49 @@ export function CustomerDirectoryPage({
     <div className="space-y-6 animate-fadeIn">
       {/* Top Banner & Quick Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400">Total B2B Accounts</p>
-              <h3 id="stat-total-customers" className="text-2xl font-black text-white mt-1">{wholesaleCustomers} <span className="text-xs text-slate-500">/ {totalCustomers} total</span></h3>
+              <p className="text-xs font-semibold text-gray-500">Total B2B Accounts</p>
+              <h3 id="stat-total-customers" className="text-2xl font-black text-gray-900 mt-1">{wholesaleCustomers} <span className="text-xs text-gray-500">/ {totalCustomers} total</span></h3>
             </div>
-            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+            <div className="p-3 bg-emerald-50 text-amber-700 rounded-xl border border-emerald-500/20">
               <Users className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400">Total Outstanding (Receivables)</p>
-              <h3 id="stat-total-outstanding" className="text-2xl font-black text-amber-400 mt-1">{formatPrice(totalOutstanding)}</h3>
+              <p className="text-xs font-semibold text-gray-500">Total Outstanding (Receivables)</p>
+              <h3 id="stat-total-outstanding" className="text-2xl font-black text-emerald-700 mt-1">{formatPrice(totalOutstanding)}</h3>
             </div>
-            <div className="p-3 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20">
+            <div className="p-3 bg-red-500/10 text-red-600 rounded-xl border border-red-500/20">
               <BookOpen className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400">Active Credit Facility</p>
-              <h3 id="stat-total-credit-limit" className="text-2xl font-black text-emerald-400 mt-1">{formatPrice(totalCreditLimit)}</h3>
+              <p className="text-xs font-semibold text-gray-500">Active Credit Facility</p>
+              <h3 id="stat-total-credit-limit" className="text-2xl font-black text-emerald-700 mt-1">{formatPrice(totalCreditLimit)}</h3>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+            <div className="p-3 bg-emerald-500/10 text-emerald-700 rounded-xl border border-emerald-500/20">
               <ShieldCheck className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400">GST Compliance</p>
-              <h3 className="text-2xl font-black text-sky-400 mt-1">5.0% <span className="text-xs text-slate-400 font-normal">(CGST+SGST)</span></h3>
+              <p className="text-xs font-semibold text-gray-500">GST Compliance</p>
+              <h3 className="text-2xl font-black text-sky-700 mt-1">5.0% <span className="text-xs text-gray-500 font-normal">(CGST+SGST)</span></h3>
             </div>
-            <div className="p-3 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20">
+            <div className="p-3 bg-sky-500/10 text-sky-700 rounded-xl border border-sky-500/20">
               <FileSpreadsheet className="h-6 w-6" />
             </div>
           </div>
@@ -290,7 +290,7 @@ export function CustomerDirectoryPage({
       </div>
 
       {/* Action Bar & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-emerald-50/60 p-4 rounded-2xl border border-gray-200">
         <div className="flex flex-wrap items-center gap-2">
           {['ALL', 'OFFLINE_WHOLESALE', 'REGISTERED_WHOLESALE', 'RETAIL'].map(type => (
             <button
@@ -299,8 +299,8 @@ export function CustomerDirectoryPage({
               onClick={() => setFilterType(type)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                 filterType === type
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-800 text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-gray-900 shadow-md shadow-emerald-500/20'
+                  : 'bg-emerald-50 text-gray-500 hover:text-gray-900'
               }`}
             >
               {type === 'ALL' ? 'All Customers' : type.replace('_', ' ')}
@@ -310,14 +310,14 @@ export function CustomerDirectoryPage({
 
         <div className="flex items-center gap-3">
           <div className="relative flex-1 sm:w-64">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               id="input-search-customers"
               type="text"
               placeholder="Search business, GSTIN, phone..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              className="w-full bg-white border border-emerald-200 rounded-xl pl-9 pr-4 py-2 text-xs text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
@@ -325,7 +325,7 @@ export function CustomerDirectoryPage({
             id="btn-refresh-customers"
             onClick={fetchCustomers}
             title="Refresh"
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition"
+            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-gray-700 rounded-xl transition"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -333,7 +333,7 @@ export function CustomerDirectoryPage({
           <button
             id="btn-open-add-customer"
             onClick={() => setIsAddCustomerOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition whitespace-nowrap"
           >
             <Plus className="h-4 w-4" /> <span>Add Business Customer</span>
           </button>
@@ -341,7 +341,7 @@ export function CustomerDirectoryPage({
           <button
             id="btn-open-offline-order"
             onClick={() => onOpenNewOrder()}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold text-xs rounded-xl transition whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-amber-700 border border-emerald-500/30 font-bold text-xs rounded-xl transition whitespace-nowrap"
           >
             <Receipt className="h-4 w-4" /> <span>+ New Offline Order</span>
           </button>
@@ -350,17 +350,17 @@ export function CustomerDirectoryPage({
 
       {/* Error Message */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl text-xs flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Customers Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+          <table className="w-full text-left text-xs text-gray-700">
+            <thead className="bg-white border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
               <tr>
                 <th className="py-3.5 px-4">Business / Customer</th>
                 <th className="py-3.5 px-4">Type & GSTIN</th>
@@ -370,17 +370,17 @@ export function CustomerDirectoryPage({
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-gray-200/60">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <RefreshCw className="h-6 w-6 animate-spin mx-auto text-amber-500 mb-2" />
+                  <td colSpan={6} className="py-12 text-center text-gray-500">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto text-emerald-600 mb-2" />
                     Loading customer directory & ledgers...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-gray-500">
                     No customers found matching the criteria.
                   </td>
                 </tr>
@@ -389,16 +389,16 @@ export function CustomerDirectoryPage({
                   const isWholesale = c.customerType === 'OFFLINE_WHOLESALE' || c.customerType === 'REGISTERED_WHOLESALE';
                   const hasOutstanding = (c.currentOutstanding || 0) > 0;
                   return (
-                    <tr key={c.id} id={`customer-row-${c.id}`} className="hover:bg-slate-800/40 transition">
+                    <tr key={c.id} id={`customer-row-${c.id}`} className="hover:bg-emerald-50/40 transition">
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-white text-sm">
+                        <div className="font-bold text-gray-900 text-sm">
                           {c.businessName || c.contactPerson || 'Individual Retail Customer'}
                         </div>
                         {c.contactPerson && c.businessName && (
-                          <div className="text-[11px] text-slate-400 mt-0.5">Contact: {c.contactPerson}</div>
+                          <div className="text-[11px] text-gray-500 mt-0.5">Contact: {c.contactPerson}</div>
                         )}
                         {c.billingAddress?.city && (
-                          <div className="text-[10px] text-slate-500 mt-0.5">{c.billingAddress.city}, {c.billingAddress.state}</div>
+                          <div className="text-[10px] text-gray-500 mt-0.5">{c.billingAddress.city}, {c.billingAddress.state}</div>
                         )}
                       </td>
 
@@ -407,41 +407,41 @@ export function CustomerDirectoryPage({
                           <span
                             className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                               c.customerType === 'REGISTERED_WHOLESALE'
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                 : c.customerType === 'OFFLINE_WHOLESALE'
-                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                                ? 'bg-emerald-50 text-amber-700 border-emerald-500/20'
+                                : 'bg-emerald-50 text-gray-500 border-gray-300'
                             }`}
                           >
                             {c.customerType.replace('_', ' ')}
                           </span>
                         </div>
-                        <div className="font-mono text-[11px] text-slate-400 mt-1">
+                        <div className="font-mono text-[11px] text-gray-500 mt-1">
                           {c.gstin ? (
-                            <span className="text-amber-300 font-semibold">{c.gstin}</span>
+                            <span className="text-amber-700 font-semibold">{c.gstin}</span>
                           ) : (
-                            <span className="text-slate-600">No GSTIN</span>
+                            <span className="text-gray-600">No GSTIN</span>
                           )}
                         </div>
                       </td>
 
                       <td className="py-3.5 px-4 space-y-0.5">
-                        <div className="flex items-center gap-1.5 text-slate-300">
-                          <Phone className="h-3 w-3 text-slate-500" />
+                        <div className="flex items-center gap-1.5 text-gray-700">
+                          <Phone className="h-3 w-3 text-gray-500" />
                           <span>{c.phone || '—'}</span>
                         </div>
                         {c.email && (
-                          <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-                            <Mail className="h-3 w-3 text-slate-500" />
+                          <div className="flex items-center gap-1.5 text-gray-500 text-[11px]">
+                            <Mail className="h-3 w-3 text-gray-500" />
                             <span>{c.email}</span>
                           </div>
                         )}
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-white">{c.paymentTerms || 'IMMEDIATE'}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          Limit: <strong className="text-emerald-400">{formatPrice(c.creditLimit)}</strong> ({c.creditDays || 0}d)
+                        <div className="font-semibold text-gray-800">{c.paymentTerms || 'IMMEDIATE'}</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          Limit: <strong className="text-emerald-700">{formatPrice(c.creditLimit)}</strong> ({c.creditDays || 0}d)
                         </div>
                       </td>
 
@@ -449,13 +449,13 @@ export function CustomerDirectoryPage({
                         <div
                           id={`customer-outstanding-${c.id}`}
                           className={`font-mono text-sm font-black ${
-                            hasOutstanding ? 'text-amber-400' : 'text-slate-400'
+                            hasOutstanding ? 'text-amber-700' : 'text-gray-500'
                           }`}
                         >
                           {formatPrice(c.currentOutstanding)}
                         </div>
                         {hasOutstanding && (
-                          <span className="text-[9px] font-bold text-amber-400/80 uppercase">Debit Balance</span>
+                          <span className="text-[9px] font-bold text-amber-700/80 uppercase">Debit Balance</span>
                         )}
                       </td>
 
@@ -465,7 +465,7 @@ export function CustomerDirectoryPage({
                             id={`btn-ledger-${c.id}`}
                             onClick={() => onOpenLedger(c)}
                             title="View Statement & Ledger"
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold rounded-lg text-xs border border-slate-700 transition flex items-center gap-1"
+                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-amber-700 font-semibold rounded-lg text-xs border border-gray-300 transition flex items-center gap-1"
                           >
                             <BookOpen className="h-3 w-3" /> <span>Ledger</span>
                           </button>
@@ -475,7 +475,7 @@ export function CustomerDirectoryPage({
                               id={`btn-pay-${c.id}`}
                               onClick={() => onOpenPayment(c)}
                               title="Record Payment / Collection"
-                              className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold rounded-lg text-xs border border-emerald-500/20 transition flex items-center gap-1"
+                              className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 font-semibold rounded-lg text-xs border border-emerald-500/20 transition flex items-center gap-1"
                             >
                               <Wallet className="h-3 w-3" /> <span>Pay</span>
                             </button>
@@ -485,7 +485,7 @@ export function CustomerDirectoryPage({
                             id={`btn-order-${c.id}`}
                             onClick={() => onOpenNewOrder(c)}
                             title="Create Offline Order"
-                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-1"
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold rounded-lg text-xs transition flex items-center gap-1"
                           >
                             <Plus className="h-3 w-3" /> <span>Order</span>
                           </button>
@@ -534,7 +534,7 @@ export function AddCustomerModal({
   const [gstin, setGstin] = useState('');
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('');
-  const [state, setState] = useState('Karnataka');
+  const [state, setState] = useState('Andhra Pradesh');
   const [postalCode, setPostalCode] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('NET_30');
   const [creditLimit, setCreditLimit] = useState('50000');
@@ -580,23 +580,23 @@ export function AddCustomerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
         <button
           id="close-add-customer-modal"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+          className="absolute top-5 right-5 p-1.5 rounded-xl bg-emerald-50 text-gray-500 hover:text-gray-900 transition"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-amber-400" /> Add Wholesale / B2B Customer
+        <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-amber-700" /> Add Wholesale / B2B Customer
         </h2>
-        <p className="text-xs text-slate-400 mb-6">Create offline wholesale customer with ledger account & credit terms</p>
+        <p className="text-xs text-gray-500 mb-6">Create offline wholesale customer with ledger account & credit terms</p>
 
         {error && (
-          <div className="mb-4 flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+          <div className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -605,12 +605,12 @@ export function AddCustomerModal({
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-slate-400 font-semibold">Customer Account Type</label>
+              <label className="text-gray-500 font-semibold">Customer Account Type</label>
               <select
                 id="select-customer-type"
                 value={customerType}
                 onChange={e => setCustomerType(e.target.value as any)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
               >
                 <option value="OFFLINE_WHOLESALE">Offline Wholesale (Mill Buyer)</option>
                 <option value="REGISTERED_WHOLESALE">Registered Wholesale (Business Record)</option>
@@ -618,7 +618,7 @@ export function AddCustomerModal({
             </div>
 
             <div>
-              <label className="text-slate-400 font-semibold">Business / Firm Name *</label>
+              <label className="text-gray-500 font-semibold">Business / Firm Name *</label>
               <input
                 id="input-business-name"
                 type="text"
@@ -626,24 +626,24 @@ export function AddCustomerModal({
                 placeholder="e.g. Mysuru Sweet Center"
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 font-semibold">Contact Person</label>
+              <label className="text-gray-500 font-semibold">Contact Person</label>
               <input
                 id="input-contact-person"
                 type="text"
                 placeholder="e.g. Anand Murthy"
                 value={contactPerson}
                 onChange={e => setContactPerson(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 font-semibold">Phone Number *</label>
+              <label className="text-gray-500 font-semibold">Phone Number *</label>
               <input
                 id="input-customer-phone"
                 type="tel"
@@ -651,93 +651,93 @@ export function AddCustomerModal({
                 placeholder="+91 98450 12345"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 font-semibold">Email Address</label>
+              <label className="text-gray-500 font-semibold">Email Address</label>
               <input
                 id="input-customer-email"
                 type="email"
                 placeholder="buyer@example.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 font-semibold">GSTIN (Optional)</label>
+              <label className="text-gray-500 font-semibold">GSTIN (Optional)</label>
               <input
                 id="input-customer-gstin"
                 type="text"
                 placeholder="29ABCDE1234F1Z5"
                 value={gstin}
                 onChange={e => setGstin(e.target.value.toUpperCase())}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-amber-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-mono uppercase focus:outline-none focus:border-emerald-600"
               />
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-800 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">Address & Terms</h3>
+          <div className="pt-3 border-t border-gray-200 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700">Address & Terms</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
-                <label className="text-slate-400 font-semibold">Street / Market Address</label>
+                <label className="text-gray-500 font-semibold">Street / Market Address</label>
                 <input
                   id="input-customer-street"
                   type="text"
                   placeholder="e.g. 45, Devaraja Market"
                   value={street}
                   onChange={e => setStreet(e.target.value)}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
 
               <div>
-                <label className="text-slate-400 font-semibold">City</label>
+                <label className="text-gray-500 font-semibold">City</label>
                 <input
                   id="input-customer-city"
                   type="text"
                   placeholder="e.g. Mysuru"
                   value={city}
                   onChange={e => setCity(e.target.value)}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-slate-400 font-semibold">State</label>
+                  <label className="text-gray-500 font-semibold">State</label>
                   <input
                     id="input-customer-state"
                     type="text"
                     value={state}
                     onChange={e => setState(e.target.value)}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                    className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 font-semibold">PIN Code</label>
+                  <label className="text-gray-500 font-semibold">PIN Code</label>
                   <input
                     id="input-customer-pincode"
                     type="text"
                     placeholder="570001"
                     value={postalCode}
                     onChange={e => setPostalCode(e.target.value)}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                    className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-400 font-semibold">Payment Terms</label>
+                <label className="text-gray-500 font-semibold">Payment Terms</label>
                 <select
                   id="select-payment-terms"
                   value={paymentTerms}
                   onChange={e => setPaymentTerms(e.target.value)}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 >
                   <option value="IMMEDIATE_CASH">Immediate / Cash</option>
                   <option value="NET_7">NET 7 Days</option>
@@ -751,7 +751,7 @@ export function AddCustomerModal({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-slate-400 font-semibold">Credit Limit (₹)</label>
+                  <label className="text-gray-500 font-semibold">Credit Limit (₹)</label>
                   <input
                     id="input-credit-limit"
                     type="number"
@@ -759,29 +759,29 @@ export function AddCustomerModal({
                     step="1000"
                     value={creditLimit}
                     onChange={e => setCreditLimit(e.target.value)}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-mono focus:outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 font-semibold">Credit Days</label>
+                  <label className="text-gray-500 font-semibold">Credit Days</label>
                   <input
                     id="input-credit-days"
                     type="number"
                     min="0"
                     value={creditDays}
                     onChange={e => setCreditDays(e.target.value)}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-mono focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-slate-800">
+          <div className="pt-4 flex justify-end gap-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition"
+              className="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-gray-700 font-semibold transition"
             >
               Cancel
             </button>
@@ -789,7 +789,7 @@ export function AddCustomerModal({
               id="btn-submit-add-customer"
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-500/20 transition flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold shadow-lg shadow-emerald-500/20 transition flex items-center gap-2"
             >
               {loading && <RefreshCw className="h-4 w-4 animate-spin" />}
               <span>Create Customer Account</span>
@@ -1001,23 +1001,23 @@ export function CreateOfflineOrderModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-4xl shadow-2xl relative max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-4xl shadow-2xl relative max-h-[92vh] overflow-y-auto">
         <button
           id="close-create-order-modal"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+          className="absolute top-5 right-5 p-1.5 rounded-xl bg-emerald-50 text-gray-500 hover:text-gray-900 transition"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-          <Receipt className="h-5 w-5 text-amber-400" /> Create Offline Wholesale Order
+        <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+          <Receipt className="h-5 w-5 text-amber-700" /> Create Offline Wholesale Order
         </h2>
-        <p className="text-xs text-slate-400 mb-5">Direct mill dispatch, wholesale pricing, automatic 5% GST computation & ledger posting</p>
+        <p className="text-xs text-gray-500 mb-5">Direct mill dispatch, wholesale pricing, automatic 5% GST computation & ledger posting</p>
 
         {error && (
-          <div className="mb-4 flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+          <div className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -1025,16 +1025,16 @@ export function CreateOfflineOrderModal({
 
         <form onSubmit={handleSubmitOrder} className="space-y-6 text-xs">
           {/* Customer Selection & Credit Status Header */}
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-slate-400 font-semibold">Select Customer Account *</label>
+                <label className="text-gray-500 font-semibold">Select Customer Account *</label>
                 <select
                   id="select-order-customer"
                   value={selectedCustomerId}
                   onChange={e => setSelectedCustomerId(e.target.value)}
                   data-loaded={dataLoaded ? 'true' : 'false'}
-                  className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-amber-500"
+                  className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:outline-none focus:border-emerald-600"
                 >
                   {customers.map(c => (
                     <option key={c.id} value={c.id}>
@@ -1045,16 +1045,16 @@ export function CreateOfflineOrderModal({
               </div>
 
               {currentCustomer && (
-                <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                <div className="flex items-center justify-between bg-emerald-50/60 p-3 rounded-xl border border-gray-200/80">
                   <div>
-                    <span className="text-[10px] text-slate-500 uppercase font-bold">Current Ledger State</span>
-                    <div className="text-xs text-slate-300 font-medium mt-0.5">
-                      Outstanding: <strong className="text-amber-400">{formatPrice(currentCustomer.currentOutstanding)}</strong>
+                    <span className="text-[10px] text-gray-500 uppercase font-bold">Current Ledger State</span>
+                    <div className="text-xs text-gray-700 font-medium mt-0.5">
+                      Outstanding: <strong className="text-amber-700">{formatPrice(currentCustomer.currentOutstanding)}</strong>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold">Credit Limit</span>
-                    <div className="text-xs text-emerald-400 font-bold mt-0.5">
+                    <span className="text-[10px] text-gray-500 uppercase font-bold">Credit Limit</span>
+                    <div className="text-xs text-emerald-700 font-bold mt-0.5">
                       {formatPrice(currentCustomer.creditLimit)} ({currentCustomer.creditDays}d)
                     </div>
                   </div>
@@ -1063,8 +1063,8 @@ export function CreateOfflineOrderModal({
             </div>
 
             {exceedsCreditLimit && (
-              <div className="flex items-center gap-2 p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-[11px]">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+              <div className="flex items-center gap-2 p-2.5 bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl text-[11px]">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
                 <span>
                   <strong>Credit Warning:</strong> Adding this order ({formatPrice(balanceToLedger)}) will result in {formatPrice(projectedOutstanding)}, exceeding credit limit of {formatPrice(currentCustomer?.creditLimit || 0)}. Backend will reject order unless upfront payment is recorded.
                 </span>
@@ -1075,12 +1075,12 @@ export function CreateOfflineOrderModal({
           {/* Line Items Builder */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">Order Line Items</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700">Order Line Items</h3>
               <button
                 type="button"
                 id="btn-add-line-item"
                 onClick={addItem}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-amber-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
               >
                 <Plus className="h-3.5 w-3.5" /> <span>Add Item</span>
               </button>
@@ -1088,15 +1088,15 @@ export function CreateOfflineOrderModal({
 
             <div className="space-y-3">
               {items.map((item, idx) => (
-                <div key={idx} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div key={idx} className="bg-white p-4 rounded-2xl border border-gray-200 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                     {/* Catalog item picker */}
                     <div className="sm:col-span-4">
-                      <label className="text-[11px] text-slate-400 font-semibold">Select Product Catalog Item</label>
+                      <label className="text-[11px] text-gray-500 font-semibold">Select Product Catalog Item</label>
                       <select
                         value={item.productId}
                         onChange={e => handleProductSelect(idx, e.target.value)}
-                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500"
+                        className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2.5 py-1.5 text-gray-900 text-xs focus:outline-none focus:border-emerald-600"
                       >
                         <option value="">Custom Item / Manual</option>
                         {products.map(p => (
@@ -1108,7 +1108,7 @@ export function CreateOfflineOrderModal({
                     </div>
 
                     <div className="sm:col-span-3">
-                      <label className="text-[11px] text-slate-400 font-semibold">Product Description / Grade</label>
+                      <label className="text-[11px] text-gray-500 font-semibold">Product Description / Grade</label>
                       <input
                         type="text"
                         required
@@ -1121,12 +1121,12 @@ export function CreateOfflineOrderModal({
                             return next;
                           });
                         }}
-                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500"
+                        className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2.5 py-1.5 text-gray-900 text-xs focus:outline-none focus:border-emerald-600"
                       />
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="text-[11px] text-slate-400 font-semibold">Unit Wt (kg)</label>
+                      <label className="text-[11px] text-gray-500 font-semibold">Unit Wt (kg)</label>
                       <input
                         type="number"
                         min="0.01"
@@ -1141,12 +1141,12 @@ export function CreateOfflineOrderModal({
                             return next;
                           });
                         }}
-                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                        className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2.5 py-1.5 text-gray-900 text-xs font-mono focus:outline-none focus:border-emerald-600"
                       />
                     </div>
 
                     <div className="sm:col-span-1">
-                      <label className="text-[11px] text-slate-400 font-semibold">Qty</label>
+                      <label className="text-[11px] text-gray-500 font-semibold">Qty</label>
                       <input
                         id={`input-item-qty-${idx}`}
                         type="number"
@@ -1162,13 +1162,13 @@ export function CreateOfflineOrderModal({
                             return next;
                           });
                         }}
-                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                        className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2 py-1.5 text-gray-900 text-xs font-mono focus:outline-none focus:border-emerald-600"
                       />
                     </div>
 
                     <div className="sm:col-span-2 flex items-center gap-2">
                       <div className="flex-1">
-                        <label className="text-[11px] text-slate-400 font-semibold">Wholesale Rate (₹)</label>
+                        <label className="text-[11px] text-gray-500 font-semibold">Wholesale Rate (₹)</label>
                         <input
                           id={`input-item-rate-${idx}`}
                           type="number"
@@ -1184,14 +1184,14 @@ export function CreateOfflineOrderModal({
                               return next;
                             });
                           }}
-                          className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                          className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2.5 py-1.5 text-gray-900 text-xs font-mono focus:outline-none focus:border-emerald-600"
                         />
                       </div>
                       {items.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeItem(idx)}
-                          className="mt-6 p-1.5 text-slate-500 hover:text-red-400 transition"
+                          className="mt-6 p-1.5 text-gray-500 hover:text-red-600 transition"
                           title="Remove item"
                         >
                           <X className="h-4 w-4" />
@@ -1200,12 +1200,12 @@ export function CreateOfflineOrderModal({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-900">
+                  <div className="flex items-center justify-between text-[11px] text-gray-500 pt-2 border-t border-gray-200">
                     <div>
-                      Total Weight: <span className="text-white font-mono">{lineCalculations[idx].totalWeightKg} kg</span>
+                      Total Weight: <span className="text-gray-900 font-mono">{lineCalculations[idx].totalWeightKg} kg</span>
                     </div>
                     <div>
-                      Taxable: <span className="text-white font-mono">{formatPrice(lineCalculations[idx].subtotal)}</span> + GST (5%): <span className="text-slate-300 font-mono">{formatPrice(lineCalculations[idx].gstAmount)}</span> = Line Total: <strong className="text-amber-400 font-mono">{formatPrice(lineCalculations[idx].totalAmount)}</strong>
+                      Taxable: <span className="text-gray-900 font-mono">{formatPrice(lineCalculations[idx].subtotal)}</span> + GST (5%): <span className="text-gray-700 font-mono">{formatPrice(lineCalculations[idx].gstAmount)}</span> = Line Total: <strong className="text-amber-700 font-mono">{formatPrice(lineCalculations[idx].totalAmount)}</strong>
                     </div>
                   </div>
                 </div>
@@ -1214,16 +1214,16 @@ export function CreateOfflineOrderModal({
           </div>
 
           {/* Payment Mode & Financial Settlement */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
             <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">Payment & Settlement</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700">Payment & Settlement</h3>
               <div>
-                <label className="text-slate-400 font-semibold">Payment Settlement Mode</label>
+                <label className="text-gray-500 font-semibold">Payment Settlement Mode</label>
                 <select
                   id="select-payment-mode"
                   value={paymentMode}
                   onChange={e => setPaymentMode(e.target.value as any)}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-amber-500"
+                  className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:outline-none focus:border-emerald-600"
                 >
                   <option value="CREDIT">Full Credit (Charge to Customer Ledger)</option>
                   <option value="CASH">Full Immediate Payment (Cash / UPI / Bank)</option>
@@ -1232,10 +1232,10 @@ export function CreateOfflineOrderModal({
               </div>
 
               {(paymentMode === 'CASH' || paymentMode === 'PARTIAL') && (
-                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-xl border border-gray-200">
                   {paymentMode === 'PARTIAL' && (
                     <div className="col-span-2">
-                      <label className="text-slate-400 font-semibold">Upfront Amount Paid (₹)</label>
+                      <label className="text-gray-500 font-semibold">Upfront Amount Paid (₹)</label>
                       <input
                         id="input-paid-amount"
                         type="number"
@@ -1244,18 +1244,18 @@ export function CreateOfflineOrderModal({
                         step="1"
                         value={paidAmount}
                         onChange={e => setPaidAmount(e.target.value)}
-                        className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono focus:outline-none focus:border-amber-500"
+                        className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-1.5 text-gray-900 font-mono focus:outline-none focus:border-emerald-600"
                       />
                     </div>
                   )}
 
                   <div>
-                    <label className="text-slate-400 font-semibold">Payment Method</label>
+                    <label className="text-gray-500 font-semibold">Payment Method</label>
                     <select
                       id="select-payment-method"
                       value={paymentMethod}
                       onChange={e => setPaymentMethod(e.target.value)}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500"
+                      className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2 py-1.5 text-gray-900 text-xs focus:outline-none focus:border-emerald-600"
                     >
                       <option value="CASH">Cash</option>
                       <option value="UPI">UPI</option>
@@ -1265,62 +1265,62 @@ export function CreateOfflineOrderModal({
                   </div>
 
                   <div>
-                    <label className="text-slate-400 font-semibold">UTR / Reference No.</label>
+                    <label className="text-gray-500 font-semibold">UTR / Reference No.</label>
                     <input
                       id="input-payment-ref"
                       type="text"
                       placeholder="e.g. UPI-998811"
                       value={paymentReference}
                       onChange={e => setPaymentReference(e.target.value)}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                      className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-2 py-1.5 text-gray-900 text-xs font-mono focus:outline-none focus:border-emerald-600"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="text-slate-400 font-semibold">Order / Dispatch Notes</label>
+                <label className="text-gray-500 font-semibold">Order / Dispatch Notes</label>
                 <input
                   id="input-order-notes"
                   type="text"
-                  placeholder="e.g. Mandya Mill gate pickup via tempo KA-11-2026"
+                  placeholder="e.g. Factory gate pickup via tempo AP-16-2026"
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
             </div>
 
             {/* Order Summary Calculation Box */}
-            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between">
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 space-y-3 flex flex-col justify-between">
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Order Financial Breakdown</h4>
-                <div className="space-y-2 text-slate-300">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Order Financial Breakdown</h4>
+                <div className="space-y-2 text-gray-700">
                   <div className="flex justify-between">
                     <span>Taxable Subtotal:</span>
-                    <span className="font-mono text-white">{formatPrice(subtotalSum)}</span>
+                    <span className="font-mono text-gray-900">{formatPrice(subtotalSum)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-400 text-[11px]">
+                  <div className="flex justify-between text-gray-500 text-[11px]">
                     <span>CGST (2.5%):</span>
                     <span className="font-mono">{formatPrice(totalGstSum / 2)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-400 text-[11px]">
+                  <div className="flex justify-between text-gray-500 text-[11px]">
                     <span>SGST (2.5%):</span>
                     <span className="font-mono">{formatPrice(totalGstSum / 2)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-sky-400 font-semibold">
+                  <div className="flex justify-between text-xs text-sky-700 font-semibold">
                     <span>Total GST (5%):</span>
                     <span className="font-mono">{formatPrice(totalGstSum)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-800">
+                  <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                     <span>Grand Total:</span>
-                    <span id="order-total-amount" className="text-amber-400 font-mono text-base">{formatPrice(totalOrderAmount)}</span>
+                    <span id="order-total-amount" className="text-amber-700 font-mono text-base">{formatPrice(totalOrderAmount)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-emerald-400 pt-1">
+                  <div className="flex justify-between text-xs text-emerald-700 pt-1">
                     <span>Upfront Paid:</span>
                     <span className="font-mono">{formatPrice(upfrontPaid)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-amber-400 font-bold pt-1 border-t border-slate-800/60">
+                  <div className="flex justify-between text-xs text-amber-700 font-bold pt-1 border-t border-gray-200/60">
                     <span>Debit Added to Ledger:</span>
                     <span className="font-mono">{formatPrice(balanceToLedger)}</span>
                   </div>
@@ -1332,7 +1332,7 @@ export function CreateOfflineOrderModal({
                   id="btn-submit-offline-order"
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
                 >
                   {loading && <RefreshCw className="h-4 w-4 animate-spin" />}
                   <span>Confirm Offline Order & Post to Ledger</span>
@@ -1385,14 +1385,14 @@ export function LedgerStatementModal({
   }, [fetchStatement]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-4xl shadow-2xl relative max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-4xl shadow-2xl relative max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
           <div className="flex items-center gap-2.5">
-            <BookOpen className="h-6 w-6 text-amber-400" />
+            <BookOpen className="h-6 w-6 text-amber-700" />
             <div>
-              <h2 className="text-lg font-black text-white">Customer Statement of Account & Ledger</h2>
-              <p className="text-xs text-slate-400">
+              <h2 className="text-lg font-black text-gray-900">Customer Statement of Account & Ledger</h2>
+              <p className="text-xs text-gray-500">
                 {customer.businessName || customer.contactPerson} • Terms: {customer.paymentTerms} • Credit Limit: {formatPrice(customer.creditLimit)}
               </p>
             </div>
@@ -1401,21 +1401,21 @@ export function LedgerStatementModal({
             <button
               id="btn-print-statement"
               onClick={() => window.print()}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
             >
               <Printer className="h-3.5 w-3.5" /> Print Statement
             </button>
             <button
               id="btn-record-payment-from-ledger"
               onClick={onRecordPayment}
-              className="px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1"
+              className="px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1"
             >
               <Wallet className="h-3.5 w-3.5" /> Record Payment
             </button>
             <button
               id="close-ledger-modal"
               onClick={onClose}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition"
+              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-gray-500 hover:text-gray-900 rounded-xl transition"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1423,12 +1423,12 @@ export function LedgerStatementModal({
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-slate-500">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-amber-500 mb-2" />
+          <div className="py-16 text-center text-gray-500">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-emerald-600 mb-2" />
             Loading ledger entries & calculating balances...
           </div>
         ) : error ? (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+          <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl text-xs flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -1436,33 +1436,33 @@ export function LedgerStatementModal({
           <div className="space-y-6">
             {/* Header Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <span className="text-slate-400 font-semibold">Total Debits (Invoices)</span>
-                <div className="text-base font-black text-white font-mono mt-1">{formatPrice(statement.totalDebits)}</div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <span className="text-gray-500 font-semibold">Total Debits (Invoices)</span>
+                <div className="text-base font-black text-gray-900 font-mono mt-1">{formatPrice(statement.totalDebits)}</div>
               </div>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <span className="text-slate-400 font-semibold">Total Credits (Payments)</span>
-                <div className="text-base font-black text-emerald-400 font-mono mt-1">{formatPrice(statement.totalCredits)}</div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <span className="text-gray-500 font-semibold">Total Credits (Payments)</span>
+                <div className="text-base font-black text-emerald-700 font-mono mt-1">{formatPrice(statement.totalCredits)}</div>
               </div>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <span className="text-slate-400 font-semibold">Closing Outstanding</span>
-                <div id="statement-closing-balance" className="text-base font-black text-amber-400 font-mono mt-1">
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <span className="text-gray-500 font-semibold">Closing Outstanding</span>
+                <div id="statement-closing-balance" className="text-base font-black text-amber-700 font-mono mt-1">
                   {formatPrice(statement.currentOutstanding)}
                 </div>
               </div>
-              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <span className="text-slate-400 font-semibold">Available Credit</span>
-                <div className="text-base font-black text-sky-400 font-mono mt-1">
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <span className="text-gray-500 font-semibold">Available Credit</span>
+                <div className="text-base font-black text-sky-700 font-mono mt-1">
                   {formatPrice(Math.max(0, (statement.creditLimit || 0) - (statement.currentOutstanding || 0)))}
                 </div>
               </div>
             </div>
 
             {/* Ledger Transactions Table */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+            <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-lg">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-900 border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <table className="w-full text-left text-xs text-gray-700">
+                  <thead className="bg-white border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                     <tr>
                       <th className="py-3 px-3">Date</th>
                       <th className="py-3 px-3">Type</th>
@@ -1474,17 +1474,17 @@ export function LedgerStatementModal({
                       <th className="py-3 px-2 text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                  <tbody className="divide-y divide-gray-200/60 font-mono text-[11px]">
                     {statement.entries.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-500 font-sans">
+                        <td colSpan={8} className="py-8 text-center text-gray-500 font-sans">
                           No transactions recorded on this account yet.
                         </td>
                       </tr>
                     ) : (
                       statement.entries.map((e, idx) => (
-                        <tr key={e.id || idx} className="hover:bg-slate-900/40 transition">
-                          <td className="py-2.5 px-3 text-slate-400">
+                        <tr key={e.id || idx} className="hover:bg-white transition">
+                          <td className="py-2.5 px-3 text-gray-500">
                             {new Date(e.transactionDate).toLocaleDateString()}
                           </td>
 
@@ -1492,37 +1492,37 @@ export function LedgerStatementModal({
                             <span
                               className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-sans ${
                                 e.transactionType === 'INVOICE_DEBIT'
-                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  ? 'bg-emerald-50 text-amber-700 border border-emerald-500/20'
                                   : e.transactionType === 'PAYMENT_CREDIT'
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-800 text-slate-400'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                  : 'bg-emerald-50 text-gray-500'
                               }`}
                             >
                               {e.transactionType}
                             </span>
                           </td>
 
-                          <td className="py-2.5 px-3 text-slate-300 font-bold">{e.referenceId || '—'}</td>
+                          <td className="py-2.5 px-3 text-gray-700 font-bold">{e.referenceId || '—'}</td>
 
-                          <td className="py-2.5 px-4 font-sans text-xs text-slate-300">{e.description}</td>
+                          <td className="py-2.5 px-4 font-sans text-xs text-gray-700">{e.description}</td>
 
-                          <td className="py-2.5 px-3 text-right text-red-400 font-semibold">
+                          <td className="py-2.5 px-3 text-right text-red-600 font-semibold">
                             {e.debitAmount > 0 ? formatPrice(e.debitAmount) : '—'}
                           </td>
 
-                          <td className="py-2.5 px-3 text-right text-emerald-400 font-semibold">
+                          <td className="py-2.5 px-3 text-right text-emerald-700 font-semibold">
                             {e.creditAmount > 0 ? formatPrice(e.creditAmount) : '—'}
                           </td>
 
-                          <td className="py-2.5 px-3 text-right text-white font-bold">
+                          <td className="py-2.5 px-3 text-right text-gray-900 font-bold">
                             {formatPrice(e.balanceAfter)}
                           </td>
 
                           <td className="py-2.5 px-2 text-center font-sans">
                             {e.overdue ? (
-                              <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded font-bold">OVERDUE</span>
+                              <span className="text-[9px] bg-red-500/20 text-red-600 border border-red-500/30 px-1.5 py-0.5 rounded font-bold">OVERDUE</span>
                             ) : (
-                              <span className="text-[9px] text-slate-500">OK</span>
+                              <span className="text-[9px] text-gray-500">OK</span>
                             )}
                           </td>
                         </tr>
@@ -1600,36 +1600,36 @@ export function RecordPaymentModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative">
         <button
           id="close-payment-modal"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+          className="absolute top-5 right-5 p-1.5 rounded-xl bg-emerald-50 text-gray-500 hover:text-gray-900 transition"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-emerald-400" /> Record Customer Payment
+        <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-emerald-700" /> Record Customer Payment
         </h2>
-        <p className="text-xs text-slate-400 mb-5">Credit payment collection onto ledger and reduce outstanding balance</p>
+        <p className="text-xs text-gray-500 mb-5">Credit payment collection onto ledger and reduce outstanding balance</p>
 
         {error && (
-          <div className="mb-4 flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+          <div className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-5 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 mb-5 flex items-center justify-between">
           <div>
-            <div className="text-[11px] text-slate-400 font-semibold">{customer.businessName || customer.contactPerson}</div>
-            <div className="text-xs text-slate-300 mt-0.5">{customer.phone} • {customer.paymentTerms}</div>
+            <div className="text-[11px] text-gray-500 font-semibold">{customer.businessName || customer.contactPerson}</div>
+            <div className="text-xs text-gray-700 mt-0.5">{customer.phone} • {customer.paymentTerms}</div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] text-slate-500 uppercase font-bold">Outstanding</div>
-            <div id="payment-modal-outstanding" className="text-base font-black text-amber-400 font-mono">
+            <div className="text-[10px] text-gray-500 uppercase font-bold">Outstanding</div>
+            <div id="payment-modal-outstanding" className="text-base font-black text-amber-700 font-mono">
               {formatPrice(customer.currentOutstanding)}
             </div>
           </div>
@@ -1638,11 +1638,11 @@ export function RecordPaymentModal({
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-slate-400 font-semibold">Payment Amount (₹) *</label>
+              <label className="text-gray-500 font-semibold">Payment Amount (₹) *</label>
               <button
                 type="button"
                 onClick={() => setAmount(customer.currentOutstanding.toString())}
-                className="text-[10px] text-amber-400 hover:underline font-bold"
+                className="text-[10px] text-amber-700 hover:underline font-bold"
               >
                 Set Full Amount ({formatPrice(customer.currentOutstanding)})
               </button>
@@ -1656,18 +1656,18 @@ export function RecordPaymentModal({
               required
               value={amount}
               onChange={e => setAmount(e.target.value)}
-              className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-mono text-base focus:outline-none focus:border-emerald-500"
+              className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2.5 text-gray-900 font-mono text-base focus:outline-none focus:border-emerald-500"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-slate-400 font-semibold">Payment Method</label>
+              <label className="text-gray-500 font-semibold">Payment Method</label>
               <select
                 id="select-payment-method-record"
                 value={paymentMethod}
                 onChange={e => setPaymentMethod(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
               >
                 <option value="UPI">UPI / QR Code</option>
                 <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS)</option>
@@ -1677,35 +1677,35 @@ export function RecordPaymentModal({
             </div>
 
             <div>
-              <label className="text-slate-400 font-semibold">UTR / Ref No.</label>
+              <label className="text-gray-500 font-semibold">UTR / Ref No.</label>
               <input
                 id="input-payment-ref-record"
                 type="text"
                 placeholder="e.g. UTR-88776655"
                 value={paymentReference}
                 onChange={e => setPaymentReference(e.target.value)}
-                className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-mono focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-slate-400 font-semibold">Notes / Remarks</label>
+            <label className="text-gray-500 font-semibold">Notes / Remarks</label>
             <input
               id="input-payment-notes"
               type="text"
-              placeholder="e.g. Cleared invoice against Mandya order"
+              placeholder="e.g. Cleared invoice against order"
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+              className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-slate-800">
+          <div className="pt-4 flex justify-end gap-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition"
+              className="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-gray-700 font-semibold transition"
             >
               Cancel
             </button>
@@ -1713,7 +1713,7 @@ export function RecordPaymentModal({
               id="btn-submit-payment"
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold shadow-lg shadow-emerald-500/20 transition flex items-center gap-2"
+              className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-bold shadow-lg shadow-emerald-500/20 transition flex items-center gap-2"
             >
               {loading && <RefreshCw className="h-4 w-4 animate-spin" />}
               <span>Post Payment to Ledger</span>
@@ -1741,59 +1741,59 @@ export function OfflineInvoiceModal({
   const customerDisplayName = order.businessName || order.customerName || 'Wholesale Buyer';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-amber-400" />
-            <h2 className="text-lg font-bold text-white">Wholesale GST Tax Invoice</h2>
+            <FileText className="h-5 w-5 text-amber-700" />
+            <h2 className="text-lg font-bold text-gray-900">Wholesale GST Tax Invoice</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
               id="btn-print-offline-invoice"
               onClick={() => window.print()}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
             >
               <Printer className="h-3.5 w-3.5" /> Print Invoice
             </button>
             <button
               id="close-offline-invoice-modal"
               onClick={onClose}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition"
+              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-gray-500 hover:text-gray-900 rounded-xl transition"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        <div id="offline-invoice-modal-content" className="bg-slate-950 p-6 sm:p-8 rounded-2xl border border-slate-800 text-xs text-slate-300 space-y-6">
+        <div id="offline-invoice-modal-content" className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 text-xs text-gray-700 space-y-6">
           {/* Header & Seller details */}
-          <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-slate-800 pb-5">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
             <div>
-              <div className="font-extrabold text-xl text-white tracking-tight">RR JAGGERY TRADERS</div>
-              <div className="text-slate-400 text-[11px] mt-1">Sy No. 45/2, Sugar Mill Road, Mandya, Karnataka - 571401</div>
-              <div className="text-slate-400 text-[11px]">GSTIN: <strong className="text-amber-400">29ABCDE1234F1Z5</strong> | PAN: ABCDE1234F</div>
-              <div className="text-slate-400 text-[11px]">FSSAI Lic: <strong>11223334000123</strong> | State Code: 29 (Karnataka)</div>
+              <div className="font-extrabold text-xl text-gray-900 tracking-tight">RR JAGGERY</div>
+              <div className="text-gray-500 text-[11px] mt-1">Vollurupallem, Thotlavalluru, Andhra Pradesh - 5221163</div>
+              <div className="text-gray-500 text-[11px]">GSTIN: <strong className="text-emerald-700">37ABCDE1234F1Z5</strong> | PAN: ABCDE1234F</div>
+              <div className="text-gray-500 text-[11px]">FSSAI Lic: <strong>11223334000123</strong> | State Code: 37 (Andhra Pradesh)</div>
             </div>
             <div className="sm:text-right space-y-1">
-              <div className="text-sm font-bold text-amber-400 font-mono">INV-{order.orderNumber}</div>
-              <div className="text-slate-400">Order No: <span className="font-mono text-white">{order.orderNumber}</span></div>
-              <div className="text-slate-400">Date: {new Date(order.orderDate || order.createdAt || Date.now()).toLocaleDateString()}</div>
-              <div className="text-emerald-400 font-bold">Payment: {order.paymentStatus || 'CONFIRMED'} ({order.paymentMode || 'CREDIT'})</div>
+              <div className="text-sm font-bold text-emerald-700 font-mono">INV-{order.orderNumber}</div>
+              <div className="text-gray-500">Order No: <span className="font-mono text-gray-900">{order.orderNumber}</span></div>
+              <div className="text-gray-500">Date: {new Date(order.orderDate || order.createdAt || Date.now()).toLocaleDateString()}</div>
+              <div className="text-emerald-700 font-bold">Payment: {order.paymentStatus || 'CONFIRMED'} ({order.paymentMode || 'CREDIT'})</div>
             </div>
           </div>
 
           {/* Bill To */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-slate-800 pb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-200 pb-5">
             <div>
-              <div className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Billed & Shipped To</div>
-              <div className="text-white font-bold mt-1">{customerDisplayName}</div>
-              <div className="text-slate-400">Payment Terms: {order.paymentTerms || 'NET_30'}</div>
+              <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">Billed & Shipped To</div>
+              <div className="text-gray-900 font-bold mt-1">{customerDisplayName}</div>
+              <div className="text-gray-500">Payment Terms: {order.paymentTerms || 'NET_30'}</div>
             </div>
             <div className="sm:text-right">
-              <div className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">HSN / SAC Code</div>
-              <div className="text-white font-mono mt-1">17011490 (Cane Jaggery)</div>
-              <div className="text-slate-400 text-[11px]">Place of Supply: Karnataka (29)</div>
+              <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">HSN / SAC Code</div>
+              <div className="text-gray-900 font-mono mt-1">17011490 (Cane Jaggery)</div>
+              <div className="text-gray-500 text-[11px]">Place of Supply: Andhra Pradesh (37)</div>
             </div>
           </div>
 
@@ -1801,7 +1801,7 @@ export function OfflineInvoiceModal({
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-500 text-[10px] uppercase font-semibold">
+                <tr className="border-b border-gray-200 text-gray-500 text-[10px] uppercase font-semibold">
                   <th className="py-2">Item Description</th>
                   <th className="py-2 text-right">Unit Wt (kg)</th>
                   <th className="py-2 text-right">Qty</th>
@@ -1810,15 +1810,15 @@ export function OfflineInvoiceModal({
                   <th className="py-2 text-right">Total</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-gray-200/60">
                 {items.map((item: any, idx) => (
                   <tr key={idx}>
-                    <td className="py-2.5 text-white font-medium">{item.productName}</td>
-                    <td className="py-2.5 text-right text-slate-400 font-mono">{item.unitWeightKg || 10}kg</td>
-                    <td className="py-2.5 text-right text-white font-mono">{item.quantity}</td>
-                    <td className="py-2.5 text-right text-white font-mono">{formatPrice(item.unitPrice || item.wholesalePrice)}</td>
-                    <td className="py-2.5 text-right text-slate-400 font-mono">{formatPrice(item.taxAmount || item.gstAmount || ((item.unitPrice || item.wholesalePrice || 0) * item.quantity * 0.05))}</td>
-                    <td className="py-2.5 text-right text-amber-400 font-semibold font-mono">{formatPrice(item.totalAmount || ((item.unitPrice || item.wholesalePrice || 0) * item.quantity * 1.05))}</td>
+                    <td className="py-2.5 text-gray-900 font-medium">{item.productName}</td>
+                    <td className="py-2.5 text-right text-gray-500 font-mono">{item.unitWeightKg || 10}kg</td>
+                    <td className="py-2.5 text-right text-gray-900 font-mono">{item.quantity}</td>
+                    <td className="py-2.5 text-right text-gray-900 font-mono">{formatPrice(item.unitPrice || item.wholesalePrice)}</td>
+                    <td className="py-2.5 text-right text-gray-500 font-mono">{formatPrice(item.taxAmount || item.gstAmount || ((item.unitPrice || item.wholesalePrice || 0) * item.quantity * 0.05))}</td>
+                    <td className="py-2.5 text-right text-emerald-700 font-semibold font-mono">{formatPrice(item.totalAmount || ((item.unitPrice || item.wholesalePrice || 0) * item.quantity * 1.05))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1826,33 +1826,33 @@ export function OfflineInvoiceModal({
           </div>
 
           {/* Financial Totals */}
-          <div className="flex flex-col sm:flex-row justify-between items-start border-t border-slate-800 pt-4 gap-4">
-            <div className="text-[11px] text-slate-400 space-y-1">
-              <div>Bank: State Bank of India • Mandya Main Branch</div>
+          <div className="flex flex-col sm:flex-row justify-between items-start border-t border-gray-200 pt-4 gap-4">
+            <div className="text-[11px] text-gray-500 space-y-1">
+              <div>Bank: State Bank of India • Thotlavalluru Branch</div>
               <div>A/C No: 12345678901 • IFSC: SBIN0001234</div>
             </div>
             <div className="sm:text-right space-y-1.5 w-full sm:w-64">
               <div className="flex justify-between">
                 <span>Taxable Amount:</span>
-                <span className="font-mono text-white">{formatPrice(order.subtotalAmount)}</span>
+                <span className="font-mono text-gray-900">{formatPrice(order.subtotalAmount)}</span>
               </div>
-              <div className="flex justify-between text-slate-400 text-[11px]">
+              <div className="flex justify-between text-gray-500 text-[11px]">
                 <span>CGST (2.5%):</span>
                 <span className="font-mono">{formatPrice(tax / 2)}</span>
               </div>
-              <div className="flex justify-between text-slate-400 text-[11px]">
+              <div className="flex justify-between text-gray-500 text-[11px]">
                 <span>SGST (2.5%):</span>
                 <span className="font-mono">{formatPrice(tax / 2)}</span>
               </div>
-              <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-800">
+              <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                 <span>Invoice Total:</span>
-                <span className="text-amber-400 font-mono">{formatPrice(order.totalAmount)}</span>
+                <span className="text-amber-700 font-mono">{formatPrice(order.totalAmount)}</span>
               </div>
-              <div className="flex justify-between text-emerald-400 font-semibold text-xs">
+              <div className="flex justify-between text-emerald-700 font-semibold text-xs">
                 <span>Paid Amount:</span>
                 <span className="font-mono">{formatPrice(order.paidAmount || 0)}</span>
               </div>
-              <div className="flex justify-between text-amber-400 font-bold text-xs">
+              <div className="flex justify-between text-amber-700 font-bold text-xs">
                 <span>Balance to Ledger:</span>
                 <span className="font-mono">{formatPrice(order.outstandingAmount || 0)}</span>
               </div>

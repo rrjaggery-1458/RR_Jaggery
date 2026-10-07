@@ -5,9 +5,15 @@ All notable changes to the **RR Jaggery Traders** platform will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - Pre-Sprint 6: Business Access Model Revision & Gateway 502 Resolution
+## [1.5.0] - Pre-Sprint 6: Business Access Model Revision, Data Reconciliation & Drill-down Dashboards
 
 ### Added
+- **Interactive Drill-down Modals in Manager Overview Dashboard (`frontend/src/ManagerPortal.tsx`):**
+  * **Stock Movement Ledger Modal**: Clickable "Jaggery in Stock" KPI card opening real-time movement history (`GET /api/v1/inventory/items/{id}/movements`) with date, movement type badge, quantity delta (`+`/`-`), reason, and notes.
+  * **Supplier Payables Breakdown Modal**: Clickable "Pending Bills" KPI card displaying itemized payables per supplier with category, contact details, balance, and accounting disclaimer.
+- **Data Reconciliation & PostgreSQL Integrity:**
+  * Reconciled 1,185 KG finished goods stock: 900 KG initial seed inventory (`movement_type = OTHER`) + 285 KG from 3 completed production batches (`movement_type = PRODUCTION_OUTPUT`).
+  * Reconciled ₹207,000 pending bills across 5 cane suppliers from 9 goods receipt entries (`procurement_schema.supplier_ledger_entries`).
 - **3-Role Authoritative Access Model (`ADMIN`, `MANAGER`, `CUSTOMER`):**
   * `MANAGER` role added to `Role` enum and `SecurityConstants` with full operational permissions across Inventory, Procurement, Mill Production, Customer Ledger, and Product Catalogue.
   * `AdminUserController` and `AdminUserService` in `auth-service` supporting Admin creation of Managers (`POST /api/v1/auth/admin/managers`), listing all user accounts (`GET /api/v1/auth/admin/users`), editing details (`PUT /api/v1/auth/admin/users/{id}`), toggling login status (`PATCH /api/v1/auth/admin/users/{id}/enabled`), and real-time user statistics (`GET /api/v1/auth/admin/stats`).
@@ -16,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * Executive Overview Real-Data Dashboard in frontend aggregating live metrics from active microservices (Sprints 0–5) with explicit "Not available yet (Sprint 6)" placeholders for future finance/payroll metrics.
 
 ### Changed
+- **ProductionBatch DTO Alignment (`frontend/src/ManagerPortal.tsx`):**
+  * Updated frontend `ProductionBatch` interface and `productionMetrics` memo to recognize `completionDate`, `actualQuantity`, `actualQuantityKg`, and `plannedQuantityKg`, fixing the zero-production display in the overview dashboard.
+- **Product Image Pipeline:**
+  * Enabled product image rendering on the public Storefront using `/uploads/products/<filename>` relative paths mapped to the shared persistent volume.
 - **502 Bad Gateway Root Cause Fix:**
   * Excluded `UserDetailsServiceAutoConfiguration` across all 8 Spring Boot microservices (`auth-service`, `commerce-service`, `customer-ledger-service`, `inventory-service`, `procurement-service`, `production-service`, `finance-service`, `notification-service`).
   * Resolved conflict where default in-memory UserDetailsService triggered Basic Auth challenge on JWT bearer requests, returning 401 upstream and 502 at the Nginx reverse proxy.

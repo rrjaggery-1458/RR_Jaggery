@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,31 +6,69 @@
 
 @layer base {
   body {
-    @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-amber-500 selection:text-slate-950;
+    background-color: #f2f8f3;
+    color: #111827;
+    font-family: 'Inter', sans-serif;
     min-height: 100vh;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
+    color: #064e3b;
+  }
+
+  input, select, textarea {
+    color: #111827 !important;
+    background-color: #ffffff;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #9ca3af;
   }
 }
 
-.glass-card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(245, 158, 11, 0.15);
+/* ── Crisp Card & Square Shape Styling ───────────────────────────── */
+.card-crisp {
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
-.glass-card:hover {
-  border-color: rgba(245, 158, 11, 0.35);
+.card-crisp:hover {
+  border-color: #059669;
 }
 
-.jaggery-gradient {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 50%, #78350f 100%);
+/* ── Storefront Light Theme Utilities ─────────────────────────────── */
+.sf-card {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  transition: all 0.2s ease;
 }
 
-.jaggery-text-gradient {
-  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.sf-card:hover {
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.12);
+  border-color: #059669;
+  transform: translateY(-2px);
+}
+
+.organic-gradient {
+  background: linear-gradient(135deg, #059669 0%, #047857 50%, #064e3b 100%);
+}
+
+.hero-organic {
+  background: linear-gradient(135deg, #f2f8f3 0%, #e6f4ea 50%, #f0fdf4 100%);
+}
+
+/* ── Scrollbar Styling ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f2f8f3; }
+::-webkit-scrollbar-thumb { background: #a7f3d0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #059669; }
+
+/* ── Focus Visible ───────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
 }

@@ -153,12 +153,12 @@ async function apiRequest<T>(url: string, token: string, init?: RequestInit): Pr
 }
 
 const statusColors: Record<BatchStatus, { bg: string; text: string; border: string }> = {
-  PLANNED: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
-  MATERIALS_READY: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30' },
-  IN_PRODUCTION: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
-  QUALITY_CHECK: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30' },
-  COMPLETED: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-  CANCELLED: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30' }
+  PLANNED: { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/30' },
+  MATERIALS_READY: { bg: 'bg-cyan-500/10', text: 'text-cyan-700', border: 'border-cyan-500/30' },
+  IN_PRODUCTION: { bg: 'bg-emerald-50', text: 'text-amber-700', border: 'border-emerald-500/30' },
+  QUALITY_CHECK: { bg: 'bg-purple-500/10', text: 'text-purple-700', border: 'border-purple-500/30' },
+  COMPLETED: { bg: 'bg-emerald-500/10', text: 'text-emerald-700', border: 'border-emerald-500/30' },
+  CANCELLED: { bg: 'bg-rose-500/10', text: 'text-rose-600', border: 'border-rose-500/30' }
 };
 
 export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
@@ -262,13 +262,13 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header & Metrics */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-5">
         <div>
-          <h2 className="text-2xl font-black text-white flex items-center gap-3">
-            <Factory className="h-7 w-7 text-amber-500" />
+          <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3">
+            <Factory className="h-7 w-7 text-emerald-600" />
             Mill Production & Batch Management
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Bill of Materials (Recipes), material consumption, output lots, yield & wastage tracking
           </p>
         </div>
@@ -276,14 +276,14 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
           <button
             onClick={loadData}
             title="Refresh"
-            className="p-2.5 rounded-xl border border-slate-700 bg-slate-900/80 hover:bg-slate-800 transition"
+            className="p-2.5 rounded-xl border border-gray-300 bg-white/90 hover:bg-emerald-50 transition"
           >
-            <RefreshCw className={`h-4 w-4 text-amber-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 text-amber-700 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             id="btn-new-recipe"
             onClick={() => setActiveModal('newRecipe')}
-            className="px-3.5 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 font-bold text-xs transition flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-50 text-amber-700 hover:bg-emerald-100 font-bold text-xs transition flex items-center gap-1.5"
           >
             <Plus className="h-3.5 w-3.5" />
             New Recipe
@@ -294,7 +294,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
               setRecipeForBatch(null);
               setActiveModal('newBatch');
             }}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs hover:brightness-110 shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-gray-900 font-bold text-xs hover:brightness-105 shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5"
           >
             <Flame className="h-3.5 w-3.5" />
             Start Batch
@@ -304,43 +304,43 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-slate-900/40 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+        <div className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-4 border border-gray-200 bg-white space-y-1">
+          <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
             <span>Total Batches</span>
-            <ClipboardList className="h-4 w-4 text-blue-400" />
+            <ClipboardList className="h-4 w-4 text-blue-600" />
           </div>
-          <div className="text-2xl font-black text-white">{totalBatches}</div>
-          <div className="text-[11px] text-slate-500">{recipes.length} BOM Recipes Defined</div>
+          <div className="text-2xl font-black text-gray-900">{totalBatches}</div>
+          <div className="text-[11px] text-gray-500">{recipes.length} BOM Recipes Defined</div>
         </div>
-        <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-slate-900/40 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+        <div className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-4 border border-gray-200 bg-white space-y-1">
+          <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
             <span>Active in Mill</span>
-            <Flame className="h-4 w-4 text-amber-400 animate-pulse" />
+            <Flame className="h-4 w-4 text-amber-700 animate-pulse" />
           </div>
-          <div className="text-2xl font-black text-amber-400">{activeBatches}</div>
-          <div className="text-[11px] text-slate-500">In Prep, Boiling & QA</div>
+          <div className="text-2xl font-black text-amber-700">{activeBatches}</div>
+          <div className="text-[11px] text-gray-500">In Prep, Boiling & QA</div>
         </div>
-        <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-slate-900/40 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+        <div className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-4 border border-gray-200 bg-white space-y-1">
+          <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
             <span>Completed Output</span>
-            <Scale className="h-4 w-4 text-emerald-400" />
+            <Scale className="h-4 w-4 text-emerald-700" />
           </div>
-          <div className="text-2xl font-black text-emerald-400">{totalFinishedKg.toLocaleString()} KG</div>
-          <div className="text-[11px] text-slate-500">{completedBatches.length} Finished Batches</div>
+          <div className="text-2xl font-black text-emerald-700">{totalFinishedKg.toLocaleString()} KG</div>
+          <div className="text-[11px] text-gray-500">{completedBatches.length} Finished Batches</div>
         </div>
-        <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-slate-900/40 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
+        <div className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-4 border border-gray-200 bg-white space-y-1">
+          <div className="flex items-center justify-between text-gray-500 text-xs font-semibold">
             <span>Average Yield</span>
-            <Percent className="h-4 w-4 text-purple-400" />
+            <Percent className="h-4 w-4 text-purple-700" />
           </div>
-          <div className="text-2xl font-black text-purple-400">{avgYield}%</div>
-          <div className="text-[11px] text-slate-500">Actual vs Planned Yield</div>
+          <div className="text-2xl font-black text-purple-700">{avgYield}%</div>
+          <div className="text-[11px] text-gray-500">Actual vs Planned Yield</div>
         </div>
       </div>
 
       {/* Alerts */}
       {error && (
-        <div className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm flex items-start gap-2.5">
+        <div className="p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-sm flex items-start gap-2.5">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -354,12 +354,12 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
 
       {/* Tab Navigation */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs w-fit">
+        <div className="flex gap-1 bg-white/90 p-1 rounded-xl border border-gray-200 text-xs w-fit">
           <button
             id="tab-btn-batches"
             onClick={() => setSubTab('batches')}
             className={`px-3.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
-              subTab === 'batches' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+              subTab === 'batches' ? 'bg-emerald-600 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
             <Factory className="h-3.5 w-3.5" />
@@ -369,7 +369,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
             id="tab-btn-recipes"
             onClick={() => setSubTab('recipes')}
             className={`px-3.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
-              subTab === 'recipes' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+              subTab === 'recipes' ? 'bg-emerald-600 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
             <Layers className="h-3.5 w-3.5" />
@@ -386,8 +386,8 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                   onClick={() => setStatusFilter(status)}
                   className={`px-2.5 py-1 rounded-lg font-medium text-[11px] transition ${
                     statusFilter === status
-                      ? 'bg-slate-700 text-white font-bold border border-slate-600'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-emerald-100 text-gray-900 font-bold border border-gray-300'
+                      : 'text-gray-500 hover:text-gray-800'
                   }`}
                 >
                   {status}
@@ -402,15 +402,15 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
       {subTab === 'batches' && (
         <div className="space-y-3">
           {filteredBatches.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center border border-slate-800 bg-slate-900/20 text-slate-400 space-y-3">
-              <Factory className="h-10 w-10 mx-auto text-slate-600" />
+            <div className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-12 text-center border border-gray-200 bg-white/20 text-gray-500 space-y-3">
+              <Factory className="h-10 w-10 mx-auto text-gray-600" />
               <p className="font-semibold text-sm">No production batches found.</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
                 Create a recipe or launch a production batch to begin tracking raw material consumption and finished goods output.
               </p>
               <button
                 onClick={() => setActiveModal('newBatch')}
-                className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:brightness-110"
+                className="px-4 py-2 bg-emerald-600 text-gray-900 font-bold text-xs rounded-xl hover:brightness-105"
               >
                 Launch First Batch
               </button>
@@ -422,12 +422,12 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                 return (
                   <div
                     key={batch.id}
-                    className="glass-card rounded-2xl p-5 border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition space-y-4"
+                    className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-5 border border-gray-200 bg-white hover:border-gray-300 transition space-y-4"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2.5">
-                          <span className="font-mono font-bold text-base text-white">{batch.batchNumber}</span>
+                          <span className="font-mono font-bold text-base text-gray-900">{batch.batchNumber}</span>
                           <span
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${style.bg} ${style.text} ${style.border}`}
                           >
@@ -439,18 +439,18 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-400 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <div className="text-xs text-gray-500 flex flex-wrap items-center gap-x-4 gap-y-1">
                           <span>
-                            Target: <strong className="text-slate-200">{batch.targetProductName}</strong> ({batch.targetProductSku})
+                            Target: <strong className="text-gray-800">{batch.targetProductName}</strong> ({batch.targetProductSku})
                           </span>
                           {batch.recipeCode && (
                             <span>
-                              Recipe: <strong className="text-amber-400">{batch.recipeCode}</strong>
+                              Recipe: <strong className="text-amber-700">{batch.recipeCode}</strong>
                             </span>
                           )}
                           {batch.batchLot && (
                             <span>
-                              Lot: <strong className="text-slate-300 font-mono">{batch.batchLot}</strong>
+                              Lot: <strong className="text-gray-700 font-mono">{batch.batchLot}</strong>
                             </span>
                           )}
                           {batch.supervisor && <span>Supervisor: {batch.supervisor}</span>}
@@ -458,24 +458,24 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                       </div>
 
                       {/* Quantities Overview */}
-                      <div className="flex items-center gap-4 bg-slate-950/60 px-3.5 py-2 rounded-xl border border-slate-800 text-xs">
+                      <div className="flex items-center gap-4 bg-white/60 px-3.5 py-2 rounded-xl border border-gray-200 text-xs">
                         <div>
-                          <div className="text-[10px] text-slate-500">Planned</div>
-                          <div className="font-bold text-slate-200">
+                          <div className="text-[10px] text-gray-500">Planned</div>
+                          <div className="font-bold text-gray-800">
                             {batch.plannedQuantity} {batch.unitOfMeasure}
                           </div>
                         </div>
-                        <div className="h-6 w-px bg-slate-800" />
+                        <div className="h-6 w-px bg-emerald-50" />
                         <div>
-                          <div className="text-[10px] text-slate-500">Output</div>
-                          <div className="font-bold text-emerald-400">
+                          <div className="text-[10px] text-gray-500">Output</div>
+                          <div className="font-bold text-emerald-700">
                             {batch.actualQuantity} {batch.unitOfMeasure}
                           </div>
                         </div>
-                        <div className="h-6 w-px bg-slate-800" />
+                        <div className="h-6 w-px bg-emerald-50" />
                         <div>
-                          <div className="text-[10px] text-slate-500">Wastage</div>
-                          <div className="font-bold text-rose-400">
+                          <div className="text-[10px] text-gray-500">Wastage</div>
+                          <div className="font-bold text-rose-600">
                             {batch.totalWastageQuantity} {batch.unitOfMeasure}
                           </div>
                         </div>
@@ -483,11 +483,11 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                     </div>
 
                     {/* Action Bar */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-200/80 text-xs">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           onClick={() => openAvailability(batch)}
-                          className="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-300 font-semibold"
+                          className="px-2.5 py-1 rounded-lg border border-gray-300 bg-emerald-50/60 hover:bg-emerald-100 text-gray-700 font-semibold"
                         >
                           Check Materials
                         </button>
@@ -495,7 +495,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {(batch.status === 'PLANNED' || batch.status === 'MATERIALS_READY' || batch.status === 'IN_PRODUCTION') && (
                           <button
                             onClick={() => openConsume(batch)}
-                            className="px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-semibold"
+                            className="px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-50 hover:bg-emerald-100 text-amber-700 font-semibold"
                           >
                             + Consume Raw Material
                           </button>
@@ -504,7 +504,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {(batch.status === 'IN_PRODUCTION' || batch.status === 'QUALITY_CHECK') && (
                           <button
                             onClick={() => openOutput(batch)}
-                            className="px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold"
+                            className="px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 font-semibold"
                           >
                             + Record Output
                           </button>
@@ -513,7 +513,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {(batch.status === 'IN_PRODUCTION' || batch.status === 'MATERIALS_READY' || batch.status === 'QUALITY_CHECK') && (
                           <button
                             onClick={() => openWastage(batch)}
-                            className="px-2.5 py-1 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold"
+                            className="px-2.5 py-1 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 font-semibold"
                           >
                             + Wastage / Scrap
                           </button>
@@ -525,7 +525,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {batch.status === 'PLANNED' && (
                           <button
                             onClick={() => updateStatus(batch.id, 'MATERIALS_READY', 'Materials verified ready for mill')}
-                            className="px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs"
+                            className="px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-gray-900 font-bold text-xs"
                           >
                             Materials Ready →
                           </button>
@@ -534,7 +534,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {batch.status === 'MATERIALS_READY' && (
                           <button
                             onClick={() => updateStatus(batch.id, 'IN_PRODUCTION', 'Boiling & milling started')}
-                            className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs"
+                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold text-xs"
                           >
                             Start Production →
                           </button>
@@ -543,7 +543,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {batch.status === 'IN_PRODUCTION' && (
                           <button
                             onClick={() => updateStatus(batch.id, 'QUALITY_CHECK', 'Batch sent for quality inspection')}
-                            className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+                            className="px-3 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-gray-900 font-bold text-xs"
                           >
                             Send to QA →
                           </button>
@@ -552,7 +552,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {batch.status === 'QUALITY_CHECK' && (
                           <button
                             onClick={() => updateStatus(batch.id, 'COMPLETED', 'Quality check passed & approved')}
-                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold text-xs"
                           >
                             Complete Batch ✓
                           </button>
@@ -561,7 +561,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         {batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED' && (
                           <button
                             onClick={() => updateStatus(batch.id, 'CANCELLED', 'Cancelled by supervisor')}
-                            className="px-2 py-1 rounded-lg border border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 text-xs"
+                            className="px-2 py-1 rounded-lg border border-gray-300 text-gray-500 hover:text-rose-600 hover:border-rose-500/30 text-xs"
                           >
                             Cancel
                           </button>
@@ -569,7 +569,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
 
                         <button
                           onClick={() => openDetails(batch)}
-                          className="p-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300"
+                          className="p-1.5 rounded-lg border border-gray-300 bg-emerald-50 hover:bg-emerald-100 text-gray-700"
                           title="View Batch Dossier"
                         >
                           <Eye className="h-3.5 w-3.5" />
@@ -588,10 +588,10 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
       {subTab === 'recipes' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-300">Standard Recipes & Bill of Materials (BOM)</h3>
+            <h3 className="text-sm font-bold text-gray-700">Standard Recipes & Bill of Materials (BOM)</h3>
             <button
               onClick={() => setActiveModal('newRecipe')}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:brightness-110 flex items-center gap-1"
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 text-gray-900 font-bold text-xs hover:brightness-105 flex items-center gap-1"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Recipe
@@ -599,15 +599,15 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
           </div>
 
           {recipes.length === 0 ? (
-            <div className="glass-card rounded-2xl p-12 text-center border border-slate-800 bg-slate-900/20 text-slate-400 space-y-3">
-              <Layers className="h-10 w-10 mx-auto text-slate-600" />
+            <div className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-12 text-center border border-gray-200 bg-white/20 text-gray-500 space-y-3">
+              <Layers className="h-10 w-10 mx-auto text-gray-600" />
               <p className="font-semibold text-sm">No recipes defined.</p>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
                 Define standard recipes with raw material ratios to auto-calculate required sugarcane juice, clarifies, and packaging.
               </p>
               <button
                 onClick={() => setActiveModal('newRecipe')}
-                className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:brightness-110"
+                className="px-4 py-2 bg-emerald-600 text-gray-900 font-bold text-xs rounded-xl hover:brightness-105"
               >
                 Create Recipe
               </button>
@@ -617,19 +617,19 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
               {recipes.map(recipe => (
                 <div
                   key={recipe.id}
-                  className="glass-card rounded-2xl p-5 border border-slate-800 bg-slate-900/40 hover:border-slate-700 transition space-y-4"
+                  className="bg-white border border-emerald-200 rounded-xl rounded-2xl p-5 border border-gray-200 bg-white hover:border-gray-300 transition space-y-4"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-amber-400">{recipe.recipeCode}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="font-mono text-xs font-bold text-amber-700">{recipe.recipeCode}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                           Active
                         </span>
                       </div>
-                      <h4 className="font-bold text-base text-white mt-1">{recipe.recipeName}</h4>
-                      <p className="text-xs text-slate-400">
-                        Outputs: <strong className="text-slate-200">{recipe.outputProductName}</strong> ({recipe.outputProductSku})
+                      <h4 className="font-bold text-base text-gray-900 mt-1">{recipe.recipeName}</h4>
+                      <p className="text-xs text-gray-500">
+                        Outputs: <strong className="text-gray-800">{recipe.outputProductName}</strong> ({recipe.outputProductSku})
                       </p>
                     </div>
                     <button
@@ -637,45 +637,45 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                         setRecipeForBatch(recipe);
                         setActiveModal('newBatch');
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-950 font-bold text-xs transition shrink-0 flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 text-amber-700 border border-emerald-500/30 hover:bg-emerald-600 hover:text-gray-900 font-bold text-xs transition shrink-0 flex items-center gap-1"
                     >
                       <Flame className="h-3 w-3" />
                       Make Batch
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-xs">
+                  <div className="grid grid-cols-3 gap-2 bg-white/60 p-2.5 rounded-xl border border-gray-200 text-xs">
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Std Batch</span>
-                      <strong className="text-slate-200 font-bold">
+                      <span className="text-[10px] text-gray-500 block">Std Batch</span>
+                      <strong className="text-gray-800 font-bold">
                         {recipe.standardBatchSize} {recipe.unitOfMeasure}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Std Yield</span>
-                      <strong className="text-purple-400 font-bold">{recipe.standardYieldPercentage}%</strong>
+                      <span className="text-[10px] text-gray-500 block">Std Yield</span>
+                      <strong className="text-purple-700 font-bold">{recipe.standardYieldPercentage}%</strong>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Duration</span>
-                      <strong className="text-blue-400 font-bold">{recipe.estimatedDurationMinutes} mins</strong>
+                      <span className="text-[10px] text-gray-500 block">Duration</span>
+                      <strong className="text-blue-600 font-bold">{recipe.estimatedDurationMinutes} mins</strong>
                     </div>
                   </div>
 
                   {/* BOM Ingredients */}
                   <div className="space-y-1.5">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                       Ingredients / BOM ({recipe.items?.length || 0})
                     </div>
                     <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
                       {recipe.items?.map((item, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-slate-800/40 border border-slate-800 text-slate-300"
+                          className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-emerald-50/40 border border-gray-200 text-gray-700"
                         >
                           <span className="truncate mr-2">
-                            {item.rawMaterialName} <span className="text-[10px] text-slate-500">({item.rawMaterialSku})</span>
+                            {item.rawMaterialName} <span className="text-[10px] text-gray-500">({item.rawMaterialSku})</span>
                           </span>
-                          <span className="font-mono font-bold text-amber-300 shrink-0">
+                          <span className="font-mono font-bold text-amber-700 shrink-0">
                             {item.requiredQuantity} {item.unitOfMeasure || 'KG'}
                           </span>
                         </div>
@@ -684,7 +684,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                   </div>
 
                   {recipe.description && (
-                    <p className="text-[11px] text-slate-500 italic border-t border-slate-800 pt-2">{recipe.description}</p>
+                    <p className="text-[11px] text-gray-500 italic border-t border-gray-200 pt-2">{recipe.description}</p>
                   )}
                 </div>
               ))}
@@ -697,19 +697,19 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
 
       {/* Modal: Material Availability */}
       {activeModal === 'availability' && selectedBatch && availabilityData && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-card rounded-3xl max-w-2xl w-full border border-slate-800 bg-slate-900 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-2xl w-full border border-gray-200 bg-white p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-4">
               <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Scale className="h-5 w-5 text-amber-400" />
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Scale className="h-5 w-5 text-amber-700" />
                   Raw Material Availability Check
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Batch: <strong className="text-slate-200">{selectedBatch.batchNumber}</strong> ({selectedBatch.targetProductName})
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Batch: <strong className="text-gray-800">{selectedBatch.batchNumber}</strong> ({selectedBatch.targetProductName})
                 </p>
               </div>
-              <button onClick={() => setActiveModal(null)} className="p-1 rounded-lg text-slate-400 hover:text-white">
+              <button onClick={() => setActiveModal(null)} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -718,13 +718,13 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
               className={`p-4 rounded-xl border flex items-center gap-3 ${
                 availabilityData.allMaterialsAvailable
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  : 'bg-emerald-50 border-emerald-500/30 text-amber-700'
               }`}
             >
               {availabilityData.allMaterialsAvailable ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" />
               ) : (
-                <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+                <AlertTriangle className="h-5 w-5 text-amber-700 shrink-0" />
               )}
               <div className="text-xs">
                 <strong>
@@ -732,7 +732,7 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                     ? 'All required raw materials are in stock!'
                     : 'Material shortfall detected in inventory.'}
                 </strong>
-                <p className="mt-0.5 text-slate-400">
+                <p className="mt-0.5 text-gray-500">
                   {availabilityData.allMaterialsAvailable
                     ? 'You can safely proceed to mark materials ready and start milling.'
                     : 'Procure additional raw materials or adjust the batch planned size before starting.'}
@@ -742,10 +742,10 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
 
             {/* Materials Table */}
             <div className="space-y-2">
-              <div className="text-xs font-bold text-slate-400">Required Ingredients Breakdown:</div>
-              <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
+              <div className="text-xs font-bold text-gray-500">Required Ingredients Breakdown:</div>
+              <div className="border border-emerald-200 rounded-xl overflow-hidden text-xs">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-950/60 text-slate-400 border-b border-slate-800">
+                  <thead className="bg-white/60 text-gray-500 border-b border-gray-200">
                     <tr>
                       <th className="p-2.5">Material</th>
                       <th className="p-2.5 text-right">Required</th>
@@ -753,26 +753,26 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
                       <th className="p-2.5 text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800 text-slate-300">
+                  <tbody className="divide-y divide-gray-200 text-gray-700">
                     {availabilityData.materials.map((m, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/30">
+                      <tr key={idx} className="hover:bg-emerald-50/30">
                         <td className="p-2.5">
-                          <div className="font-semibold text-slate-200">{m.rawMaterialName}</div>
-                          <div className="text-[10px] text-slate-500 font-mono">{m.rawMaterialSku}</div>
+                          <div className="font-semibold text-gray-800">{m.rawMaterialName}</div>
+                          <div className="text-[10px] text-gray-500 font-mono">{m.rawMaterialSku}</div>
                         </td>
-                        <td className="p-2.5 text-right font-mono font-bold text-amber-300">
+                        <td className="p-2.5 text-right font-mono font-bold text-amber-700">
                           {m.requiredQuantity} {m.unitOfMeasure}
                         </td>
-                        <td className="p-2.5 text-right font-mono text-slate-200">
+                        <td className="p-2.5 text-right font-mono text-gray-800">
                           {m.currentStock} {m.unitOfMeasure}
                         </td>
                         <td className="p-2.5 text-right">
                           {m.sufficient ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                               Available
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20">
                               Short {m.shortfall} {m.unitOfMeasure}
                             </span>
                           )}
@@ -784,17 +784,17 @@ export function Sprint5Production({ token, userName = 'MANAGER' }: Props) {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
               <button
                 onClick={() => setActiveModal(null)}
-                className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-semibold text-xs"
+                className="px-4 py-2 rounded-xl border border-gray-300 bg-emerald-50 text-gray-700 font-semibold text-xs"
               >
                 Close
               </button>
               {selectedBatch.status === 'PLANNED' && (
                 <button
                   onClick={() => updateStatus(selectedBatch.id, 'MATERIALS_READY', 'Materials checked and allocated')}
-                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs"
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-gray-900 font-bold text-xs"
                 >
                   Confirm Materials Ready →
                 </button>
@@ -953,31 +953,31 @@ function CreateBatchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl max-w-lg w-full border border-slate-800 bg-slate-900 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Flame className="h-5 w-5 text-amber-500" />
+    <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-lg w-full border border-gray-200 bg-white p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <Flame className="h-5 w-5 text-emerald-600" />
             Launch Production Batch
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-xs">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Select BOM Recipe (Optional)</label>
+            <label className="block text-gray-500 font-semibold mb-1">Select BOM Recipe (Optional)</label>
             <select
               value={selectedRecipeCode}
               onChange={e => handleRecipeChange(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
             >
               <option value="">-- Custom Batch (No Preset Recipe) --</option>
               {recipes.map(r => (
@@ -990,29 +990,29 @@ function CreateBatchModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Target Product SKU *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Target Product SKU *</label>
               <input
                 type="text"
                 required
                 value={targetProductSku}
                 onChange={e => setTargetProductSku(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Target Product Name</label>
+              <label className="block text-gray-500 font-semibold mb-1">Target Product Name</label>
               <input
                 type="text"
                 value={targetProductName}
                 onChange={e => setTargetProductName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Planned Quantity *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Planned Quantity *</label>
               <input
                 type="number"
                 step="0.1"
@@ -1020,15 +1020,15 @@ function CreateBatchModal({
                 required
                 value={plannedQuantity}
                 onChange={e => setPlannedQuantity(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Unit of Measure</label>
+              <label className="block text-gray-500 font-semibold mb-1">Unit of Measure</label>
               <select
                 value={unitOfMeasure}
                 onChange={e => setUnitOfMeasure(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               >
                 <option value="KG">KG (Kilograms)</option>
                 <option value="BLOCK">BLOCK</option>
@@ -1038,38 +1038,38 @@ function CreateBatchModal({
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Supervisor / Miller</label>
+            <label className="block text-gray-500 font-semibold mb-1">Supervisor / Miller</label>
             <input
               type="text"
               value={supervisor}
               onChange={e => setSupervisor(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Production Notes</label>
+            <label className="block text-gray-500 font-semibold mb-1">Production Notes</label>
             <textarea
               rows={2}
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="e.g. Kolhapur sugarcane harvest run, double clarify test..."
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-semibold"
+              className="px-4 py-2 rounded-xl border border-gray-300 bg-emerald-50 text-gray-700 font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold disabled:opacity-50"
             >
               {loading ? 'Creating...' : 'Launch Batch'}
             </button>
@@ -1155,20 +1155,20 @@ function CreateRecipeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl max-w-2xl w-full border border-slate-800 bg-slate-900 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers className="h-5 w-5 text-amber-500" />
+    <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-2xl w-full border border-gray-200 bg-white p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <Layers className="h-5 w-5 text-emerald-600" />
             New Bill of Materials (Recipe)
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-xs">
             {error}
           </div>
         )}
@@ -1176,57 +1176,57 @@ function CreateRecipeModal({
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Recipe Code *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Recipe Code *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. RCP-JAG-ORG-500G"
                 value={recipeCode}
                 onChange={e => setRecipeCode(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Recipe Name *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Recipe Name *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Organic Jaggery 500g Blocks Formula"
                 value={recipeName}
                 onChange={e => setRecipeName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Output Product SKU *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Output Product SKU *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. JAG-ORG-500G"
                 value={outputProductSku}
                 onChange={e => setOutputProductSku(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Output Product Name *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Output Product Name *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Organic Jaggery 500g"
                 value={outputProductName}
                 onChange={e => setOutputProductName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Std Batch Size (KG) *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Std Batch Size (KG) *</label>
               <input
                 type="number"
                 step="0.1"
@@ -1234,38 +1234,38 @@ function CreateRecipeModal({
                 required
                 value={standardBatchSize}
                 onChange={e => setStandardBatchSize(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Std Yield %</label>
+              <label className="block text-gray-500 font-semibold mb-1">Std Yield %</label>
               <input
                 type="number"
                 step="0.1"
                 value={standardYieldPercentage}
                 onChange={e => setStandardYieldPercentage(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Est. Duration (Mins)</label>
+              <label className="block text-gray-500 font-semibold mb-1">Est. Duration (Mins)</label>
               <input
                 type="number"
                 value={estimatedDurationMinutes}
                 onChange={e => setEstimatedDurationMinutes(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-600"
               />
             </div>
           </div>
 
           {/* BOM Items */}
-          <div className="space-y-2 pt-2 border-t border-slate-800">
+          <div className="space-y-2 pt-2 border-t border-gray-200">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-300">Bill of Materials / Ingredients</span>
+              <span className="font-bold text-gray-700">Bill of Materials / Ingredients</span>
               <button
                 type="button"
                 onClick={addItem}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg text-xs font-semibold flex items-center gap-1"
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-amber-700 rounded-lg text-xs font-semibold flex items-center gap-1"
               >
                 <Plus className="h-3 w-3" />
                 Add Ingredient
@@ -1274,14 +1274,14 @@ function CreateRecipeModal({
 
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-slate-950/60 p-2 rounded-xl border border-slate-800">
+                <div key={idx} className="flex items-center gap-2 bg-white/60 p-2 rounded-xl border border-gray-200">
                   <input
                     type="text"
                     required
                     placeholder="Material SKU"
                     value={item.rawMaterialSku}
                     onChange={e => updateItem(idx, 'rawMaterialSku', e.target.value.toUpperCase())}
-                    className="w-1/3 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                    className="w-1/3 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-900"
                   />
                   <input
                     type="text"
@@ -1289,7 +1289,7 @@ function CreateRecipeModal({
                     placeholder="Material Name"
                     value={item.rawMaterialName}
                     onChange={e => updateItem(idx, 'rawMaterialName', e.target.value)}
-                    className="w-1/3 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white"
+                    className="w-1/3 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-900"
                   />
                   <input
                     type="number"
@@ -1299,13 +1299,13 @@ function CreateRecipeModal({
                     placeholder="Qty"
                     value={item.requiredQuantity}
                     onChange={e => updateItem(idx, 'requiredQuantity', Number(e.target.value))}
-                    className="w-20 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
+                    className="w-20 px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-mono"
                   />
-                  <span className="text-slate-500 text-[11px]">KG</span>
+                  <span className="text-gray-500 text-[11px]">KG</span>
                   <button
                     type="button"
                     onClick={() => removeItem(idx)}
-                    className="p-1.5 text-slate-500 hover:text-rose-400"
+                    className="p-1.5 text-gray-500 hover:text-rose-600"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -1314,18 +1314,18 @@ function CreateRecipeModal({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-semibold"
+              className="px-4 py-2 rounded-xl border border-gray-300 bg-emerald-50 text-gray-700 font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Save Recipe'}
             </button>
@@ -1381,50 +1381,50 @@ function RecordConsumptionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl max-w-md w-full border border-slate-800 bg-slate-900 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Flame className="h-5 w-5 text-amber-400" />
+    <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-md w-full border border-gray-200 bg-white p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <Flame className="h-5 w-5 text-amber-700" />
             Consume Raw Material
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-400">
-          Batch <strong className="text-slate-200">{batch.batchNumber}</strong> will deduct inventory stock via <code className="text-amber-400">PRODUCTION_CONSUMPTION</code>.
+        <p className="text-xs text-gray-500">
+          Batch <strong className="text-gray-800">{batch.batchNumber}</strong> will deduct inventory stock via <code className="text-amber-700">PRODUCTION_CONSUMPTION</code>.
         </p>
 
         {error && (
-          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-xs">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Raw Material SKU *</label>
+            <label className="block text-gray-500 font-semibold mb-1">Raw Material SKU *</label>
             <input
               type="text"
               required
               value={rawMaterialSku}
               onChange={e => setRawMaterialSku(e.target.value.toUpperCase())}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Material Name</label>
+            <label className="block text-gray-500 font-semibold mb-1">Material Name</label>
             <input
               type="text"
               value={rawMaterialName}
               onChange={e => setRawMaterialName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Quantity to Consume (KG) *</label>
+            <label className="block text-gray-500 font-semibold mb-1">Quantity to Consume (KG) *</label>
             <input
               type="number"
               step="0.1"
@@ -1432,32 +1432,32 @@ function RecordConsumptionModal({
               required
               value={consumedQuantity}
               onChange={e => setConsumedQuantity(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 font-mono"
             />
           </div>
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Notes</label>
+            <label className="block text-gray-500 font-semibold mb-1">Notes</label>
             <input
               type="text"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="e.g. Tank 1 boiler load"
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-semibold"
+              className="px-4 py-2 rounded-xl border border-gray-300 bg-emerald-50 text-gray-700 font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold disabled:opacity-50"
             >
               {loading ? 'Deducting...' : 'Record Consumption'}
             </button>
@@ -1516,42 +1516,42 @@ function RecordOutputModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl max-w-md w-full border border-slate-800 bg-slate-900 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Scale className="h-5 w-5 text-emerald-400" />
+    <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-md w-full border border-gray-200 bg-white p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <Scale className="h-5 w-5 text-emerald-700" />
             Record Finished Goods Output
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="text-xs text-slate-400">
-          Adds finished stock into inventory with lot <code className="text-emerald-400">{batchLot}</code>.
+        <p className="text-xs text-gray-500">
+          Adds finished stock into inventory with lot <code className="text-emerald-700">{batchLot}</code>.
         </p>
 
         {error && (
-          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-xs">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Product SKU *</label>
+            <label className="block text-gray-500 font-semibold mb-1">Product SKU *</label>
             <input
               type="text"
               required
               value={outputProductSku}
               onChange={e => setOutputProductSku(e.target.value.toUpperCase())}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Produced Qty (KG) *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Produced Qty (KG) *</label>
               <input
                 type="number"
                 step="0.1"
@@ -1559,15 +1559,15 @@ function RecordOutputModal({
                 required
                 value={quantityProduced}
                 onChange={e => setQuantityProduced(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 font-mono"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Quality Grade</label>
+              <label className="block text-gray-500 font-semibold mb-1">Quality Grade</label>
               <select
                 value={qualityGrade}
                 onChange={e => setQualityGrade(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
               >
                 <option value="A_GRADE">A-Grade (Golden)</option>
                 <option value="PREMIUM">Premium Export</option>
@@ -1576,37 +1576,37 @@ function RecordOutputModal({
             </div>
           </div>
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Batch Lot Number</label>
+            <label className="block text-gray-500 font-semibold mb-1">Batch Lot Number</label>
             <input
               type="text"
               value={batchLot}
               onChange={e => setBatchLot(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 font-mono"
             />
           </div>
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Notes</label>
+            <label className="block text-gray-500 font-semibold mb-1">Notes</label>
             <input
               type="text"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="e.g. Molds set, moisture < 4%"
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-semibold"
+              className="px-4 py-2 rounded-xl border border-gray-300 bg-emerald-50 text-gray-700 font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold disabled:opacity-50"
             >
               {loading ? 'Recording...' : 'Add Finished Stock'}
             </button>
@@ -1663,38 +1663,38 @@ function RecordWastageModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl max-w-md w-full border border-slate-800 bg-slate-900 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-rose-400" />
+    <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-md w-full border border-gray-200 bg-white p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <Trash2 className="h-5 w-5 text-rose-600" />
             Record Wastage / Scrap / Loss
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 text-xs">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Material SKU *</label>
+            <label className="block text-gray-500 font-semibold mb-1">Material SKU *</label>
             <input
               type="text"
               required
               value={materialSku}
               onChange={e => setMaterialSku(e.target.value.toUpperCase())}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Wastage Qty (KG) *</label>
+              <label className="block text-gray-500 font-semibold mb-1">Wastage Qty (KG) *</label>
               <input
                 type="number"
                 step="0.1"
@@ -1702,15 +1702,15 @@ function RecordWastageModal({
                 required
                 value={wastageQuantity}
                 onChange={e => setWastageQuantity(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900 font-mono"
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-semibold mb-1">Wastage Category</label>
+              <label className="block text-gray-500 font-semibold mb-1">Wastage Category</label>
               <select
                 value={wastageType}
                 onChange={e => setWastageType(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
               >
                 <option value="LOSS">LOSS (Evaporation/Scum)</option>
                 <option value="SCRAP">SCRAP (Charred/Trimmings)</option>
@@ -1720,28 +1720,28 @@ function RecordWastageModal({
             </div>
           </div>
           <div>
-            <label className="block text-slate-400 font-semibold mb-1">Reason / Cause</label>
+            <label className="block text-gray-500 font-semibold mb-1">Reason / Cause</label>
             <input
               type="text"
               required
               value={reason}
               onChange={e => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white"
+              className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-xl text-gray-900"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-semibold"
+              className="px-4 py-2 rounded-xl border border-gray-300 bg-emerald-50 text-gray-700 font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-gray-900 font-bold disabled:opacity-50"
             >
               {loading ? 'Recording...' : 'Record Wastage'}
             </button>
@@ -1762,81 +1762,81 @@ function BatchDetailsModal({
   const style = statusColors[batch.status] || statusColors.PLANNED;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl max-w-2xl w-full border border-slate-800 bg-slate-900 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+    <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-emerald-200 rounded-xl rounded-3xl max-w-2xl w-full border border-gray-200 bg-white p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-200 pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-base font-bold text-white">{batch.batchNumber}</span>
+              <span className="font-mono text-base font-bold text-gray-900">{batch.batchNumber}</span>
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${style.bg} ${style.text} ${style.border}`}>
                 {batch.status}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Target: <strong className="text-slate-200">{batch.targetProductName}</strong> ({batch.targetProductSku})
+            <p className="text-xs text-gray-500 mt-1">
+              Target: <strong className="text-gray-800">{batch.targetProductName}</strong> ({batch.targetProductSku})
             </p>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded-lg text-gray-500 hover:text-gray-900">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white/60 p-3.5 rounded-2xl border border-gray-200 text-xs">
           <div>
-            <span className="text-[10px] text-slate-500 block">Planned</span>
-            <strong className="text-slate-200 font-bold">{batch.plannedQuantity} {batch.unitOfMeasure}</strong>
+            <span className="text-[10px] text-gray-500 block">Planned</span>
+            <strong className="text-gray-800 font-bold">{batch.plannedQuantity} {batch.unitOfMeasure}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">Actual Output</span>
-            <strong className="text-emerald-400 font-bold">{batch.actualQuantity} {batch.unitOfMeasure}</strong>
+            <span className="text-[10px] text-gray-500 block">Actual Output</span>
+            <strong className="text-emerald-700 font-bold">{batch.actualQuantity} {batch.unitOfMeasure}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">Wastage</span>
-            <strong className="text-rose-400 font-bold">{batch.totalWastageQuantity} {batch.unitOfMeasure}</strong>
+            <span className="text-[10px] text-gray-500 block">Wastage</span>
+            <strong className="text-rose-600 font-bold">{batch.totalWastageQuantity} {batch.unitOfMeasure}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 block">Yield %</span>
-            <strong className="text-purple-400 font-bold">{batch.yieldPercentage != null ? `${batch.yieldPercentage}%` : 'N/A'}</strong>
+            <span className="text-[10px] text-gray-500 block">Yield %</span>
+            <strong className="text-purple-700 font-bold">{batch.yieldPercentage != null ? `${batch.yieldPercentage}%` : 'N/A'}</strong>
           </div>
         </div>
 
         {/* Consumptions */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold text-slate-300">Raw Material Consumptions ({batch.consumptions?.length || 0})</h4>
+          <h4 className="text-xs font-bold text-gray-700">Raw Material Consumptions ({batch.consumptions?.length || 0})</h4>
           {batch.consumptions?.length ? (
-            <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
+            <div className="border border-emerald-200 rounded-xl overflow-hidden text-xs">
               <table className="w-full text-left">
-                <thead className="bg-slate-950/60 text-slate-400 border-b border-slate-800">
+                <thead className="bg-white/60 text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="p-2">Material</th>
                     <th className="p-2 text-right">Qty</th>
                     <th className="p-2 text-right">Consumed At</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-300">
+                <tbody className="divide-y divide-gray-200 text-gray-700">
                   {batch.consumptions.map((c, i) => (
                     <tr key={i}>
-                      <td className="p-2">{c.rawMaterialName} <span className="text-slate-500 text-[10px]">({c.rawMaterialSku})</span></td>
-                      <td className="p-2 text-right font-mono font-bold text-amber-400">{c.consumedQuantity} {c.unitOfMeasure}</td>
-                      <td className="p-2 text-right text-slate-400">{new Date(c.consumedAt).toLocaleTimeString()}</td>
+                      <td className="p-2">{c.rawMaterialName} <span className="text-gray-500 text-[10px]">({c.rawMaterialSku})</span></td>
+                      <td className="p-2 text-right font-mono font-bold text-amber-700">{c.consumedQuantity} {c.unitOfMeasure}</td>
+                      <td className="p-2 text-right text-gray-500">{new Date(c.consumedAt).toLocaleTimeString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="text-xs text-slate-500 italic">No consumption records logged yet.</p>
+            <p className="text-xs text-gray-500 italic">No consumption records logged yet.</p>
           )}
         </div>
 
         {/* Outputs */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold text-slate-300">Finished Output Lots ({batch.outputs?.length || 0})</h4>
+          <h4 className="text-xs font-bold text-gray-700">Finished Output Lots ({batch.outputs?.length || 0})</h4>
           {batch.outputs?.length ? (
-            <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
+            <div className="border border-emerald-200 rounded-xl overflow-hidden text-xs">
               <table className="w-full text-left">
-                <thead className="bg-slate-950/60 text-slate-400 border-b border-slate-800">
+                <thead className="bg-white/60 text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="p-2">Lot</th>
                     <th className="p-2">Grade</th>
@@ -1844,56 +1844,56 @@ function BatchDetailsModal({
                     <th className="p-2 text-right">Time</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-300">
+                <tbody className="divide-y divide-gray-200 text-gray-700">
                   {batch.outputs.map((o, i) => (
                     <tr key={i}>
-                      <td className="p-2 font-mono text-emerald-400 font-bold">{o.batchLot}</td>
+                      <td className="p-2 font-mono text-emerald-700 font-bold">{o.batchLot}</td>
                       <td className="p-2">{o.qualityGrade}</td>
-                      <td className="p-2 text-right font-mono font-bold text-emerald-400">{o.quantityProduced} {o.unitOfMeasure}</td>
-                      <td className="p-2 text-right text-slate-400">{new Date(o.producedAt).toLocaleTimeString()}</td>
+                      <td className="p-2 text-right font-mono font-bold text-emerald-700">{o.quantityProduced} {o.unitOfMeasure}</td>
+                      <td className="p-2 text-right text-gray-500">{new Date(o.producedAt).toLocaleTimeString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="text-xs text-slate-500 italic">No output lots recorded yet.</p>
+            <p className="text-xs text-gray-500 italic">No output lots recorded yet.</p>
           )}
         </div>
 
         {/* Wastages */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold text-slate-300">Wastage & Loss Records ({batch.wastages?.length || 0})</h4>
+          <h4 className="text-xs font-bold text-gray-700">Wastage & Loss Records ({batch.wastages?.length || 0})</h4>
           {batch.wastages?.length ? (
-            <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
+            <div className="border border-emerald-200 rounded-xl overflow-hidden text-xs">
               <table className="w-full text-left">
-                <thead className="bg-slate-950/60 text-slate-400 border-b border-slate-800">
+                <thead className="bg-white/60 text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="p-2">Type</th>
                     <th className="p-2">Reason</th>
                     <th className="p-2 text-right">Qty Lost</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 text-slate-300">
+                <tbody className="divide-y divide-gray-200 text-gray-700">
                   {batch.wastages.map((w, i) => (
                     <tr key={i}>
-                      <td className="p-2 text-rose-400 font-semibold">{w.wastageType}</td>
-                      <td className="p-2 text-slate-300">{w.reason}</td>
-                      <td className="p-2 text-right font-mono font-bold text-rose-400">{w.wastageQuantity} {w.unitOfMeasure}</td>
+                      <td className="p-2 text-rose-600 font-semibold">{w.wastageType}</td>
+                      <td className="p-2 text-gray-700">{w.reason}</td>
+                      <td className="p-2 text-right font-mono font-bold text-rose-600">{w.wastageQuantity} {w.unitOfMeasure}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="text-xs text-slate-500 italic">No wastage logged.</p>
+            <p className="text-xs text-gray-500 italic">No wastage logged.</p>
           )}
         </div>
 
-        <div className="flex justify-end pt-3 border-t border-slate-800">
+        <div className="flex justify-end pt-3 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-semibold text-xs"
+            className="px-4 py-2 rounded-xl bg-emerald-50 text-gray-700 hover:text-gray-900 font-semibold text-xs"
           >
             Close
           </button>
