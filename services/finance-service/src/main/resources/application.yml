@@ -4,6 +4,29 @@ server:
 spring:
   application:
     name: finance-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rr_jaggery_db}?currentSchema=finance_schema}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres_dev_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        default_schema: finance_schema
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+    show-sql: false
+
+app:
+  forms:
+    enabled: true
+    api-base: /api/v1/finance/forms
+    owned-keys: EXPENSE,INVESTMENT,STAFF,ATTENDANCE,PAYROLL
+  jwt:
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 management:
   endpoints:

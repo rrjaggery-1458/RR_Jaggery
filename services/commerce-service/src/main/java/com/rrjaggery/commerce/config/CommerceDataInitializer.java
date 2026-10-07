@@ -7,11 +7,13 @@ import com.rrjaggery.commerce.entity.ProductGrade;
 import com.rrjaggery.commerce.repository.CategoryRepository;
 import com.rrjaggery.commerce.repository.ProductRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
 @Component
+@ConditionalOnProperty(prefix = "app.demo-data", name = "seed-enabled", havingValue = "true")
 public class CommerceDataInitializer implements CommandLineRunner {
 
     private final CategoryRepository categoryRepository;
@@ -35,10 +37,10 @@ public class CommerceDataInitializer implements CommandLineRunner {
             // Product 1: 10KG Traditional Block
             Product p1 = new Product();
             p1.setCategoryId(blocks.getId());
-            p1.setName("Mandya Organic Traditional Block Jaggery");
+            p1.setName("Traditional Farm Block Jaggery");
             p1.setSku("RR-BLK-10KG");
-            p1.setSlug("mandya-organic-traditional-block-jaggery-10kg");
-            p1.setDescription("Authentic solid jaggery block produced from high-sucrose Mandya sugarcane. 100% natural, free from chemical clarifiers or bleaching agents.");
+            p1.setSlug("traditional-farm-block-jaggery-10kg");
+            p1.setDescription("Authentic solid jaggery block produced from high-sucrose quality sugarcane. 100% natural, free from chemical clarifiers or bleaching agents.");
             p1.setGrade(ProductGrade.GRADE_A_TRADITIONAL);
             p1.setPackageType(PackageType.BOX);
             p1.setUnitWeightKg(new BigDecimal("10.000"));

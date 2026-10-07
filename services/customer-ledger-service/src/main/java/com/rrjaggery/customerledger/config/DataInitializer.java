@@ -8,6 +8,7 @@ import com.rrjaggery.customerledger.entity.PaymentTerms;
 import com.rrjaggery.customerledger.repository.CustomerRepository;
 import com.rrjaggery.customerledger.service.OfflineOrderService;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
+@ConditionalOnProperty(prefix = "app.demo-data", name = "seed-enabled", havingValue = "true")
 public class DataInitializer implements CommandLineRunner {
 
     private final CustomerRepository customerRepository;

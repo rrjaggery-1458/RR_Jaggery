@@ -79,4 +79,20 @@ public class OfflineOrderController {
         List<OfflineOrderDto> orders = offlineOrderService.getCustomerOfflineOrders(customerId);
         return ResponseEntity.ok(orders);
     }
+
+    @PutMapping("/offline-orders/{orderId}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<OfflineOrderDto> updateOfflineOrder(
+            @PathVariable UUID orderId,
+            @RequestBody com.rrjaggery.customerledger.dto.UpdateOfflineOrderRequest req) {
+        OfflineOrderDto updated = offlineOrderService.updateOfflineOrder(orderId, req);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/offline-orders/{orderId}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<Void> deleteOfflineOrder(@PathVariable UUID orderId) {
+        offlineOrderService.deleteOfflineOrder(orderId);
+        return ResponseEntity.noContent().build();
+    }
 }

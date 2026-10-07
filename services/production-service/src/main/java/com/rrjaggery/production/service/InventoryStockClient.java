@@ -63,12 +63,12 @@ public class InventoryStockClient {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null && response.getBody().isSuccess()) {
                 return Optional.ofNullable(response.getBody().getData());
             }
-        } catch (HttpClientErrorException.NotFound e) {
-            log.warn("Inventory item with SKU {} not found in inventory service", sku);
+        } catch (HttpClientErrorException e) {
+            log.info("Inventory item with SKU {} not found or returned client error {}: {}", sku, e.getStatusCode(), e.getMessage());
             return Optional.empty();
         } catch (Exception e) {
             log.error("Failed to query inventory item for SKU {}: {}", sku, e.getMessage());
-            throw new IllegalStateException("Failed to query inventory service for SKU " + sku + ": " + e.getMessage(), e);
+            return Optional.empty();
         }
         return Optional.empty();
     }
@@ -166,18 +166,32 @@ public class InventoryStockClient {
         payload.put("minimumStockLevel", BigDecimal.ZERO);
         payload.put("batchLot", batchLot);
 
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, createAuthHeaders());
-        ResponseEntity<ApiResponse<InventoryItemSummary>> response = restTemplate.exchange(
-                inventoryBaseUrl + "/api/v1/inventory/items",
-                HttpMethod.POST,
-                request,
-                new ParameterizedTypeReference<ApiResponse<InventoryItemSummary>>() {}
-        );
+        try {
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, createAuthHeaders());
+            ResponseEntity<ApiResponse<InventoryItemSummary>> response = restTemplate.exchange(
+                    inventoryBaseUrl + "/api/v1/inventory/items",
+                    HttpMethod.POST,
+                    request,
+                    new ParameterizedTypeReference<ApiResponse<InventoryItemSummary>>() {}
+            );
 
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null || !response.getBody().isSuccess()) {
-            throw new IllegalStateException("Failed to create inventory item for output SKU " + sku);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null && response.getBody().isSuccess()) {
+                return response.getBody().getData().getId();
+            }
+        } catch (HttpClientErrorException e) {
+            log.info("Create inventory item returned {}, re-checking existing item by sku {}", e.getStatusCode(), sku);
+            Optional<InventoryItemSummary> existing = getItemBySku(sku);
+            if (existing.isPresent()) {
+                return existing.get().getId();
+            }
+        } catch (Exception e) {
+            log.warn("Create inventory item exception {}: {}", sku, e.getMessage());
+            Optional<InventoryItemSummary> existing = getItemBySku(sku);
+            if (existing.isPresent()) {
+                return existing.get().getId();
+            }
         }
-        return response.getBody().getData().getId();
+        throw new IllegalStateException("Failed to create or resolve inventory item for output SKU " + sku);
     }
 
     private void executeStockAdjustment(Map<String, Object> payload, String operationDescription) {

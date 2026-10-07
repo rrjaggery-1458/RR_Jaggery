@@ -35,6 +35,15 @@ public class Supplier {
     @Column(name = "phone", length = 40)
     private String phone;
 
+    @Column(name = "address", length = 500)
+    private String address;
+
+    @Column(name = "category", length = 60)
+    private String category;
+
+    @Column(name = "notes", length = 1000)
+    private String notes;
+
     @Column(name = "gstin", length = 60)
     private String gstin;
 
@@ -112,6 +121,30 @@ public class Supplier {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 
     public String getGstin() {

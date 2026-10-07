@@ -8,6 +8,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -29,6 +32,21 @@ public class GlobalExceptionHandler {
 
         ErrorResponse error = new ErrorResponse("VALIDATION_FAILED", "Request validation failed", details);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(error));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(HttpMessageNotReadableException ex) {
+        ErrorResponse error = new ErrorResponse("INVALID_REQUEST", "Request body is missing or malformed");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(error));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResponseStatusException(ResponseStatusException ex) {
+        HttpStatusCode status = ex.getStatusCode();
+        String message = ex.getReason() == null ? "Request could not be completed." : ex.getReason();
+        log.warn("Request rejected with HTTP {}: {}", status.value(), message);
+        ErrorResponse error = new ErrorResponse("REQUEST_REJECTED", message);
+        return ResponseEntity.status(status).body(ApiResponse.error(error));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

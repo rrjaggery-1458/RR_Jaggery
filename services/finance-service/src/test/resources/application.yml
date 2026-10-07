@@ -1,0 +1,27 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: finance-service
+  datasource:
+    url: jdbc:h2:mem:finance_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;INIT=CREATE SCHEMA IF NOT EXISTS FINANCE_SCHEMA
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: sa
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        default_schema: FINANCE_SCHEMA
+
+app:
+  forms:
+    enabled: true
+    api-base: /api/v1/finance/forms
+    owned-keys: EXPENSE,INVESTMENT,STAFF,ATTENDANCE,PAYROLL
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000

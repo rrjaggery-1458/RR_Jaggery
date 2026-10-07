@@ -27,13 +27,32 @@
 
 # Environment and Secrets #
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 /auth_token.txt
+auth_token.txt
+**/auth_token.txt
 *.pem
 *.key
+*.p12
+*.pfx
+credentials/
+secrets/
+private/
+certificates/
+backups/
+*.dump
+*.sql.dump
+*.bak
+coverage/
+**/coverage/
+test-results/
+e2e_screenshots/
+**/e2e_screenshots/
+playwright-report/
+.playwright/
+hs_err_pid*.log
+replay_pid*.log
 
 # Logs #
 *.log
@@ -61,7 +80,11 @@ desktop.ini
 .project
 .settings/
 
-# Temp #
+# Temp / Scratch #
 temp_docx/
 extracted_requirements.txt
 extracted_requirements.md
+scratch/
+
+# Uploads (user-generated content; managed by volumes in production) #
+uploads/

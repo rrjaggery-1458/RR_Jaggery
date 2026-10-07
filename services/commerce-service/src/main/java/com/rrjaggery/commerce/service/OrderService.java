@@ -205,28 +205,44 @@ public class OrderService {
         return orders.stream().map(OrderDto::fromEntity).collect(Collectors.toList());
     }
 
-    public OrderDto updateOrderStatus(UUID orderId, OrderStatus newStatus) {
+    public OrderDto updateOrderStatus(UUID orderId, OrderStatus newStatus, PaymentStatus newPaymentStatus) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
 
-        OrderStatus previousStatus = order.getStatus();
-        if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
-            for (OrderItem item : order.getItems()) {
-                inventoryStockClient.deductSaleStock(
-                        item.getSku(),
-                        BigDecimal.valueOf(item.getQuantity()),
-                        order.getOrderNumber() + ":" + item.getId(),
-                        order.getOrderNumber()
-                );
+        if (newStatus != null) {
+            OrderStatus previousStatus = order.getStatus();
+            if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
+                for (OrderItem item : order.getItems()) {
+                    inventoryStockClient.deductSaleStock(
+                            item.getSku(),
+                            BigDecimal.valueOf(item.getQuantity()),
+                            order.getOrderNumber() + ":" + item.getId(),
+                            order.getOrderNumber()
+                    );
+                }
+            }
+            order.setStatus(newStatus);
+            if (newStatus == OrderStatus.DELIVERED && order.getPaymentStatus() == PaymentStatus.PENDING && newPaymentStatus == null) {
+                order.setPaymentStatus(PaymentStatus.PAID);
             }
         }
-        order.setStatus(newStatus);
-        if (newStatus == OrderStatus.DELIVERED && order.getPaymentStatus() == PaymentStatus.PENDING) {
-            order.setPaymentStatus(PaymentStatus.PAID);
+
+        if (newPaymentStatus != null) {
+            order.setPaymentStatus(newPaymentStatus);
         }
 
         Order saved = orderRepository.save(order);
         return OrderDto.fromEntity(saved);
+    }
+
+    public OrderDto updateOrderStatus(UUID orderId, OrderStatus newStatus) {
+        return updateOrderStatus(orderId, newStatus, null);
+    }
+
+    public void deleteOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+        orderRepository.delete(order);
     }
 
     @Transactional(readOnly = true)

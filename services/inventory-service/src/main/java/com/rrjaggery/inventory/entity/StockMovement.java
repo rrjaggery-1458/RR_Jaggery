@@ -36,7 +36,7 @@ public class StockMovement {
     @Column(name = "reference_type", length = 40)
     private String referenceType;
 
-    @Column(name = "reference_id", length = 120)
+    @Column(name = "reference_id", length = 255)
     private String referenceId;
 
     @Column(name = "actor", length = 120)
@@ -45,7 +45,7 @@ public class StockMovement {
     @Column(name = "notes", length = 500)
     private String notes;
 
-    @Column(name = "idempotency_key", length = 128, unique = true)
+    @Column(name = "idempotency_key", length = 255, unique = true)
     private String idempotencyKey;
 
     @Column(name = "movement_time", nullable = false)

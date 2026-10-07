@@ -3,6 +3,7 @@ package com.rrjaggery.production.controller;
 import com.rrjaggery.common.dto.ApiResponse;
 import com.rrjaggery.production.dto.*;
 import com.rrjaggery.production.entity.BatchStatus;
+import com.rrjaggery.production.service.ProductionCostingService;
 import com.rrjaggery.production.service.ProductionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,9 +20,12 @@ import java.util.UUID;
 public class ProductionController {
 
     private final ProductionService productionService;
+    private final ProductionCostingService productionCostingService;
 
-    public ProductionController(ProductionService productionService) {
+    public ProductionController(ProductionService productionService,
+                                 ProductionCostingService productionCostingService) {
         this.productionService = productionService;
+        this.productionCostingService = productionCostingService;
     }
 
     @PostMapping
@@ -35,8 +39,10 @@ public class ProductionController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<List<ProductionBatchDto>>> getBatches(
-            @RequestParam(required = false) BatchStatus status) {
-        return ResponseEntity.ok(ApiResponse.ok(productionService.getAllBatches(status)));
+            @RequestParam(required = false) BatchStatus status,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        return ResponseEntity.ok(ApiResponse.ok(productionService.getAllBatches(status, year, month)));
     }
 
     @GetMapping("/{id}")
@@ -55,6 +61,13 @@ public class ProductionController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ApiResponse<MaterialAvailabilityDto>> checkMaterialAvailability(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(productionService.checkMaterialAvailability(id)));
+    }
+
+    @GetMapping("/{id}/costing")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<ApiResponse<BatchCostingDto>> getBatchCosting(@PathVariable UUID id) {
+        BatchCostingDto costing = productionCostingService.computeBatchCosting(id);
+        return ResponseEntity.ok(ApiResponse.ok(costing, "Batch costing computed successfully."));
     }
 
     @PatchMapping("/{id}/status")

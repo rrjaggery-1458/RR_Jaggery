@@ -3,7 +3,6 @@ package com.rrjaggery.procurement.dto;
 import jakarta.validation.constraints.NotBlank;
 
 public class CreateSupplierRequest {
-    @NotBlank(message = "Supplier code is required")
     private String supplierCode;
 
     @NotBlank(message = "Supplier name is required")
@@ -12,6 +11,9 @@ public class CreateSupplierRequest {
     private String contactName;
     private String email;
     private String phone;
+    private String address;
+    private String category;
+    private String notes;
     private String gstin;
     private Integer paymentTermsDays = 30;
 
@@ -53,6 +55,30 @@ public class CreateSupplierRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 
     public String getGstin() {

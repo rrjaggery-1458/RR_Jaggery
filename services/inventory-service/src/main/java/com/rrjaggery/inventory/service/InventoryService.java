@@ -158,7 +158,9 @@ public class InventoryService {
             throw new IllegalArgumentException("Receive quantity must be greater than 0.");
         }
 
-        String idempotencyKey = buildIdempotencyKey(request.getReferenceType(), request.getReferenceId(), "GOODS_RECEIPT");
+        String reason = "PRODUCTION_OUTPUT".equalsIgnoreCase(request.getReferenceType()) ? "PRODUCTION_OUTPUT" : "GOODS_RECEIPT";
+        MovementType mType = "PRODUCTION_OUTPUT".equalsIgnoreCase(request.getReferenceType()) ? MovementType.PRODUCTION_OUTPUT : MovementType.PURCHASE_RECEIPT;
+        String idempotencyKey = buildIdempotencyKey(request.getReferenceType(), request.getReferenceId(), reason);
         if (stockMovementRepository.existsByIdempotencyKey(idempotencyKey)) {
             return item;
         }
@@ -168,8 +170,8 @@ public class InventoryService {
         item.setUpdatedAt(java.time.Instant.now());
         InventoryItem saved = inventoryItemRepository.save(item);
 
-        recordMovement(saved, MovementType.PURCHASE_RECEIPT, request.getQuantity(),
-                "GOODS_RECEIPT", request.getReferenceType(), request.getReferenceId(),
+        recordMovement(saved, mType, request.getQuantity(),
+                reason, request.getReferenceType(), request.getReferenceId(),
                 request.getActor() == null || request.getActor().isBlank() ? "SYSTEM" : request.getActor(),
                 request.getNotes(), idempotencyKey);
 

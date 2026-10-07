@@ -12,9 +12,9 @@ public class InvoiceDto {
     private String orderNumber;
     private Instant invoiceDate;
     private String sellerName = "RR JAGGERY TRADERS";
-    private String sellerGstin = "29AABCR1234F1Z5";
-    private String sellerAddress = "Mandya Jaggery Processing Unit 4, Highway 275, Mandya, Karnataka - 571401";
-    private String sellerContact = "+91 8232 220011 | accounts@rrjaggery.com";
+    private String sellerGstin = "37AABCR1234F1Z5";
+    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163";
+    private String sellerContact = "+91 9948533315 / +91 123456789 | rrjaggery@gmail.com";
     private String customerName;
     private String customerEmail;
     private String customerPhone;

@@ -14,11 +14,11 @@ public class OfflineInvoiceDto {
     private Instant dueDate;
     private boolean overdue;
 
-    // Seller Info (Mandya Mill)
+    // Seller Info (RR Jaggery Factory & Works)
     private String sellerName = "RR JAGGERY TRADERS";
-    private String sellerGstin = "29AABCR1234F1Z5";
-    private String sellerAddress = "Sy. No. 45/2, Mandya Sugar Complex Road, Mandya, Karnataka - 571401";
-    private String sellerContact = "+91 9845012345 | sales@rrjaggery.com";
+    private String sellerGstin = "37AABCR1234F1Z5";
+    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163";
+    private String sellerContact = "+91 9948533315 / +91 123456789 | rrjaggery@gmail.com";
 
     // Buyer Info
     private UUID customerId;

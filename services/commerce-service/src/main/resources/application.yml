@@ -20,6 +20,8 @@ spring:
     show-sql: false
 
 app:
+  upload:
+    dir: ${UPLOAD_DIR:./uploads/products}
   inventory:
     base-url: ${INVENTORY_SERVICE_URL:http://localhost:8084}
   jwt:

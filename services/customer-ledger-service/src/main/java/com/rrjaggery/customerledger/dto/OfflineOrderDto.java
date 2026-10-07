@@ -20,6 +20,7 @@ public class OfflineOrderDto {
     private String invoiceNumber;
     private BigDecimal subtotalAmount;
     private BigDecimal taxAmount;
+    private BigDecimal deliveryCharges = BigDecimal.ZERO;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
     private BigDecimal outstandingAmount;
@@ -28,6 +29,7 @@ public class OfflineOrderDto {
     private String status;
     private String paymentStatus;
     private String paymentMethod;
+    private String orderType = "WHOLESALE";
     private boolean overdue;
     private String notes;
     private List<OfflineOrderItemDto> items;
@@ -48,6 +50,7 @@ public class OfflineOrderDto {
         dto.setInvoiceNumber(o.getInvoiceNumber());
         dto.setSubtotalAmount(o.getSubtotalAmount());
         dto.setTaxAmount(o.getTaxAmount());
+        dto.setDeliveryCharges(o.getDeliveryCharges());
         dto.setTotalAmount(o.getTotalAmount());
         dto.setPaidAmount(o.getPaidAmount());
         dto.setOutstandingAmount(o.getOutstandingAmount());
@@ -56,7 +59,8 @@ public class OfflineOrderDto {
         dto.setStatus(o.getStatus());
         dto.setPaymentStatus(o.getPaymentStatus());
         dto.setPaymentMethod(o.getPaymentMethod());
-        dto.setOverdue(o.getOutstandingAmount().compareTo(BigDecimal.ZERO) > 0 && o.getDueDate().isBefore(Instant.now()));
+        dto.setOrderType(o.getOrderType());
+        dto.setOverdue(o.getOutstandingAmount().compareTo(BigDecimal.ZERO) > 0 && o.getDueDate() != null && o.getDueDate().isBefore(Instant.now()));
         dto.setNotes(o.getNotes());
         dto.setItems(o.getItems().stream().map(OfflineOrderItemDto::fromEntity).collect(Collectors.toList()));
         dto.setCreatedAt(o.getCreatedAt());
@@ -120,6 +124,12 @@ public class OfflineOrderDto {
 
     public String getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public BigDecimal getDeliveryCharges() { return deliveryCharges; }
+    public void setDeliveryCharges(BigDecimal deliveryCharges) { this.deliveryCharges = deliveryCharges != null ? deliveryCharges : BigDecimal.ZERO; }
+
+    public String getOrderType() { return orderType; }
+    public void setOrderType(String orderType) { this.orderType = orderType != null ? orderType : "WHOLESALE"; }
 
     public boolean isOverdue() { return overdue; }
     public void setOverdue(boolean overdue) { this.overdue = overdue; }

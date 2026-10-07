@@ -1,8 +1,8 @@
 package com.rrjaggery.production.dto;
 
+import com.rrjaggery.production.entity.BatchStatus;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -18,13 +18,18 @@ public class CreateBatchRequest {
 
     private String targetProductName;
 
-    @NotNull(message = "Planned quantity is required")
     @DecimalMin(value = "0.001", inclusive = false, message = "Planned quantity must be greater than 0")
     private BigDecimal plannedQuantity;
+
+    private BigDecimal actualQuantity;
+    private BigDecimal wastageQuantity;
+
+    private BatchStatus status = BatchStatus.PLANNED;
 
     private String unitOfMeasure = "KG";
 
     private Instant plannedStartDate;
+    private String scheduledDate;
 
     private String supervisor;
 
@@ -57,6 +62,24 @@ public class CreateBatchRequest {
         this.targetProductSku = targetProductSku;
     }
 
+    public void setOutputSku(String outputSku) {
+        if (this.targetProductSku == null) {
+            this.targetProductSku = outputSku;
+        }
+    }
+
+    public void setProductSku(String productSku) {
+        if (this.targetProductSku == null) {
+            this.targetProductSku = productSku;
+        }
+    }
+
+    public void setJaggeryType(String jaggeryType) {
+        if (this.targetProductSku == null) {
+            this.targetProductSku = jaggeryType;
+        }
+    }
+
     public String getTargetProductName() {
         return targetProductName;
     }
@@ -71,6 +94,70 @@ public class CreateBatchRequest {
 
     public void setPlannedQuantity(BigDecimal plannedQuantity) {
         this.plannedQuantity = plannedQuantity;
+    }
+
+    public void setQuantityKg(BigDecimal qty) {
+        if (this.plannedQuantity == null) {
+            this.plannedQuantity = qty;
+        }
+        if (this.actualQuantity == null) {
+            this.actualQuantity = qty;
+        }
+    }
+
+    // Alias for plannedQuantityKg
+    public BigDecimal getPlannedQuantityKg() {
+        return plannedQuantity;
+    }
+
+    public void setPlannedQuantityKg(BigDecimal plannedQuantityKg) {
+        if (this.plannedQuantity == null) {
+            this.plannedQuantity = plannedQuantityKg;
+        }
+    }
+
+    public BigDecimal getActualQuantity() {
+        return actualQuantity;
+    }
+
+    public void setActualQuantity(BigDecimal actualQuantity) {
+        this.actualQuantity = actualQuantity;
+    }
+
+    public BigDecimal getActualQuantityKg() {
+        return actualQuantity;
+    }
+
+    public void setActualQuantityKg(BigDecimal actualQuantityKg) {
+        if (this.actualQuantity == null) {
+            this.actualQuantity = actualQuantityKg;
+        }
+    }
+
+    public BigDecimal getWastageQuantity() {
+        return wastageQuantity;
+    }
+
+    public void setWastageQuantity(BigDecimal wastageQuantity) {
+        this.wastageQuantity = wastageQuantity;
+    }
+
+    public BigDecimal getWastageQuantityKg() {
+        return wastageQuantity;
+    }
+
+    public void setWastageQuantityKg(BigDecimal wastageQuantityKg) {
+        if (this.wastageQuantity == null) {
+            this.wastageQuantity = wastageQuantityKg;
+        }
+    }
+
+    public BatchStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(BatchStatus status) {
+        this.status = status;
     }
 
     public String getUnitOfMeasure() {
@@ -89,6 +176,14 @@ public class CreateBatchRequest {
         this.plannedStartDate = plannedStartDate;
     }
 
+    public String getScheduledDate() {
+        return scheduledDate;
+    }
+
+    public void setScheduledDate(String scheduledDate) {
+        this.scheduledDate = scheduledDate;
+    }
+
     public String getSupervisor() {
         return supervisor;
     }
@@ -105,3 +200,4 @@ public class CreateBatchRequest {
         this.notes = notes;
     }
 }
+

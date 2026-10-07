@@ -7,6 +7,7 @@ import com.rrjaggery.commerce.service.OrderService;
 import com.rrjaggery.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/commerce/admin/orders")
 @CrossOrigin(origins = "*")
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 public class AdminOrderController {
 
     private final OrderService orderService;
@@ -40,9 +42,15 @@ public class AdminOrderController {
     @PutMapping("/{id}/status")
     public ResponseEntity<ApiResponse<OrderDto>> updateOrderStatus(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateOrderStatusRequest req
+            @RequestBody UpdateOrderStatusRequest req
     ) {
-        OrderDto updated = orderService.updateOrderStatus(id, req.getStatus());
+        OrderDto updated = orderService.updateOrderStatus(id, req.getStatus(), req.getPaymentStatus());
         return ResponseEntity.ok(ApiResponse.success(updated));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteOrder(@PathVariable UUID id) {
+        orderService.deleteOrder(id);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

@@ -16,7 +16,6 @@ public class CreateCustomerRequest {
 
     private String businessName;
 
-    @NotBlank(message = "Contact person name is required")
     private String contactPerson;
 
     @NotBlank(message = "Phone number is required")

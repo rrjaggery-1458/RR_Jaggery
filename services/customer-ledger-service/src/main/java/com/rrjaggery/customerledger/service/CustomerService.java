@@ -46,7 +46,10 @@ public class CustomerService {
         Customer customer = new Customer();
         customer.setCustomerType(req.getCustomerType());
         customer.setBusinessName(req.getBusinessName());
-        customer.setContactPerson(req.getContactPerson());
+        String resolvedContact = (req.getContactPerson() != null && !req.getContactPerson().isBlank())
+                ? req.getContactPerson().trim()
+                : (req.getBusinessName() != null && !req.getBusinessName().isBlank() ? req.getBusinessName().trim() : "Wholesale Partner");
+        customer.setContactPerson(resolvedContact);
         customer.setPhone(req.getPhone());
         customer.setEmail(req.getEmail());
         customer.setGstin(req.getGstin());

@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -47,11 +49,9 @@ public class ProductionService {
     public ProductionBatchDto createBatch(CreateBatchRequest request) {
         Recipe recipe = null;
         if (request.getRecipeId() != null) {
-            recipe = recipeRepository.findById(request.getRecipeId())
-                    .orElseThrow(() -> new IllegalArgumentException("Recipe not found for ID: " + request.getRecipeId()));
+            recipe = recipeRepository.findById(request.getRecipeId()).orElse(null);
         } else if (request.getRecipeCode() != null && !request.getRecipeCode().isBlank()) {
-            recipe = recipeRepository.findByRecipeCodeIgnoreCase(request.getRecipeCode().trim())
-                    .orElseThrow(() -> new IllegalArgumentException("Recipe not found for code: " + request.getRecipeCode()));
+            recipe = recipeRepository.findByRecipeCodeIgnoreCase(request.getRecipeCode().trim()).orElse(null);
         }
 
         String targetSku = request.getTargetProductSku() != null ? request.getTargetProductSku().trim().toUpperCase(Locale.ROOT) : null;
@@ -73,6 +73,8 @@ public class ProductionService {
             targetName = targetSku;
         }
 
+        BigDecimal plannedQty = request.getPlannedQuantity() != null ? request.getPlannedQuantity() : (request.getActualQuantity() != null ? request.getActualQuantity() : BigDecimal.ZERO);
+
         String dateTag = DATE_PREFIX.format(Instant.now());
         String randomSuffix = UUID.randomUUID().toString().substring(0, 6).toUpperCase(Locale.ROOT);
         String batchNumber = "BATCH-" + dateTag + "-" + randomSuffix;
@@ -83,19 +85,88 @@ public class ProductionService {
         batch.setRecipe(recipe);
         batch.setTargetProductSku(targetSku);
         batch.setTargetProductName(targetName);
-        batch.setPlannedQuantity(request.getPlannedQuantity());
+        batch.setPlannedQuantity(plannedQty);
         batch.setUnitOfMeasure(request.getUnitOfMeasure() != null ? request.getUnitOfMeasure().trim().toUpperCase(Locale.ROOT) : "KG");
-        batch.setStatus(BatchStatus.PLANNED);
+        
+        BatchStatus targetStatus = request.getStatus() != null ? request.getStatus() : BatchStatus.PLANNED;
+        batch.setStatus(targetStatus);
         batch.setPlannedStartDate(request.getPlannedStartDate() != null ? request.getPlannedStartDate() : Instant.now());
-        batch.setSupervisor(request.getSupervisor());
+        batch.setSupervisor(request.getSupervisor() != null ? request.getSupervisor() : "MANAGER");
         batch.setBatchLot(batchLot);
         batch.setNotes(request.getNotes());
-        batch.setActualQuantity(BigDecimal.ZERO);
-        batch.setTotalWastageQuantity(BigDecimal.ZERO);
+        
+        BigDecimal actualQty = request.getActualQuantity() != null ? request.getActualQuantity() : BigDecimal.ZERO;
+        BigDecimal wastageQty = request.getWastageQuantity() != null ? request.getWastageQuantity() : BigDecimal.ZERO;
+        batch.setActualQuantity(actualQty);
+        batch.setTotalWastageQuantity(wastageQty);
+        
+        if (targetStatus == BatchStatus.COMPLETED || actualQty.compareTo(BigDecimal.ZERO) > 0) {
+            batch.setStatus(BatchStatus.COMPLETED);
+            batch.setCompletionDate(Instant.now());
+            if (batch.getActualStartDate() == null) {
+                batch.setActualStartDate(Instant.now());
+            }
+            if (plannedQty.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal yield = actualQty.divide(plannedQty, 4, RoundingMode.HALF_UP)
+                        .multiply(new BigDecimal("100"))
+                        .setScale(2, RoundingMode.HALF_UP);
+                batch.setYieldPercentage(yield);
+            }
+        }
+        
         batch.setCreatedAt(Instant.now());
         batch.setUpdatedAt(Instant.now());
 
         ProductionBatch saved = batchRepository.save(batch);
+
+        // If completed with output, synchronize finished goods stock
+        if (saved.getStatus() == BatchStatus.COMPLETED && actualQty.compareTo(BigDecimal.ZERO) > 0) {
+            try {
+                String idempotencyKey = "BATCH::" + batchNumber + "::OUT::" + UUID.randomUUID().toString().substring(0, 8);
+                inventoryStockClient.recordOutput(
+                        targetSku,
+                        targetName,
+                        actualQty,
+                        batchNumber,
+                        batchLot,
+                        saved.getSupervisor(),
+                        saved.getNotes(),
+                        idempotencyKey
+                );
+
+                BatchOutput output = new BatchOutput();
+                output.setBatch(saved);
+                output.setOutputProductSku(targetSku);
+                output.setOutputProductName(targetName);
+                output.setQuantityProduced(actualQty);
+                output.setUnitOfMeasure(saved.getUnitOfMeasure());
+                output.setBatchLot(batchLot);
+                output.setQualityGrade("A_GRADE");
+                output.setProducedAt(Instant.now());
+                output.setActor(saved.getSupervisor());
+                output.setNotes(saved.getNotes());
+                output.setIdempotencyKey(idempotencyKey);
+                outputRepository.save(output);
+
+                if (wastageQty.compareTo(BigDecimal.ZERO) > 0) {
+                    BatchWastage wastage = new BatchWastage();
+                    wastage.setBatch(saved);
+                    wastage.setMaterialSku(targetSku != null ? targetSku : "MAT-JAG-BULK");
+                    wastage.setMaterialName(targetName);
+                    wastage.setWastageQuantity(wastageQty);
+                    wastage.setUnitOfMeasure("KG");
+                    wastage.setWastageType("SCRAP");
+                    wastage.setReason("TRIMMING_AND_MOULD_RESIDUE");
+                    wastage.setRecordedAt(Instant.now());
+                    wastage.setActor(saved.getSupervisor());
+                    wastageRepository.save(wastage);
+                }
+            } catch (Exception ex) {
+                log.error("Failed to sync inventory output on batch creation: {}", ex.getMessage(), ex);
+                throw new IllegalStateException("Production saved but inventory synchronization failed: " + ex.getMessage(), ex);
+            }
+        }
+
         return mapToDto(saved);
     }
 
@@ -394,12 +465,34 @@ public class ProductionService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductionBatchDto> getAllBatches(BatchStatus status) {
+    public List<ProductionBatchDto> getAllBatches(BatchStatus status, Integer year, Integer month) {
         List<ProductionBatch> batches;
-        if (status != null) {
-            batches = batchRepository.findByStatus(status);
+        if (year != null && month != null) {
+            // Period-scoped query: [first day of month, first day of next month)
+            YearMonth ym = YearMonth.of(year, month);
+            Instant periodStart = ym.atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            Instant periodEnd = ym.plusMonths(1).atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            if (status != null) {
+                batches = batchRepository.findByStatusAndPeriod(status, periodStart, periodEnd);
+            } else {
+                batches = batchRepository.findByPeriod(periodStart, periodEnd);
+            }
+        } else if (year != null) {
+            // Full-year query
+            Instant periodStart = LocalDate.of(year, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            Instant periodEnd = LocalDate.of(year + 1, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant();
+            if (status != null) {
+                batches = batchRepository.findByStatusAndPeriod(status, periodStart, periodEnd);
+            } else {
+                batches = batchRepository.findByPeriod(periodStart, periodEnd);
+            }
         } else {
-            batches = batchRepository.findAll();
+            // No period filter — return all (backwards-compatible)
+            if (status != null) {
+                batches = batchRepository.findByStatus(status);
+            } else {
+                batches = batchRepository.findAll();
+            }
         }
         return batches.stream().map(this::mapToDto).collect(Collectors.toList());
     }

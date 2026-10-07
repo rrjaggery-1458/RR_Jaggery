@@ -1,12 +1,12 @@
 package com.rrjaggery.commerce.dto;
 
 import com.rrjaggery.commerce.entity.OrderStatus;
-import jakarta.validation.constraints.NotNull;
+import com.rrjaggery.commerce.entity.PaymentStatus;
 
 public class UpdateOrderStatusRequest {
 
-    @NotNull(message = "Order status is required")
     private OrderStatus status;
+    private PaymentStatus paymentStatus;
 
     public UpdateOrderStatusRequest() {}
 
@@ -14,6 +14,14 @@ public class UpdateOrderStatusRequest {
         this.status = status;
     }
 
+    public UpdateOrderStatusRequest(OrderStatus status, PaymentStatus paymentStatus) {
+        this.status = status;
+        this.paymentStatus = paymentStatus;
+    }
+
     public OrderStatus getStatus() { return status; }
     public void setStatus(OrderStatus status) { this.status = status; }
+
+    public PaymentStatus getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
 }

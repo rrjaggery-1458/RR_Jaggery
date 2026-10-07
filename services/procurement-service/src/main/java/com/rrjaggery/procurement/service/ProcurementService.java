@@ -69,7 +69,7 @@ public class ProcurementService {
     public Supplier createSupplier(CreateSupplierRequest request) {
         String code = normalizeSupplierCode(request.getSupplierCode());
         if (supplierRepository.existsBySupplierCode(code)) {
-            throw new IllegalArgumentException("Supplier code already exists: " + code);
+            code = "SUP-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(Locale.ROOT);
         }
 
         Supplier supplier = new Supplier();
@@ -78,6 +78,9 @@ public class ProcurementService {
         supplier.setContactName(request.getContactName());
         supplier.setEmail(request.getEmail());
         supplier.setPhone(request.getPhone());
+        supplier.setAddress(request.getAddress());
+        supplier.setCategory(request.getCategory());
+        supplier.setNotes(request.getNotes());
         supplier.setGstin(request.getGstin());
         supplier.setPaymentTermsDays(request.getPaymentTermsDays() == null ? 30 : request.getPaymentTermsDays());
         supplier.setStatus(SupplierStatus.ACTIVE);
@@ -246,7 +249,7 @@ public class ProcurementService {
 
     private String normalizeSupplierCode(String value) {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Supplier code is required.");
+            return "SUP-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase(Locale.ROOT);
         }
         return value.trim().toUpperCase(Locale.ROOT);
     }

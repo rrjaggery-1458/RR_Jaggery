@@ -55,6 +55,12 @@ public class OfflineOrder {
     @Column(name = "payment_method", nullable = false, length = 50)
     private String paymentMethod = "CREDIT";
 
+    @Column(name = "delivery_charges", nullable = false, precision = 12, scale = 2)
+    private BigDecimal deliveryCharges = BigDecimal.ZERO;
+
+    @Column(name = "order_type", nullable = false, length = 50)
+    private String orderType = "WHOLESALE";
+
     @Column(name = "notes")
     private String notes;
 
@@ -127,6 +133,12 @@ public class OfflineOrder {
 
     public List<OfflineOrderItem> getItems() { return items; }
     public void setItems(List<OfflineOrderItem> items) { this.items = items; }
+
+    public BigDecimal getDeliveryCharges() { return deliveryCharges; }
+    public void setDeliveryCharges(BigDecimal deliveryCharges) { this.deliveryCharges = deliveryCharges != null ? deliveryCharges : BigDecimal.ZERO; }
+
+    public String getOrderType() { return orderType; }
+    public void setOrderType(String orderType) { this.orderType = orderType != null ? orderType : "WHOLESALE"; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

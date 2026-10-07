@@ -44,8 +44,28 @@ public class OfflineOrderService {
 
     @Transactional
     public OfflineOrderDto createOfflineOrder(CreateOfflineOrderRequest req, String createdBy) {
-        Customer customer = customerRepository.findById(req.getCustomerId())
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found with ID: " + req.getCustomerId()));
+        Customer customer;
+        if (req.getCustomerId() != null) {
+            customer = customerRepository.findById(req.getCustomerId())
+                    .orElseThrow(() -> new IllegalArgumentException("Customer not found with ID: " + req.getCustomerId()));
+        } else if (req.getCustomerName() != null && !req.getCustomerName().isBlank()) {
+            String cName = req.getCustomerName().trim();
+            customer = customerRepository.findAll().stream()
+                    .filter(c -> cName.equalsIgnoreCase(c.getContactPerson()) || cName.equalsIgnoreCase(c.getBusinessName()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        Customer newCust = new Customer();
+                        newCust.setCustomerType(CustomerType.RETAIL);
+                        newCust.setBusinessName(cName);
+                        newCust.setContactPerson(cName);
+                        newCust.setPhone("0000000000");
+                        newCust.setCreditLimit(BigDecimal.ZERO);
+                        newCust.setCreditDays(0);
+                        return customerRepository.save(newCust);
+                    });
+        } else {
+            throw new IllegalArgumentException("Either customerId or customerName is required.");
+        }
 
         if (!customer.isActive()) {
             throw new IllegalStateException("Cannot create order for inactive customer: " + customer.getContactPerson());
@@ -77,21 +97,33 @@ public class OfflineOrderService {
             subtotal = subtotal.add(lineSubtotal);
             taxAmount = taxAmount.add(lineTax);
 
+            UUID pId = itemReq.getProductId() != null ? itemReq.getProductId() : UUID.randomUUID();
+            String pSku = itemReq.getSku() != null && !itemReq.getSku().isBlank() ? itemReq.getSku() : "MANUAL-SKU";
+            BigDecimal uWeight = itemReq.getUnitWeightKg() != null ? itemReq.getUnitWeightKg() : BigDecimal.ONE;
+
             OfflineOrderItem item = new OfflineOrderItem(
-                    itemReq.getProductId(),
+                    pId,
                     itemReq.getProductName(),
-                    itemReq.getSku(),
+                    pSku,
                     itemReq.getUnitPrice(),
                     itemReq.getQuantity(),
-                    itemReq.getUnitWeightKg(),
+                    uWeight,
                     lineTotal,
                     lineTax
             );
             order.addItem(item);
         }
 
-        BigDecimal totalAmount = subtotal.add(taxAmount);
+        BigDecimal deliveryCharges = req.getDeliveryCharges() != null ? req.getDeliveryCharges() : BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryCharges);
         BigDecimal immediatePaid = req.getImmediatePaidAmount() != null ? req.getImmediatePaidAmount() : BigDecimal.ZERO;
+
+        // If payment status is marked PAID or cash/upi, default immediatePaid to totalAmount if not set
+        if ("PAID".equalsIgnoreCase(req.getPaymentStatus()) || "CASH".equalsIgnoreCase(req.getPaymentMethod()) || "UPI".equalsIgnoreCase(req.getPaymentMethod()) || "BANK_TRANSFER".equalsIgnoreCase(req.getPaymentMethod())) {
+            if (immediatePaid.compareTo(BigDecimal.ZERO) == 0 && req.getImmediatePaidAmount() == null) {
+                immediatePaid = totalAmount;
+            }
+        }
 
         if (immediatePaid.compareTo(totalAmount) > 0) {
             throw new IllegalArgumentException("Immediate payment (₹" + immediatePaid + ") cannot exceed total invoice amount (₹" + totalAmount + ").");
@@ -112,26 +144,31 @@ public class OfflineOrderService {
         // Sequential IDs
         String dateStr = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         int seq = ORDER_SEQ.incrementAndGet();
-        String orderNumber = String.format("OFF-%s-%04d", dateStr, seq);
-        String invoiceNumber = String.format("INV-OFF-%s-%04d", dateStr, seq);
+        String prefix = "MANUAL_RETAIL".equalsIgnoreCase(req.getOrderType()) ? "RET" : "OFF";
+        String orderNumber = String.format("%s-%s-%04d", prefix, dateStr, seq);
+        String invoiceNumber = String.format("INV-%s-%s-%04d", prefix, dateStr, seq);
 
-        Instant now = Instant.now();
-        Instant dueDate = now.plus(customer.getCreditDays(), ChronoUnit.DAYS);
+        Instant orderDate = req.getOrderDate() != null ? req.getOrderDate() : Instant.now();
+        Instant dueDate = orderDate.plus(customer.getCreditDays() > 0 ? customer.getCreditDays() : 30, ChronoUnit.DAYS);
 
         order.setOrderNumber(orderNumber);
         order.setInvoiceNumber(invoiceNumber);
         order.setSubtotalAmount(subtotal);
         order.setTaxAmount(taxAmount);
+        order.setDeliveryCharges(deliveryCharges);
         order.setTotalAmount(totalAmount);
         order.setPaidAmount(immediatePaid);
         order.setOutstandingAmount(creditPortion);
-        order.setOrderDate(now);
+        order.setOrderDate(orderDate);
         order.setDueDate(dueDate);
-        order.setStatus("CONFIRMED");
+        order.setOrderType(req.getOrderType() != null ? req.getOrderType() : "WHOLESALE");
+        order.setStatus(req.getOrderStatus() != null ? req.getOrderStatus() : "CONFIRMED");
         order.setPaymentMethod(req.getPaymentMethod());
         order.setNotes(req.getNotes());
 
-        if (creditPortion.compareTo(BigDecimal.ZERO) == 0) {
+        if (req.getPaymentStatus() != null && !req.getPaymentStatus().isBlank()) {
+            order.setPaymentStatus(req.getPaymentStatus());
+        } else if (creditPortion.compareTo(BigDecimal.ZERO) == 0) {
             order.setPaymentStatus("PAID");
         } else if (immediatePaid.compareTo(BigDecimal.ZERO) > 0) {
             order.setPaymentStatus("PARTIALLY_PAID");
@@ -254,5 +291,69 @@ public class OfflineOrderService {
         invoice.setPaymentStatus(order.getPaymentStatus());
 
         return invoice;
+    }
+
+    @Transactional
+    public OfflineOrderDto updateOfflineOrder(UUID orderId, UpdateOfflineOrderRequest req) {
+        OfflineOrder order = offlineOrderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Offline order not found with ID: " + orderId));
+
+        Customer customer = order.getCustomer();
+
+        if (req.getOrderStatus() != null && !req.getOrderStatus().isBlank()) {
+            order.setStatus(req.getOrderStatus().trim());
+        }
+
+        if (req.getPaymentMethod() != null && !req.getPaymentMethod().isBlank()) {
+            order.setPaymentMethod(req.getPaymentMethod().trim());
+        }
+
+        if (req.getNotes() != null) {
+            order.setNotes(req.getNotes().trim());
+        }
+
+        if (req.getPaymentStatus() != null && !req.getPaymentStatus().isBlank()) {
+            String newPayStatus = req.getPaymentStatus().trim().toUpperCase();
+            String oldPayStatus = order.getPaymentStatus();
+            order.setPaymentStatus(newPayStatus);
+
+            if ("PAID".equals(newPayStatus) && !"PAID".equalsIgnoreCase(oldPayStatus)) {
+                BigDecimal prevOutstanding = order.getOutstandingAmount();
+                order.setPaidAmount(order.getTotalAmount());
+                order.setOutstandingAmount(BigDecimal.ZERO);
+                if (customer != null && prevOutstanding.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal updatedCustBal = customer.getCurrentOutstanding().subtract(prevOutstanding);
+                    if (updatedCustBal.compareTo(BigDecimal.ZERO) < 0) updatedCustBal = BigDecimal.ZERO;
+                    customer.setCurrentOutstanding(updatedCustBal);
+                    customerRepository.save(customer);
+                }
+            } else if ("PENDING".equals(newPayStatus) && "PAID".equalsIgnoreCase(oldPayStatus)) {
+                order.setPaidAmount(BigDecimal.ZERO);
+                order.setOutstandingAmount(order.getTotalAmount());
+                if (customer != null) {
+                    customer.setCurrentOutstanding(customer.getCurrentOutstanding().add(order.getTotalAmount()));
+                    customerRepository.save(customer);
+                }
+            }
+        }
+
+        OfflineOrder saved = offlineOrderRepository.save(order);
+        return OfflineOrderDto.fromEntity(saved);
+    }
+
+    @Transactional
+    public void deleteOfflineOrder(UUID orderId) {
+        OfflineOrder order = offlineOrderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Offline order not found with ID: " + orderId));
+
+        Customer customer = order.getCustomer();
+        if (customer != null && order.getOutstandingAmount().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal updatedCustBal = customer.getCurrentOutstanding().subtract(order.getOutstandingAmount());
+            if (updatedCustBal.compareTo(BigDecimal.ZERO) < 0) updatedCustBal = BigDecimal.ZERO;
+            customer.setCurrentOutstanding(updatedCustBal);
+            customerRepository.save(customer);
+        }
+
+        offlineOrderRepository.delete(order);
     }
 }

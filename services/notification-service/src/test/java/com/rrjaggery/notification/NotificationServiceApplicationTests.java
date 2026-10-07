@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -28,5 +29,29 @@ class NotificationServiceApplicationTests {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("UP"))
                 .andExpect(jsonPath("$.data.service").value("notification-service"));
+    }
+
+    @Test
+    void testGetNotificationsUnauthenticatedReturnsForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@rrjaggery.com", roles = {"ADMIN"})
+    void testGetNotificationsAuthenticatedSuccess() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@rrjaggery.com", roles = {"ADMIN"})
+    void testGetUnreadCountSuccess() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/unread-count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.unreadCount").isNumber());
     }
 }
