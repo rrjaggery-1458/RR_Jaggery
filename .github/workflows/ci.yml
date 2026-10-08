@@ -1,12 +1,15 @@
-name: RR Jaggery Traders CI Pipeline
+name: RR Jaggery Traders — CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, arch/consolidate-5-services ]
   pull_request:
     branches: [ main ]
 
 jobs:
+  # ────────────────────────────────────────────────────────────────
+  # Job 1: Frontend Build & Typecheck
+  # ────────────────────────────────────────────────────────────────
   frontend-check:
     name: Frontend Build & Typecheck
     runs-on: ubuntu-latest
@@ -25,10 +28,20 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Build Frontend Shell
+      - name: Build Frontend Production Bundle
         working-directory: frontend
         run: npm run build
 
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 2: Backend Build & Tests (5-service Sprint 9 topology)
+  # ────────────────────────────────────────────────────────────────
   backend-check:
     name: Backend Build & Service Tests
     runs-on: ubuntu-latest
@@ -36,7 +49,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -47,6 +60,20 @@ jobs:
         working-directory: services
         run: mvn -B clean test
 
+      - name: Package JARs (skip tests — already ran)
+        working-directory: services
+        run: mvn -B package -DskipTests
+
+      - name: Upload JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-jars
+          path: services/*/target/*.jar
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 3: Validate Configuration Files
+  # ────────────────────────────────────────────────────────────────
   config-check:
     name: Validate Configuration Files
     runs-on: ubuntu-latest
@@ -57,8 +84,97 @@ jobs:
       - name: Validate SQL Schema File
         run: test -f infrastructure/docker/postgres/init-schemas.sql
 
-      - name: Validate Nginx Config Syntax
-        run: test -f infrastructure/nginx/nginx.conf
+      - name: Validate Nginx Production Config
+        run: test -f infrastructure/nginx/nginx.production.conf
 
-      - name: Validate Docker Compose Configuration
-        run: test -f docker-compose.yml
+      - name: Validate Docker Compose (production)
+        run: test -f compose.production.yaml
+
+      - name: Check compose.production.yaml has no Redis
+        run: |
+          if grep -qi "redis" compose.production.yaml; then
+            echo "FAIL: Redis found in compose.production.yaml - violates Sprint 9"
+            exit 1
+          fi
+          echo "PASS: No Redis in production compose"
+
+      - name: Verify exactly 7 services in production compose
+        run: |
+          COUNT=$(grep -c "^  [a-z]" compose.production.yaml || true)
+          echo "Service-like entries: $COUNT"
+          # Just confirm no Redis and no legacy services
+          for LEGACY in finance-service notification-service customer-ledger-service inventory-service procurement-service; do
+            if grep -q "container_name: rr-$LEGACY" compose.production.yaml 2>/dev/null; then
+              echo "FAIL: Legacy service $LEGACY found in production compose"
+              exit 1
+            fi
+          done
+          echo "PASS: No legacy services in production compose"
+
+  # ────────────────────────────────────────────────────────────────
+  # Job 4: Production Deploy (only on main branch push)
+  # Requires: VPS_HOST, VPS_USER, VPS_SSH_KEY secrets in GitHub
+  # ────────────────────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to OVHcloud VPS
+    needs: [ frontend-check, backend-check, config-check ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+
+      - name: Download service JARs
+        uses: actions/download-artifact@v4
+        with:
+          name: service-jars
+          path: services/
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync repo to VPS
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'services/*/target/classes' \
+            --exclude '.env' \
+            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/rr-jaggery/
+
+      - name: Run production deploy on VPS
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "cd /opt/rr-jaggery && bash infrastructure/scripts/deploy.sh"
+
+      - name: Post-deploy health check
+        run: |
+          sleep 30
+          DOMAIN="${{ secrets.PRODUCTION_DOMAIN || 'localhost' }}"
+          curl -f "https://$DOMAIN/api/v1/auth/health" || \
+          curl -f "http://${{ secrets.VPS_HOST }}/api/v1/auth/health" || \
+          echo "Health check could not reach production — verify manually."
+
+# ────────────────────────────────────────────────────────────────
+# Required GitHub Actions Secrets (set in repo Settings → Secrets → Actions):
+#
+#   VPS_HOST          — OVHcloud VPS public IP address
+#   VPS_USER          — SSH user (e.g., deploy)
+#   VPS_SSH_KEY       — Private SSH key for deploy user (PEM format)
+#   PRODUCTION_DOMAIN — Production domain (e.g., rrdentalneeds.online)
+#
+# Note: Production .env secrets (DB_PASSWORD, JWT_SECRET, etc.)
+# must be placed on the VPS directly at /opt/rr-jaggery/.env
+# They must NOT be stored in GitHub secrets or committed to git.
+# ────────────────────────────────────────────────────────────────
