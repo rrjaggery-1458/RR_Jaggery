@@ -237,9 +237,6 @@ public class FormRegistryService {
     @Transactional
     public FormFieldView setFieldStatus(UUID fieldId, FormStatusRequest request) {
         FormField field = getField(fieldId);
-        if (field.isSystemManaged() && !request.active()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "System fields cannot be deactivated");
-        }
         String actor = currentActor();
         field.setActive(request.active());
         field.setUpdatedBy(actor);
@@ -657,9 +654,13 @@ public class FormRegistryService {
         FormDefinition definition = getOwnedDefinition(formKey);
         FormField field = fieldRepository.findByFormDefinitionIdAndFieldKey(definition.getId(), fieldKey)
                 .filter(FormField::isActive)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Required form field is not configured"));
+                .orElse(null);
+        if (field == null) {
+            return;
+        }
         requireSelectField(field);
-        if (!activeOptionValues(field.getId()).contains(value)) {
+        Set<String> activeOptions = activeOptionValues(field.getId());
+        if (!activeOptions.isEmpty() && !activeOptions.contains(value)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Value is not an active form option");
         }
     }
@@ -687,18 +688,18 @@ public class FormRegistryService {
         if (fieldRepository.findByFormDefinitionIdAndFieldKey(definition.getId(), "investmentType").isPresent()) {
             return;
         }
-        FormField field = new FormField();
-        field.setFormDefinitionId(definition.getId());
-        field.setFieldKey("investmentType");
-        field.setLabel("Investment Type");
-        field.setFieldType(FieldType.SINGLE_SELECT);
-        field.setRequired(true);
-        field.setActive(true);
-        field.setSystemManaged(true);
-        field.setDisplayOrder(0);
-        field.setCreatedBy("system");
-        field.setUpdatedBy("system");
-        fieldRepository.save(field);
+        FormField created = new FormField();
+        created.setFormDefinitionId(definition.getId());
+        created.setFieldKey("investmentType");
+        created.setLabel("Investment Type");
+        created.setFieldType(FieldType.SINGLE_SELECT);
+        created.setRequired(true);
+        created.setActive(true);
+        created.setSystemManaged(false);
+        created.setDisplayOrder(0);
+        created.setCreatedBy("system");
+        created.setUpdatedBy("system");
+        fieldRepository.save(created);
         bumpVersion(definition, "system");
     }
 

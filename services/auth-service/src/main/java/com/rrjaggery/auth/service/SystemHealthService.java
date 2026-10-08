@@ -133,14 +133,14 @@ public class SystemHealthService {
             dbItem.setTotalTables(totalTableCount);
 
             Map<String, String> schemaOwnerMap = Map.of(
-                    "auth_schema", "Auth Service",
-                    "commerce_schema", "Commerce Service",
-                    "customer_schema", "Customer Ledger Service",
-                    "inventory_schema", "Inventory Service",
-                    "procurement_schema", "Procurement Service",
-                    "production_schema", "Production Service",
-                    "finance_schema", "Finance Service",
-                    "notification_schema", "Notification Service"
+                    "auth_schema",         "Auth Service",
+                    "commerce_schema",     "Commerce Service",
+                    "customer_schema",     "Customer-Finance Service",
+                    "inventory_schema",    "Inventory-Procurement Service",
+                    "procurement_schema",  "Inventory-Procurement Service",
+                    "production_schema",   "Production Service",
+                    "finance_schema",      "Customer-Finance Service",
+                    "notification_schema", "Customer-Finance Service"
             );
 
             List<SchemaHealthItem> schemaList = new ArrayList<>();
@@ -356,6 +356,15 @@ public class SystemHealthService {
         containers.add(createContainerItem("rr-gateway", "API Gateway (Nginx)", gatewayUp ? "UP" : "DOWN", 80));
 
         dto.setContainers(containers);
+
+        // Redis decommissioned in Sprint 9 — mark explicitly
+        RedisHealthItem redisItem = new RedisHealthItem();
+        redisItem.setStatus("DECOMMISSIONED");
+        redisItem.setHost("N/A — removed in Sprint 9");
+        redisItem.setPort(0);
+        redisItem.setUsedMemory("0 MB");
+        redisItem.setConnected(false);
+        dto.setRedis(redisItem);
     }
 
     private ContainerHealthItem createContainerItem(String containerName, String service, String liveStatus, int port) {
@@ -405,9 +414,9 @@ public class SystemHealthService {
         summary.setDatabaseHealthy(dbHealthy);
         summary.setTotalSchemas(totalSchemas);
         summary.setHealthySchemas(healthySchemas);
-        summary.setRedisHealthy(true);
+        summary.setRedisHealthy(false); // Redis decommissioned in Sprint 9
         summary.setGatewayHealthy(gatewayHealthy);
-        summary.setContainersTotal(containersTotal);
+        summary.setContainersTotal(containersTotal); // Should be 7 for Sprint 9
         summary.setContainersHealthy(containersHealthy);
         dto.setSummary(summary);
 

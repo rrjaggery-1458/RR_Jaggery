@@ -13,6 +13,7 @@ import {
   ChevronDown, ChevronRight, Cpu, Shield, Layers, Coins, ArrowUpRight
 } from 'lucide-react';
 import { DynamicFormSection } from './components/DynamicFormSection';
+import { LoadingOverlay, TopProgressBar } from './components/LoadingOverlay';
 
 // ─── API Helpers ─────────────────────────────────────────────────────────────
 
@@ -304,15 +305,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     databaseConnectivity?: string;
     error?: string;
   }
+  // Sprint 9 consolidated architecture: 5 JVM services
   const [systemHealthServices, setSystemHealthServices] = useState<ServiceHealth[]>([
-    { name: 'auth-service',            displayName: 'Auth Service',         port: 8081, url: `${AUTH_URL}/health`,          schema: 'auth_schema',            status: 'LOADING' },
-    { name: 'commerce-service',        displayName: 'Commerce Service',     port: 8082, url: `${COMMERCE_URL}/health`,      schema: 'commerce_schema',        status: 'LOADING' },
-    { name: 'customer-ledger-service', displayName: 'Customer Ledger',      port: 8083, url: `${CUSTOMER_URL}/health`,      schema: 'customer_schema',        status: 'LOADING' },
-    { name: 'inventory-service',       displayName: 'Inventory Service',    port: 8084, url: `${INVENTORY_URL}/health`,     schema: 'inventory_schema',       status: 'LOADING' },
-    { name: 'procurement-service',     displayName: 'Procurement Service',  port: 8084, url: `${PROCUREMENT_URL}/health`,  schema: 'procurement_schema',     status: 'LOADING' },
-    { name: 'production-service',      displayName: 'Production Service',   port: 8086, url: `${PRODUCTION_URL}/health`,   schema: 'production_schema',      status: 'LOADING' },
-    { name: 'finance-service',         displayName: 'Finance Service',      port: 8083, url: `${FINANCE_URL}/health`,      schema: 'finance_schema',         status: 'LOADING' },
-    { name: 'notification-service',    displayName: 'Notification Service', port: 8083, url: `${NOTIFICATION_URL}/health`, schema: 'notification_schema',    status: 'LOADING' },
+    { name: 'auth-service',                  displayName: 'Auth Service',                    port: 8081, url: `${AUTH_URL}/health`,        schema: 'auth_schema',                                    status: 'LOADING' },
+    { name: 'commerce-service',              displayName: 'Commerce Service',                port: 8082, url: `${COMMERCE_URL}/health`,    schema: 'commerce_schema',                                status: 'LOADING' },
+    { name: 'customer-finance-service',      displayName: 'Customer-Finance Service',        port: 8083, url: `${CUSTOMER_URL}/health`,    schema: 'customer_schema, finance_schema, notification_schema', status: 'LOADING' },
+    { name: 'inventory-procurement-service', displayName: 'Inventory-Procurement Service',   port: 8084, url: `${INVENTORY_URL}/health`,   schema: 'inventory_schema, procurement_schema',           status: 'LOADING' },
+    { name: 'production-service',            displayName: 'Production Service',              port: 8086, url: `${PRODUCTION_URL}/health`,  schema: 'production_schema',                              status: 'LOADING' },
   ]);
   const [systemHealthLastRefresh, setSystemHealthLastRefresh] = useState<Date | null>(null);
   const [systemHealthRefreshing, setSystemHealthRefreshing] = useState(false);
@@ -3058,10 +3057,38 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     }
   };
 
+  const getSubmittingMessage = (key: string | null) => {
+    if (!key) return 'Saving records...';
+    if (key === 'create-investment') return 'Recording Capital Investment...';
+    if (key === 'create-expense') return 'Saving Operating Expense...';
+    if (key === 'create-retail-order') return 'Saving Retail Order...';
+    if (key === 'create-manager') return 'Creating Staff / Manager Profile...';
+    if (key === 'edit-user') return 'Updating User Permissions...';
+    if (key === 'create-field') return 'Configuring Dynamic Field...';
+    if (key === 'create-option') return 'Adding Field Option...';
+    if (key === 'record-attendance') return 'Saving Shift Attendance...';
+    if (key.startsWith('toggle-field-')) return 'Updating Field Status...';
+    if (key.startsWith('toggle-opt-')) return 'Updating Option Status...';
+    if (key.startsWith('update-field-')) return 'Saving Field Configuration...';
+    if (key.startsWith('void-inv-')) return 'Voiding Capital Investment...';
+    if (key.startsWith('toggle-prod-')) return 'Updating Product Status...';
+    if (key.startsWith('delete-prod-')) return 'Deactivating Product...';
+    return 'Processing Operation...';
+  };
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[#f2f8f3] text-gray-900 flex flex-col md:flex-row font-sans selection:bg-emerald-500/30 selection:text-white">
+
+      {/* Top Animated Progress Bar & Branded Loading Overlay */}
+      <TopProgressBar active={loading || submittingKey !== null || syncingAlerts} />
+      <LoadingOverlay
+        show={submittingKey !== null}
+        message={getSubmittingMessage(submittingKey)}
+        subtext="RR Jaggery Traders ERP Engine"
+        fullScreen={true}
+      />
 
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
@@ -7999,7 +8026,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <Boxes className="w-3.5 h-3.5 text-emerald-600" />
                     </div>
                     <p className="text-xl font-black text-gray-900 mt-1">
-                      {data?.summary?.containersHealthy || (allUp ? 11 : 11 - downCount)} / 11
+                      {data?.summary?.containersHealthy !== undefined
+                        ? `${data.summary.containersHealthy} / ${data.summary.containersTotal ?? 7}`
+                        : `${allUp ? 7 : 7 - downCount} / 7`}
                     </p>
                     <span className="text-[10px] text-emerald-600 font-medium">Containers Healthy</span>
                   </div>
@@ -8031,7 +8060,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-2">
-                      <Server className="w-3.5 h-3.5 text-emerald-700" /> Microservice Status (8 Services)
+                      <Server className="w-3.5 h-3.5 text-emerald-700" /> Microservice Status — Sprint 9 (5 Consolidated Services)
                     </h4>
                     <span className="text-[11px] text-gray-400">Click any service to view safe diagnostic details</span>
                   </div>
@@ -8243,14 +8272,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <div>
                       <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                         <Boxes className="w-4 h-4 text-emerald-700" />
-                        Docker Container Status (11 Containers)
+                        Docker Container Status (7 Containers)
                       </h4>
                       <p className="text-xs text-gray-500 mt-0.5">
                         Operational container inventory running via Docker Compose orchestration.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg text-xs self-start sm:self-auto">
-                      ● 11 / 11 Containers Healthy
+                      ● {data?.summary?.containersHealthy ?? 7} / {data?.summary?.containersTotal ?? 7} Containers Healthy
                     </span>
                   </div>
 
@@ -9763,6 +9792,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <DynamicFormSection
                 formKey="INVESTMENT"
                 service="finance"
+                excludeKeys={['investmentType']}
                 answers={investmentCustomAnswers}
                 onAnswerChange={(k, v) => setInvestmentCustomAnswers(prev => ({ ...prev, [k]: v }))}
                 token={token}
@@ -9782,8 +9812,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 type="submit"
                 form="investment-form"
                 disabled={submittingKey === 'create-investment'}
-                className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow transition disabled:opacity-60"
+                className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow transition disabled:opacity-60 flex items-center gap-2"
               >
+                {submittingKey === 'create-investment' && <RefreshCw className="w-4 h-4 animate-spin" />}
                 {submittingKey === 'create-investment' ? 'Saving...' : 'Record Capital'}
               </button>
             </div>

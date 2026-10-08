@@ -40,6 +40,7 @@ interface DynamicFormSectionProps {
   onAnswerChange: (fieldKey: string, value: any) => void;
   token?: string;
   readOnly?: boolean;
+  excludeKeys?: string[];
 }
 
 const getBaseUrl = (service: 'finance' | 'customers' | 'production') => {
@@ -50,7 +51,7 @@ const getBaseUrl = (service: 'finance' | 'customers' | 'production') => {
   }
   if (service === 'customers') return 'http://localhost:8083/api/v1/customers/forms';
   if (service === 'production') return 'http://localhost:8086/api/v1/production/forms';
-  return 'http://localhost:8087/api/v1/finance/forms';
+  return 'http://localhost:8083/api/v1/finance/forms';
 };
 
 export const DynamicFormSection: React.FC<DynamicFormSectionProps> = ({
@@ -60,6 +61,7 @@ export const DynamicFormSection: React.FC<DynamicFormSectionProps> = ({
   onAnswerChange,
   token,
   readOnly = false,
+  excludeKeys = [],
 }) => {
   const [definition, setDefinition] = useState<FormDefinition | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -111,11 +113,12 @@ export const DynamicFormSection: React.FC<DynamicFormSectionProps> = ({
     return null; // No extra fields configured
   }
 
-  // Deduplicate fields by fieldKey and filter active
+  // Deduplicate fields by fieldKey, apply excludeKeys, and filter active
   const seenKeys = new Set<string>();
   const fieldsToRender = (definition.fields || [])
     .filter(f => {
       if (!f || !f.fieldKey) return false;
+      if (excludeKeys && excludeKeys.includes(f.fieldKey)) return false;
       if (readOnly ? false : f.active === false) return false;
       if (seenKeys.has(f.fieldKey)) return false;
       seenKeys.add(f.fieldKey);
@@ -259,13 +262,13 @@ export const DynamicFormSection: React.FC<DynamicFormSectionProps> = ({
               {/* SINGLE_SELECT, DROPDOWN */}
               {['SINGLE_SELECT', 'DROPDOWN'].includes(field.fieldType) && (
                 <select
-                  disabled={readOnly}
-                  required={field.required}
+                  disabled={readOnly || activeOptions.length === 0}
+                  required={field.required && activeOptions.length > 0}
                   value={value}
                   onChange={e => onAnswerChange(field.fieldKey, e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none text-xs font-medium"
                 >
-                  <option value="">-- Select {field.label} --</option>
+                  <option value="">{activeOptions.length === 0 ? `-- No configured options --` : `-- Select ${field.label} --`}</option>
                   {activeOptions.map(opt => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
