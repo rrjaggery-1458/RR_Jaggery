@@ -390,7 +390,7 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
         </button>
 
         <div className="flex items-center gap-3 mb-6">
-          <img src="/rr-logo.png" className="h-10 w-10 rounded-xl object-cover shadow-lg shadow-black/40 border border-emerald-500/30" alt="RR Jaggery Logo" />
+          <img src="/rr-logo.png" className="h-10 w-10 rounded-full object-cover shadow-md" alt="RR Jaggery Logo" />
           <div>
             <div className="font-extrabold text-lg text-white">RR JAGGERY TRADERS</div>
             <div className="text-[10px] text-gray-500">Authentication & B2B Portal Access</div>
@@ -3796,7 +3796,7 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}>
-            <img src="/rr-logo.png" className="h-10 w-10 rounded-xl object-cover shadow-md border border-emerald-300" alt="RR Jaggery Logo" />
+            <img src="/rr-logo.png" className="h-10 w-10 rounded-full object-cover shadow-sm" alt="RR Jaggery Logo" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-xl tracking-tight text-gray-900 font-serif">RR JAGGERY</span>

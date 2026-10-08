@@ -3165,7 +3165,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         {/* Brand Header */}
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/rr-logo.png" className="w-10 h-10 rounded-xl object-cover shadow-md border border-emerald-300" alt="RR Jaggery Logo" />
+            <img src="/rr-logo.png" className="w-10 h-10 rounded-full object-cover shadow-sm" alt="RR Jaggery Logo" />
             <div>
               <h1 className="text-base font-extrabold text-gray-900 tracking-tight font-serif">RR JAGGERY</h1>
               <p className="text-[11px] font-semibold text-emerald-700 tracking-wider uppercase">ERP Portal</p>
