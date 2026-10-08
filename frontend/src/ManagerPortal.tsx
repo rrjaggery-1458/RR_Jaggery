@@ -724,308 +724,280 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   // ─── Load All Domain Data ────────────────────────────────────────────────────
 
-  const loadData = useCallback(async () => {
+  // ─── Load All Domain Data (High Performance Parallelized) ───────────────────
+
+  const loadData = useCallback(async (showSpinner = true) => {
     if (!token) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setErrorMsg(null);
 
     const headers = getHeaders();
+    const payrollParams = periodType === 'monthly'
+      ? `year=${selectedYear}&month=${selectedMonth}`
+      : `year=${selectedYear}`;
+    const financeParams = payrollParams;
+    const batchUrl = periodType === 'monthly'
+      ? `${PRODUCTION_URL}/batches?year=${selectedYear}&month=${selectedMonth}`
+      : `${PRODUCTION_URL}/batches?year=${selectedYear}`;
 
     try {
-      // 1. Products & Categories (Commerce)
-      try {
-        const [prodRes, catRes] = await Promise.all([
-          fetch(`${COMMERCE_URL}/admin/products`, { headers }),
-          fetch(`${COMMERCE_URL}/admin/categories`, { headers }),
-        ]);
-        if (prodRes.ok) {
-          const pData = await prodRes.json();
-          setProducts(pData.data || []);
-        } else {
-          console.warn('Could not load products:', prodRes.status);
-        }
-        if (catRes.ok) {
-          const cData = await catRes.json();
-          setCategories(cData.data || []);
-        }
-      } catch (err) {
-        console.warn('Commerce fetch error:', err);
-      }
-
-      // 2. Inventory Items
-      try {
-        const invRes = await fetch(`${INVENTORY_URL}/items`, { headers });
-        if (invRes.ok) {
-          const iData = await invRes.json();
-          setInventoryItems(iData.data || []);
-        }
-      } catch (err) {
-        console.warn('Inventory fetch error:', err);
-      }
-
-      // 3. Procurement Suppliers
-      try {
-        const supRes = await fetch(`${PROCUREMENT_URL}/suppliers`, { headers });
-        if (supRes.ok) {
-          const sData = await supRes.json();
-          setSuppliers(sData.data || []);
-        }
-      } catch (err) {
-        console.warn('Procurement fetch error:', err);
-      }
-
-      // 4. Production Batches — server-side period filter
-      try {
-        const batchUrl = periodType === 'monthly'
-          ? `${PRODUCTION_URL}/batches?year=${selectedYear}&month=${selectedMonth}`
-          : `${PRODUCTION_URL}/batches?year=${selectedYear}`;
-        const prodRes = await fetch(batchUrl, { headers });
-        if (prodRes.ok) {
-          const bData = await prodRes.json();
-          setProductionBatches(bData.data || []);
-        } else {
-          setProductionBatches([]);
-        }
-      } catch (err) {
-        console.warn('Production fetch error:', err);
-        setProductionBatches([]);
-      }
-
-      // 5. Authoritative Running Operational Balance, Expenses & Breakdown (Finance)
-      try {
-        const financeParams = periodType === 'monthly'
-          ? `year=${selectedYear}&month=${selectedMonth}`
-          : `year=${selectedYear}`;
-        const [balRes, expRes, brkRes] = await Promise.all([
-          fetch(`${FINANCE_URL}/balance?${financeParams}`, { headers }),
-          fetch(`${FINANCE_URL}/expenses?${financeParams}`, { headers }),
-          fetch(`${FINANCE_URL}/expenses/breakdown?${financeParams}`, { headers }),
-        ]);
-
-        if (balRes.ok) {
-          const balData = await balRes.json();
-          setFinancialBalance(balData.data || null);
-        }
-        if (expRes.ok) {
-          const eData = await expRes.json();
-          setExpenses(eData.data || []);
-        } else {
-          setExpenses([]);
-        }
-        if (brkRes.ok) {
-          const bData = await brkRes.json();
-          setExpenseBreakdown(bData.data || []);
-        } else {
-          setExpenseBreakdown([]);
-        }
-      } catch (err) {
-        console.warn('Finance fetch error:', err);
-        setExpenses([]);
-        setExpenseBreakdown([]);
-      }
-
-      // 6. Employees, Attendance & Authoritative Wage Payments
-      try {
-        const payrollParams = periodType === 'monthly'
-          ? `year=${selectedYear}&month=${selectedMonth}`
-          : `year=${selectedYear}`;
-        const [empRes, payRes, salRes] = await Promise.all([
-          fetch(`${FINANCE_URL}/employees`, { headers }),
-          fetch(`${FINANCE_URL}/payroll?${payrollParams}`, { headers }),
-          fetch(`${FINANCE_URL}/salary-payments`, { headers }),
-        ]);
-        let empList: any[] = [];
-        if (empRes.ok) {
-          const empData = await empRes.json();
-          empList = empData.data || [];
-          setEmployees(empList);
-        }
-        let unifiedPayments: any[] = [];
-        if (salRes.ok) {
-          const salData = await salRes.json();
-          const list = salData.data || [];
-          list.forEach((s: any) => {
-            const emp = empList.find((e: any) => e.id === s.employeeId);
-            const periodDays = (s.periodYear && s.periodMonth) ? new Date(s.periodYear, s.periodMonth, 0).getDate() : null;
-            unifiedPayments.push({
-              id: s.id,
-              employeeId: s.employeeId,
-              periodYear: s.periodYear,
-              periodMonth: s.periodMonth,
-              paymentDate: s.paymentDate || s.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
-              amount: Number(s.amount ?? s.netAmountPaid ?? 0),
-              baseAmount: Number(s.baseAmount ?? s.base_amount ?? s.amount ?? 0),
-              netAmountPaid: Number(s.netAmountPaid ?? s.net_amount_paid ?? s.amount ?? 0),
-              daysWorked: s.daysWorked ?? s.days_worked ?? (emp?.wageType === 'MONTHLY' && periodDays ? periodDays : '—'),
-              overtimeHours: Number(s.overtimeHours ?? s.overtime_hours ?? 0),
-              paymentMethod: s.paymentMethod || s.payment_method || 'CASH',
-              referenceNotes: s.referenceNumber || s.notes || 'Wage settlement',
-              status: s.status || 'PAID',
-            });
-          });
-        }
-        if (payRes.ok) {
-          const payData = await payRes.json();
-          const legacy = payData.data || [];
-          legacy.forEach((p: any) => {
-            if (!unifiedPayments.some(u => u.id === p.id)) {
-              unifiedPayments.push(p);
+      await Promise.allSettled([
+        // 1. Products & Categories
+        (async () => {
+          try {
+            const [prodRes, catRes] = await Promise.all([
+              fetch(`${COMMERCE_URL}/admin/products`, { headers }),
+              fetch(`${COMMERCE_URL}/admin/categories`, { headers }),
+            ]);
+            if (prodRes.ok) {
+              const pData = await prodRes.json();
+              setProducts(pData.data || []);
             }
-          });
-        }
-        unifiedPayments.sort((a, b) => (b.paymentDate || '').localeCompare(a.paymentDate || '') || (b.id || '').localeCompare(a.id || ''));
-        setPayrollRecords(unifiedPayments);
-      } catch (err) {
-        console.warn('Payroll fetch error:', err);
-      }
-
-      // 7. Wholesale Customers & Orders
-      try {
-        const [custRes, offRes, retRes] = await Promise.all([
-          fetch(`${CUSTOMER_URL}?type=OFFLINE_WHOLESALE`, { headers }),
-          fetch(`${CUSTOMER_URL}/offline-orders`, { headers }),
-          fetch(`${COMMERCE_URL}/admin/orders`, { headers }),
-        ]);
-        if (custRes.ok) {
-          const cData = await custRes.json();
-          const rawCustomers = Array.isArray(cData) ? cData : (cData.data || []);
-          const wholesaleOnly = rawCustomers.filter((c: any) => c.customerType === 'OFFLINE_WHOLESALE' || !c.customerType || c.businessName);
-          setWholesaleCustomers(wholesaleOnly.length > 0 ? wholesaleOnly : rawCustomers);
-        }
-        if (offRes.ok) {
-          const oData = await offRes.json();
-          // Offline orders endpoint returns plain array (not ApiResponse wrapper)
-          const rawOrders = Array.isArray(oData) ? oData : (oData.data || []);
-          setWholesaleOrders(rawOrders);
-        } else {
-          setWholesaleOrders([]);
-        }
-        if (retRes.ok) {
-          const rData = await retRes.json();
-          setRetailOrders(rData.data || []);
-        } else {
-          setRetailOrders([]);
-        }
-      } catch (err) {
-        console.warn('Wholesale & Retail fetch error:', err);
-      }
-
-      // 8. Business Configuration Masters
-      try {
-        const [ecRes, pmRes, dtRes, atRes, prRes, pcRes] = await Promise.all([
-          fetch(`${FINANCE_URL}/business-masters/expense-categories`, { headers: getHeaders() }),
-          fetch(`${FINANCE_URL}/business-masters/payment-methods`, { headers: getHeaders() }),
-          fetch(`${FINANCE_URL}/business-masters/deduction-types`, { headers: getHeaders() }),
-          fetch(`${FINANCE_URL}/business-masters/advance-types`, { headers: getHeaders() }),
-          fetch(`${FINANCE_URL}/business-masters/payroll-rules`, { headers: getHeaders() }),
-          fetch(`${PRODUCTION_URL}/cost-masters`, { headers: getHeaders() }),
-        ]);
-
-        if (ecRes.ok) {
-          const d = await ecRes.json();
-          setExpenseCategories(d.data || []);
-        }
-        if (pmRes.ok) {
-          const d = await pmRes.json();
-          setPaymentMethods(d.data || []);
-        }
-        if (dtRes.ok) {
-          const d = await dtRes.json();
-          setDeductionTypes(d.data || []);
-        }
-        if (atRes.ok) {
-          const d = await atRes.json();
-          setAdvanceTypes(d.data || []);
-        }
-        if (prRes.ok) {
-          const d = await prRes.json();
-          setPayrollRules(d.data || []);
-        }
-        if (pcRes.ok) {
-          const d = await pcRes.json();
-          setProductionCostMasters(d.data || []);
-        }
-      } catch (err) {
-        console.warn('Business masters fetch error:', err);
-      }
-
-      // 9. In-App Notifications & Alerts
-      try {
-        const [notifRes, unreadRes] = await Promise.all([
-          fetch(`${NOTIFICATION_URL}`, { headers: getHeaders() }),
-          fetch(`${NOTIFICATION_URL}/unread-count`, { headers: getHeaders() })
-        ]);
-        if (notifRes.ok) {
-          const n = await notifRes.json();
-          setNotifications(n.data || []);
-        }
-        if (unreadRes.ok) {
-          const u = await unreadRes.json();
-          setUnreadNotificationsCount(u.data?.unreadCount || 0);
-        }
-      } catch (err) {
-        console.warn('Notifications fetch error:', err);
-      }
-
-      // 10. Admin Users (for ADMIN role)
-      if (isAdmin) {
-        try {
-          const uRes = await fetch(`${AUTH_URL}/admin/users`, { headers: getHeaders() });
-          if (uRes.ok) {
-            const ud = await uRes.json();
-            setUsersList(ud.data || []);
+            if (catRes.ok) {
+              const cData = await catRes.json();
+              setCategories(cData.data || []);
+            }
+          } catch (err) {
+            console.warn('Commerce fetch error:', err);
           }
-        } catch (err) {
-          console.warn('Admin users fetch error:', err);
-        }
-      }
+        })(),
 
-      // 12. Capital Investments (Admin-only — strictly separate from operating expenses)
-      if (isAdmin) {
-        try {
-          const invRes = await fetch(`${FINANCE_URL}/investments`, { headers: getHeaders() });
-          if (invRes.ok) {
-            const invData = await invRes.json();
-            setInvestments(invData.data || []);
+        // 2. Inventory Items
+        (async () => {
+          try {
+            const invRes = await fetch(`${INVENTORY_URL}/items`, { headers });
+            if (invRes.ok) {
+              const iData = await invRes.json();
+              setInventoryItems(iData.data || []);
+            }
+          } catch (err) {
+            console.warn('Inventory fetch error:', err);
           }
-        } catch (err) {
-          console.warn('Investments fetch error:', err);
-        }
+        })(),
 
-        try {
-          const defRes = await fetch(`${FINANCE_URL}/forms/definitions/INVESTMENT`, { headers: getHeaders() });
-          if (defRes.ok) {
-            const defData = await defRes.json();
-            const typeField = defData?.data?.fields?.find((f: any) => f.fieldKey === 'investmentType' || (f.options && f.options.length > 0));
-            if (typeField && typeField.options && typeField.options.length > 0) {
-              const activeOptions = typeField.options
-                .filter((o: any) => o.active !== false)
-                .map((o: any) => ({ optionKey: o.optionKey, label: o.label }));
-              if (activeOptions.length > 0) {
-                setInvestmentTypeOptions(activeOptions);
+        // 3. Procurement Suppliers
+        (async () => {
+          try {
+            const supRes = await fetch(`${PROCUREMENT_URL}/suppliers`, { headers });
+            if (supRes.ok) {
+              const sData = await supRes.json();
+              setSuppliers(sData.data || []);
+            }
+          } catch (err) {
+            console.warn('Procurement fetch error:', err);
+          }
+        })(),
+
+        // 4. Production Batches
+        (async () => {
+          try {
+            const prodRes = await fetch(batchUrl, { headers });
+            if (prodRes.ok) {
+              const bData = await prodRes.json();
+              setProductionBatches(bData.data || []);
+            } else {
+              setProductionBatches([]);
+            }
+          } catch (err) {
+            console.warn('Production fetch error:', err);
+            setProductionBatches([]);
+          }
+        })(),
+
+        // 5. Financial Balance & Expenses
+        (async () => {
+          try {
+            const [balRes, expRes, brkRes] = await Promise.all([
+              fetch(`${FINANCE_URL}/balance?${financeParams}`, { headers }),
+              fetch(`${FINANCE_URL}/expenses?${financeParams}`, { headers }),
+              fetch(`${FINANCE_URL}/expenses/breakdown?${financeParams}`, { headers }),
+            ]);
+            if (balRes.ok) {
+              const balData = await balRes.json();
+              setFinancialBalance(balData.data || null);
+            }
+            if (expRes.ok) {
+              const eData = await expRes.json();
+              setExpenses(eData.data || []);
+            } else {
+              setExpenses([]);
+            }
+            if (brkRes.ok) {
+              const bData = await brkRes.json();
+              setExpenseBreakdown(bData.data || []);
+            } else {
+              setExpenseBreakdown([]);
+            }
+          } catch (err) {
+            console.warn('Finance fetch error:', err);
+          }
+        })(),
+
+        // 6. Employees, Attendance & Authoritative Wage Payments
+        (async () => {
+          try {
+            const [empRes, payRes, salRes] = await Promise.all([
+              fetch(`${FINANCE_URL}/employees`, { headers }),
+              fetch(`${FINANCE_URL}/payroll?${payrollParams}`, { headers }),
+              fetch(`${FINANCE_URL}/salary-payments`, { headers }),
+            ]);
+            let empList: any[] = [];
+            if (empRes.ok) {
+              const empData = await empRes.json();
+              empList = empData.data || [];
+              setEmployees(empList);
+            }
+            let unifiedPayments: any[] = [];
+            if (salRes.ok) {
+              const salData = await salRes.json();
+              const list = salData.data || [];
+              list.forEach((s: any) => {
+                const emp = empList.find((e: any) => e.id === s.employeeId);
+                const periodDays = (s.periodYear && s.periodMonth) ? new Date(s.periodYear, s.periodMonth, 0).getDate() : null;
+                unifiedPayments.push({
+                  id: s.id,
+                  employeeId: s.employeeId,
+                  periodYear: s.periodYear,
+                  periodMonth: s.periodMonth,
+                  paymentDate: s.paymentDate || s.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+                  amount: Number(s.amount ?? s.netAmountPaid ?? 0),
+                  baseAmount: Number(s.baseAmount ?? s.base_amount ?? s.amount ?? 0),
+                  netAmountPaid: Number(s.netAmountPaid ?? s.net_amount_paid ?? s.amount ?? 0),
+                  daysWorked: s.daysWorked ?? s.days_worked ?? (emp?.wageType === 'MONTHLY' && periodDays ? periodDays : '—'),
+                  overtimeHours: Number(s.overtimeHours ?? s.overtime_hours ?? 0),
+                  paymentMethod: s.paymentMethod || s.payment_method || 'CASH',
+                  referenceNotes: s.referenceNumber || s.notes || 'Wage settlement',
+                  status: s.status || 'PAID',
+                });
+              });
+            }
+            if (payRes.ok) {
+              const payData = await payRes.json();
+              const legacy = payData.data || [];
+              legacy.forEach((p: any) => {
+                if (!unifiedPayments.some(u => u.id === p.id)) {
+                  unifiedPayments.push(p);
+                }
+              });
+            }
+            unifiedPayments.sort((a, b) => (b.paymentDate || '').localeCompare(a.paymentDate || '') || (b.id || '').localeCompare(a.id || ''));
+            setPayrollRecords(unifiedPayments);
+          } catch (err) {
+            console.warn('Payroll fetch error:', err);
+          }
+        })(),
+
+        // 7. Wholesale Customers & Orders
+        (async () => {
+          try {
+            const [custRes, offRes, retRes] = await Promise.all([
+              fetch(`${CUSTOMER_URL}?type=OFFLINE_WHOLESALE`, { headers }),
+              fetch(`${CUSTOMER_URL}/offline-orders`, { headers }),
+              fetch(`${COMMERCE_URL}/admin/orders`, { headers }),
+            ]);
+            if (custRes.ok) {
+              const cData = await custRes.json();
+              const rawCustomers = Array.isArray(cData) ? cData : (cData.data || []);
+              const wholesaleOnly = rawCustomers.filter((c: any) => c.customerType === 'OFFLINE_WHOLESALE' || !c.customerType || c.businessName);
+              setWholesaleCustomers(wholesaleOnly.length > 0 ? wholesaleOnly : rawCustomers);
+            }
+            if (offRes.ok) {
+              const oData = await offRes.json();
+              const rawOrders = Array.isArray(oData) ? oData : (oData.data || []);
+              setWholesaleOrders(rawOrders);
+            } else {
+              setWholesaleOrders([]);
+            }
+            if (retRes.ok) {
+              const rData = await retRes.json();
+              setRetailOrders(rData.data || []);
+            } else {
+              setRetailOrders([]);
+            }
+          } catch (err) {
+            console.warn('Wholesale & Retail fetch error:', err);
+          }
+        })(),
+
+        // 8. Business Configuration Masters
+        (async () => {
+          try {
+            const [ecRes, pmRes, dtRes, atRes, prRes, pcRes] = await Promise.all([
+              fetch(`${FINANCE_URL}/business-masters/expense-categories`, { headers }),
+              fetch(`${FINANCE_URL}/business-masters/payment-methods`, { headers }),
+              fetch(`${FINANCE_URL}/business-masters/deduction-types`, { headers }),
+              fetch(`${FINANCE_URL}/business-masters/advance-types`, { headers }),
+              fetch(`${FINANCE_URL}/business-masters/payroll-rules`, { headers }),
+              fetch(`${PRODUCTION_URL}/cost-masters`, { headers }),
+            ]);
+            if (ecRes.ok) { const d = await ecRes.json(); setExpenseCategories(d.data || []); }
+            if (pmRes.ok) { const d = await pmRes.json(); setPaymentMethods(d.data || []); }
+            if (dtRes.ok) { const d = await dtRes.json(); setDeductionTypes(d.data || []); }
+            if (atRes.ok) { const d = await atRes.json(); setAdvanceTypes(d.data || []); }
+            if (prRes.ok) { const d = await prRes.json(); setPayrollRules(d.data || []); }
+            if (pcRes.ok) { const d = await pcRes.json(); setProductionCostMasters(d.data || []); }
+          } catch (err) {
+            console.warn('Business masters fetch error:', err);
+          }
+        })(),
+
+        // 9. Notifications
+        (async () => {
+          try {
+            const [notifRes, unreadRes] = await Promise.all([
+              fetch(`${NOTIFICATION_URL}`, { headers }),
+              fetch(`${NOTIFICATION_URL}/unread-count`, { headers })
+            ]);
+            if (notifRes.ok) { const n = await notifRes.json(); setNotifications(n.data || []); }
+            if (unreadRes.ok) { const u = await unreadRes.json(); setUnreadNotificationsCount(u.data?.unreadCount || 0); }
+          } catch (err) {
+            console.warn('Notifications fetch error:', err);
+          }
+        })(),
+
+        // 10. Admin Users & Investments
+        (async () => {
+          if (!isAdmin) return;
+          try {
+            const [uRes, invRes, defRes] = await Promise.all([
+              fetch(`${AUTH_URL}/admin/users`, { headers }),
+              fetch(`${FINANCE_URL}/investments`, { headers }),
+              fetch(`${FINANCE_URL}/forms/definitions/INVESTMENT`, { headers }),
+            ]);
+            if (uRes.ok) { const ud = await uRes.json(); setUsersList(ud.data || []); }
+            if (invRes.ok) { const invData = await invRes.json(); setInvestments(invData.data || []); }
+            if (defRes.ok) {
+              const defData = await defRes.json();
+              const typeField = defData?.data?.fields?.find((f: any) => f.fieldKey === 'investmentType' || (f.options && f.options.length > 0));
+              if (typeField && typeField.options && typeField.options.length > 0) {
+                const activeOptions = typeField.options
+                  .filter((o: any) => o.active !== false)
+                  .map((o: any) => ({ optionKey: o.optionKey, label: o.label }));
+                if (activeOptions.length > 0) setInvestmentTypeOptions(activeOptions);
               }
             }
+          } catch (err) {
+            console.warn('Admin fetch error:', err);
           }
-        } catch (err) {
-          console.warn('Investment type registry fetch error:', err);
-        }
-      }
+        })(),
 
-      // 11. Attendance Records for current period
-      try {
-        const attRes = await fetch(`${FINANCE_URL}/attendance?year=${selectedYear}&month=${selectedMonth}`, { headers: getHeaders() });
-        if (attRes.ok) {
-          const attData = await attRes.json();
-          setAttendanceRecords(attData.data || []);
-        }
-      } catch (err) {
-        console.warn('Attendance records fetch error:', err);
-      }
-
+        // 11. Attendance Records
+        (async () => {
+          try {
+            const attRes = await fetch(`${FINANCE_URL}/attendance?year=${selectedYear}&month=${selectedMonth}`, { headers });
+            if (attRes.ok) {
+              const attData = await attRes.json();
+              setAttendanceRecords(attData.data || []);
+            }
+          } catch (err) {
+            console.warn('Attendance records fetch error:', err);
+          }
+        })()
+      ]);
     } catch (err: any) {
       setErrorMsg('Failed to load some dashboard sections. Please check network connectivity.');
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }, [token, getHeaders, periodType, selectedYear, selectedMonth, isAdmin]);
 
@@ -1580,7 +1552,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         orderStatus: 'DELIVERED',
         notes: '',
       });
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording manual retail order.');
     } finally {
@@ -1636,7 +1608,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(editingProduct ? 'Product updated successfully.' : 'Product added successfully.');
       setShowAddProductModal(false);
       setEditingProduct(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving product.');
     } finally {
@@ -1655,7 +1627,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to deactivate product.');
       setSuccessMsg(`Product "${name}" deactivated successfully.`);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deactivating product.');
     } finally {
@@ -1688,7 +1660,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to update product status.');
       setSuccessMsg(`Product "${product.name}" is now ${!product.active ? 'Active' : 'Archived'}.`);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error updating product status.');
     } finally {
@@ -1723,7 +1695,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Manager account "${newManagerForm.fullName}" created successfully.`);
       setShowAddManagerModal(false);
       setNewManagerForm({ email: '', password: '', fullName: '', phone: '' });
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error creating manager account.');
     } finally {
@@ -1749,7 +1721,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`User "${selectedUserForEdit.fullName}" updated successfully.`);
       setShowEditUserModal(false);
       setSelectedUserForEdit(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error updating user.');
     } finally {
@@ -1769,7 +1741,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         throw new Error('Failed to toggle user status.');
       }
       setSuccessMsg(`User "${userAcc.fullName}" status updated.`);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error updating user status.');
     } finally {
@@ -1860,7 +1832,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
       setSuccessMsg(`Wholesale order recorded successfully ✓ — ${qty} KG of ${targetName} @ ₹${targetPrice}/KG. Stock updated.`);
       setShowAddWholesaleOrderModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording wholesale order.');
     }
@@ -1928,7 +1900,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         state: '',
         postalCode: '',
       });
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error adding wholesaler.');
     }
@@ -1993,7 +1965,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       if (selectedOrderForInfo && selectedOrderForInfo.id === selectedOrderForEdit.id) {
         setSelectedOrderForInfo(null);
       }
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error updating order.');
     }
@@ -2032,7 +2004,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       if (selectedOrderForEdit && selectedOrderForEdit.id === order.id) {
         setSelectedOrderForEdit(null);
       }
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting order.');
     }
@@ -2087,7 +2059,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
       setSuccessMsg(`Stock added: ${newStock.quantity} ${newStock.unitOfMeasure} of ${newStock.itemName}`);
       setShowAddStockModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error adding stock.');
     }
@@ -2123,7 +2095,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
       setSuccessMsg('Supplier added with auto-generated code.');
       setShowAddSupplierModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error adding supplier.');
     }
@@ -2178,7 +2150,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Today's production recorded: ${qty} KG of ${targetName}`);
       setShowRecordProductionModal(false);
       setProductionCustomAnswers({});
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording production.');
     }
@@ -2229,7 +2201,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         notes: '',
       });
       setExpenseCustomAnswers({});
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording expense.');
     } finally {
@@ -2283,7 +2255,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         details: '',
       });
       setInvestmentCustomAnswers({});
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording investment.');
     } finally {
@@ -2305,7 +2277,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         throw new Error(d.message || 'Failed to void investment.');
       }
       setSuccessMsg('Investment voided successfully.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error voiding investment.');
     } finally {
@@ -2542,7 +2514,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg('Employee profile created.');
       setShowAddEmployeeModal(false);
       setStaffCustomAnswers({});
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error adding employee.');
     }
@@ -2579,7 +2551,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg('Worker details updated successfully.');
       setShowEditEmployeeModal(false);
       setSelectedEmployeeForEdit(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error updating worker details.');
     }
@@ -2596,7 +2568,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete worker.');
       setSuccessMsg(`Worker "${emp.fullName}" removed from records.`);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting worker.');
     }
@@ -2624,7 +2596,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       }
       setSuccessMsg('Attendance recorded successfully.');
       setShowRecordAttendanceModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording attendance.');
     } finally {
@@ -2663,7 +2635,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       if (!res.ok) throw new Error('Failed to record payroll payment.');
       setSuccessMsg('Salary/wage payment recorded.');
       setShowCreatePayrollModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording wage payment.');
     } finally {
@@ -2681,7 +2653,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete expense.');
       setSuccessMsg('Expense deleted successfully.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting expense.');
     }
@@ -2839,7 +2811,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       if (!res.ok) throw new Error('Failed to record salary advance.');
       setSuccessMsg('Salary advance recorded and debited to employee ledger.');
       setShowAdvanceModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording salary advance.');
     } finally {
@@ -2864,7 +2836,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       if (!res.ok) throw new Error('Failed to record salary deduction.');
       setSuccessMsg('Salary deduction recorded.');
       setShowDeductionModal(false);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording salary deduction.');
     } finally {
@@ -2902,7 +2874,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Production cost '${costMasterForm.costName}' saved successfully.`);
       setShowCostMasterModal(false);
       setEditingCostMaster(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving production cost master.');
     }
@@ -2917,7 +2889,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete cost master.');
       setSuccessMsg('Production cost master deleted.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting cost master.');
     }
@@ -2940,7 +2912,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Expense category '${expenseCategoryForm.name}' saved.`);
       setShowExpenseCategoryModal(false);
       setEditingExpenseCategory(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving expense category.');
     }
@@ -2955,7 +2927,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete expense category.');
       setSuccessMsg('Expense category deleted.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting expense category.');
     }
@@ -2978,7 +2950,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Payment method '${paymentMethodForm.displayName}' saved.`);
       setShowPaymentMethodModal(false);
       setEditingPaymentMethod(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving payment method.');
     }
@@ -2993,7 +2965,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete payment method.');
       setSuccessMsg('Payment method deleted.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting payment method.');
     }
@@ -3016,7 +2988,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Deduction type '${deductionTypeForm.name}' saved.`);
       setShowDeductionTypeModal(false);
       setEditingDeductionType(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving deduction type.');
     }
@@ -3031,7 +3003,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete deduction type.');
       setSuccessMsg('Deduction type deleted.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting deduction type.');
     }
@@ -3054,7 +3026,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Advance type '${advanceTypeForm.name}' saved.`);
       setShowAdvanceTypeModal(false);
       setEditingAdvanceType(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving advance type.');
     }
@@ -3069,7 +3041,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete advance type.');
       setSuccessMsg('Advance type deleted.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting advance type.');
     }
@@ -3103,7 +3075,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setSuccessMsg(`Payroll rule '${payrollRuleForm.ruleName}' saved.`);
       setShowPayrollRuleModal(false);
       setEditingPayrollRule(null);
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error saving payroll rule.');
     }
@@ -3118,7 +3090,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) throw new Error('Failed to delete payroll rule.');
       setSuccessMsg('Payroll rule deleted.');
-      loadData();
+      loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting payroll rule.');
     }
@@ -3453,7 +3425,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             )}
 
             <button
-              onClick={loadData}
+              onClick={() => loadData(true)}
               disabled={loading}
               className="p-2 bg-emerald-50/60 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-200 transition"
               title="Refresh Data"
@@ -11407,26 +11379,35 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {employeeLedgerEntries.map((entry, idx) => (
-                      <tr key={entry.id || idx} className="hover:bg-gray-50 transition">
-                        <td className="py-2.5 text-gray-700 font-mono text-[11px]">{entry.transactionDate}</td>
-                        <td className="py-2.5 font-semibold text-emerald-800">{entry.transactionType}</td>
-                        <td className="py-2.5 text-right font-medium text-rose-600">
-                          {entry.debit > 0 ? `₹${Number(entry.debit).toLocaleString()}` : '—'}
-                        </td>
-                        <td className="py-2.5 text-right font-medium text-emerald-700">
-                          {entry.credit > 0 ? `₹${Number(entry.credit).toLocaleString()}` : '—'}
-                        </td>
-                        <td className={`py-2.5 text-right font-bold ${Number(entry.runningBalance) > 0 ? 'text-rose-700' : Number(entry.runningBalance) < 0 ? 'text-emerald-700' : 'text-gray-900'}`}>
-                          {Number(entry.runningBalance) > 0 
-                            ? `₹${Number(entry.runningBalance).toLocaleString()} (Adv Owed)`
-                            : Number(entry.runningBalance) < 0 
-                              ? `-₹${Math.abs(Number(entry.runningBalance)).toLocaleString()} (Credit / Settled)`
-                              : '₹0'}
-                        </td>
-                        <td className="py-2.5 text-gray-500">{entry.notes || '—'}</td>
-                      </tr>
-                    ))}
+                    {employeeLedgerEntries.map((entry, idx) => {
+                      const debitAmount = Number(entry.debitAmount ?? entry.debit ?? 0);
+                      const creditAmount = Number(entry.creditAmount ?? entry.credit ?? 0);
+                      const runningBal = Number(entry.runningBalance ?? 0);
+                      return (
+                        <tr key={entry.id || idx} className="hover:bg-gray-50 transition">
+                          <td className="py-2.5 text-gray-700 font-mono text-[11px]">{entry.transactionDate}</td>
+                          <td className="py-2.5 font-semibold text-emerald-800">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              {entry.transactionType?.replace(/_/g, ' ') || 'TRANSACTION'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-right font-medium text-rose-600">
+                            {debitAmount > 0 ? `₹${debitAmount.toLocaleString()}` : '—'}
+                          </td>
+                          <td className="py-2.5 text-right font-medium text-emerald-700">
+                            {creditAmount > 0 ? `₹${creditAmount.toLocaleString()}` : '—'}
+                          </td>
+                          <td className={`py-2.5 text-right font-bold ${runningBal > 0 ? 'text-rose-700' : runningBal < 0 ? 'text-emerald-700' : 'text-gray-900'}`}>
+                            {runningBal > 0 
+                              ? `₹${runningBal.toLocaleString()} (Adv Owed)`
+                              : runningBal < 0 
+                                ? `-₹${Math.abs(runningBal).toLocaleString()} (Paid / Settled)`
+                                : '₹0'}
+                          </td>
+                          <td className="py-2.5 text-gray-500">{entry.notes || '—'}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
