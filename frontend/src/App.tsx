@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Flame, Store, LayoutDashboard, LogIn, UserPlus, LogOut,
+  Store, LayoutDashboard, LogIn, UserPlus, LogOut,
   ArrowRight, RefreshCw, Activity, Server,
   CheckCircle2, XCircle, Package, Tag, Search,
   Building2, ChevronRight, Eye, EyeOff, AlertCircle,
@@ -390,9 +390,7 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
         </button>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="h-10 w-10 rounded-xl bg-emerald-700 flex items-center justify-center shadow-lg shadow-amber-900/40">
-            <Flame className="h-6 w-6 text-amber-100" />
-          </div>
+          <img src="/rr-logo.png" className="h-10 w-10 rounded-xl object-cover shadow-lg shadow-black/40 border border-emerald-500/30" alt="RR Jaggery Logo" />
           <div>
             <div className="font-extrabold text-lg text-white">RR JAGGERY TRADERS</div>
             <div className="text-[10px] text-gray-500">Authentication & B2B Portal Access</div>
@@ -3798,9 +3796,7 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}>
-            <div className="h-10 w-10 rounded-xl organic-gradient flex items-center justify-center shadow-md">
-              <Flame className="h-6 w-6 text-white" />
-            </div>
+            <img src="/rr-logo.png" className="h-10 w-10 rounded-xl object-cover shadow-md border border-emerald-300" alt="RR Jaggery Logo" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-xl tracking-tight text-gray-900 font-serif">RR JAGGERY</span>
@@ -4032,7 +4028,7 @@ export function App() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 mb-8 text-xs">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Flame className="h-5 w-5 text-emerald-400" />
+              <img src="/rr-logo.png" className="h-6 w-6 rounded-full object-cover border border-emerald-400/40" alt="RR Jaggery Logo" />
               <span className="font-extrabold text-base text-white font-serif tracking-tight">RR JAGGERY</span>
             </div>
             <p className="text-emerald-200/90 leading-relaxed">

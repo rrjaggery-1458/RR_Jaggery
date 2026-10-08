@@ -698,16 +698,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     notes: '',
   });
 
+  const currentMonthDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const [newPayroll, setNewPayroll] = useState({
     employeeId: '',
     periodMonth: new Date().getMonth() + 1,
     periodYear: new Date().getFullYear(),
-    daysWorked: 26,
+    daysWorked: currentMonthDays,
     overtimeHours: 0,
-    baseAmount: 13000,
-    bonusAllowance: 500,
+    baseAmount: 0,
+    bonusAllowance: 0,
     deductions: 0,
-    netAmountPaid: 13500,
+    netAmountPaid: 0,
     paymentMethod: 'CASH',
     referenceNotes: 'Monthly wage settlement',
   });
@@ -831,31 +832,35 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         const [empRes, payRes, salRes] = await Promise.all([
           fetch(`${FINANCE_URL}/employees`, { headers }),
           fetch(`${FINANCE_URL}/payroll?${payrollParams}`, { headers }),
-          fetch(`${FINANCE_URL}/salary-payments?${payrollParams}`, { headers }),
+          fetch(`${FINANCE_URL}/salary-payments`, { headers }),
         ]);
+        let empList: any[] = [];
         if (empRes.ok) {
           const empData = await empRes.json();
-          setEmployees(empData.data || []);
+          empList = empData.data || [];
+          setEmployees(empList);
         }
         let unifiedPayments: any[] = [];
         if (salRes.ok) {
           const salData = await salRes.json();
           const list = salData.data || [];
           list.forEach((s: any) => {
+            const emp = empList.find((e: any) => e.id === s.employeeId);
+            const periodDays = (s.periodYear && s.periodMonth) ? new Date(s.periodYear, s.periodMonth, 0).getDate() : null;
             unifiedPayments.push({
               id: s.id,
               employeeId: s.employeeId,
               periodYear: s.periodYear,
               periodMonth: s.periodMonth,
-              paymentDate: s.paymentDate,
-              amount: s.amount,
-              baseAmount: s.amount,
-              netAmountPaid: s.amount,
-              daysWorked: '—',
-              overtimeHours: 0,
-              paymentMethod: s.paymentMethod || 'CASH',
+              paymentDate: s.paymentDate || s.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+              amount: Number(s.amount ?? s.netAmountPaid ?? 0),
+              baseAmount: Number(s.baseAmount ?? s.base_amount ?? s.amount ?? 0),
+              netAmountPaid: Number(s.netAmountPaid ?? s.net_amount_paid ?? s.amount ?? 0),
+              daysWorked: s.daysWorked ?? s.days_worked ?? (emp?.wageType === 'MONTHLY' && periodDays ? periodDays : '—'),
+              overtimeHours: Number(s.overtimeHours ?? s.overtime_hours ?? 0),
+              paymentMethod: s.paymentMethod || s.payment_method || 'CASH',
               referenceNotes: s.referenceNumber || s.notes || 'Wage settlement',
-              status: 'PAID',
+              status: s.status || 'PAID',
             });
           });
         }
@@ -868,6 +873,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             }
           });
         }
+        unifiedPayments.sort((a, b) => (b.paymentDate || '').localeCompare(a.paymentDate || '') || (b.id || '').localeCompare(a.id || ''));
         setPayrollRecords(unifiedPayments);
       } catch (err) {
         console.warn('Payroll fetch error:', err);
@@ -2632,7 +2638,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setErrorMsg('Please select an employee.');
       return;
     }
-
+    setSubmittingKey('save-wage-payment');
     try {
       const res = await fetch(`${FINANCE_URL}/salary-payments`, {
         method: 'POST',
@@ -2660,6 +2666,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       loadData();
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording wage payment.');
+    } finally {
+      setSubmittingKey(null);
     }
   };
 
@@ -2731,6 +2739,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setErrorMsg('Please select an employee first.');
       return;
     }
+    const emp = employees.find(e => e.id === newPayroll.employeeId);
+    const daysInMonth = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
     setCalculatingPayroll(true);
     try {
       const res = await fetch(
@@ -2739,20 +2749,71 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       );
       if (res.ok) {
         const body = await res.json();
-        const calc = body.data;
-        setPayrollCalcResult(calc);
+        const calc = body.data || {};
+        let daysWorked = calc.daysWorked !== undefined && calc.daysWorked !== null ? calc.daysWorked : daysInMonth;
+        let baseEarned = calc.baseEarned;
+        
+        if (emp?.wageType === 'MONTHLY') {
+          const rate = emp.rateAmount || calc.rateAmount || 0;
+          if (daysWorked >= daysInMonth || (daysWorked >= 26 && (!calc.absentDays || calc.absentDays === 0))) {
+            daysWorked = daysInMonth;
+            baseEarned = rate;
+          } else if (daysWorked > 0) {
+            baseEarned = Math.round((rate / daysInMonth) * daysWorked);
+          } else {
+            baseEarned = 0;
+          }
+        } else if (emp?.wageType === 'DAILY') {
+          const rate = emp.rateAmount || calc.rateAmount || 0;
+          baseEarned = Math.round(rate * daysWorked);
+        }
+
+        const overtimeEarned = calc.overtimeEarned || 0;
+        const outstandingAdvance = calc.outstandingAdvance || 0;
+        const netPayable = Math.max(0, (baseEarned || 0) + overtimeEarned - outstandingAdvance);
+
+        const updatedCalc = {
+          ...calc,
+          wageType: emp?.wageType || calc.wageType || 'MONTHLY',
+          rateAmount: emp?.rateAmount || calc.rateAmount || 0,
+          daysWorked,
+          baseEarned: baseEarned || 0,
+          overtimeEarned,
+          outstandingAdvance,
+          netPayable,
+        };
+
+        setPayrollCalcResult(updatedCalc);
         setNewPayroll(prev => ({
           ...prev,
-          daysWorked: calc.daysWorked || 26,
+          daysWorked,
           overtimeHours: calc.overtimeHours || 0,
-          baseAmount: calc.baseEarned || 0,
-          bonusAllowance: calc.overtimeEarned || 0,
-          deductions: calc.outstandingAdvance || 0,
-          netAmountPaid: calc.netPayable || 0,
+          baseAmount: baseEarned || 0,
+          bonusAllowance: overtimeEarned,
+          deductions: outstandingAdvance,
+          netAmountPaid: netPayable,
         }));
-        setSuccessMsg('Payroll calculated based on attendance and active advances.');
+        setSuccessMsg('Payroll calculated based on days in month, attendance, and advances.');
       } else {
-        setErrorMsg('Failed to calculate payroll for selected period.');
+        const rate = emp?.rateAmount || 0;
+        const baseEarned = emp?.wageType === 'MONTHLY' ? rate : rate * daysInMonth;
+        setPayrollCalcResult({
+          wageType: emp?.wageType || 'MONTHLY',
+          rateAmount: rate,
+          daysWorked: daysInMonth,
+          baseEarned,
+          overtimeHours: 0,
+          overtimeEarned: 0,
+          outstandingAdvance: 0,
+          netPayable: baseEarned,
+        });
+        setNewPayroll(prev => ({
+          ...prev,
+          daysWorked: daysInMonth,
+          baseAmount: baseEarned,
+          netAmountPaid: baseEarned,
+        }));
+        setSuccessMsg('Computed full monthly wage for calendar period.');
       }
     } catch (err: any) {
       setErrorMsg('Error calculating payroll.');
@@ -2768,6 +2829,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setErrorMsg('Please select an employee.');
       return;
     }
+    setSubmittingKey('save-advance');
     try {
       const res = await fetch(`${FINANCE_URL}/salary-advances`, {
         method: 'POST',
@@ -2780,6 +2842,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       loadData();
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording salary advance.');
+    } finally {
+      setSubmittingKey(null);
     }
   };
 
@@ -2790,6 +2854,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setErrorMsg('Please select an employee.');
       return;
     }
+    setSubmittingKey('save-deduction');
     try {
       const res = await fetch(`${FINANCE_URL}/salary-deductions`, {
         method: 'POST',
@@ -2802,6 +2867,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       loadData();
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording salary deduction.');
+    } finally {
+      setSubmittingKey(null);
     }
   };
 
@@ -3067,6 +3134,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     if (key === 'create-field') return 'Configuring Dynamic Field...';
     if (key === 'create-option') return 'Adding Field Option...';
     if (key === 'record-attendance') return 'Saving Shift Attendance...';
+    if (key === 'save-wage-payment') return 'Recording Wage Payment...';
+    if (key === 'save-advance') return 'Recording Salary Advance...';
+    if (key === 'save-deduction') return 'Recording Salary Deduction...';
     if (key.startsWith('toggle-field-')) return 'Updating Field Status...';
     if (key.startsWith('toggle-opt-')) return 'Updating Option Status...';
     if (key.startsWith('update-field-')) return 'Saving Field Configuration...';
@@ -3095,9 +3165,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         {/* Brand Header */}
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-700 flex items-center justify-center shadow-md">
-              <Factory className="w-5 h-5 text-white" />
-            </div>
+            <img src="/rr-logo.png" className="w-10 h-10 rounded-xl object-cover shadow-md border border-emerald-300" alt="RR Jaggery Logo" />
             <div>
               <h1 className="text-base font-extrabold text-gray-900 tracking-tight font-serif">RR JAGGERY</h1>
               <p className="text-[11px] font-semibold text-emerald-700 tracking-wider uppercase">ERP Portal</p>
@@ -5408,27 +5476,36 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           <th className="p-3.5 font-medium">Overtime (Hrs)</th>
                           <th className="p-3.5 font-medium">Base Wages</th>
                           <th className="p-3.5 font-medium">Net Paid</th>
+                          <th className="p-3.5 font-medium">Mode</th>
                           <th className="p-3.5 font-medium">Payment Date</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {payrollRecords.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="p-8 text-center text-gray-400">
+                            <td colSpan={8} className="p-8 text-center text-gray-400">
                               No wage payment records found. Click "Record Wage Payment" to log payouts.
                             </td>
                           </tr>
                         ) : (
                           payrollRecords.map(pay => {
                             const emp = employees.find(e => e.id === pay.employeeId);
+                            const daysDisplay = (typeof pay.daysWorked === 'number' || (!isNaN(Number(pay.daysWorked)) && pay.daysWorked !== '—'))
+                              ? `${pay.daysWorked} days`
+                              : (pay.daysWorked || '—');
                             return (
                               <tr key={pay.id} className="hover:bg-gray-50 transition">
                                 <td className="p-3.5 font-semibold text-gray-800">{emp?.fullName || 'Worker'}</td>
                                 <td className="p-3.5 text-gray-700">{pay.periodMonth}/{pay.periodYear}</td>
-                                <td className="p-3.5 text-gray-700">{pay.daysWorked} days</td>
+                                <td className="p-3.5 text-gray-700">{daysDisplay}</td>
                                 <td className="p-3.5 text-emerald-700 font-medium">{pay.overtimeHours} hrs</td>
                                 <td className="p-3.5 text-gray-700">₹{Number(pay.baseAmount).toLocaleString()}</td>
                                 <td className="p-3.5 font-bold text-emerald-700 text-sm">₹{Number(pay.netAmountPaid).toLocaleString()}</td>
+                                <td className="p-3.5 text-gray-600">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    {pay.paymentMethod || 'CASH'}
+                                  </span>
+                                </td>
                                 <td className="p-3.5 text-gray-500">{pay.paymentDate}</td>
                               </tr>
                             );
@@ -10172,12 +10249,31 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <select
                   required
                   value={newPayroll.employeeId}
-                  onChange={(e) => setNewPayroll({ ...newPayroll, employeeId: e.target.value })}
+                  onChange={(e) => {
+                    const empId = e.target.value;
+                    const emp = employees.find(x => x.id === empId);
+                    const daysInM = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
+                    const rate = emp?.rateAmount || 0;
+                    let base = 0;
+                    if (emp?.wageType === 'MONTHLY') {
+                      base = rate;
+                    } else if (emp?.wageType === 'DAILY') {
+                      base = rate * daysInM;
+                    }
+                    setNewPayroll({
+                      ...newPayroll,
+                      employeeId: empId,
+                      daysWorked: daysInM,
+                      baseAmount: base,
+                      netAmountPaid: base,
+                    });
+                    setPayrollCalcResult(null);
+                  }}
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                 >
                   <option value="">-- Select Worker --</option>
                   {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.designation})</option>
+                    <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.designation} — {emp.wageType} ₹{emp.rateAmount})</option>
                   ))}
                 </select>
               </div>
@@ -10187,7 +10283,24 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <label className="block text-gray-700 font-medium mb-1">Pay Month</label>
                   <select
                     value={newPayroll.periodMonth}
-                    onChange={(e) => setNewPayroll({ ...newPayroll, periodMonth: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const m = Number(e.target.value);
+                      const emp = employees.find(x => x.id === newPayroll.employeeId);
+                      const daysInM = new Date(newPayroll.periodYear, m, 0).getDate();
+                      const rate = emp?.rateAmount || 0;
+                      let base = rate;
+                      if (emp?.wageType === 'DAILY') {
+                        base = rate * daysInM;
+                      }
+                      setNewPayroll({
+                        ...newPayroll,
+                        periodMonth: m,
+                        daysWorked: daysInM,
+                        baseAmount: base,
+                        netAmountPaid: base,
+                      });
+                      setPayrollCalcResult(null);
+                    }}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
@@ -10202,7 +10315,24 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <input
                     type="number"
                     value={newPayroll.periodYear}
-                    onChange={(e) => setNewPayroll({ ...newPayroll, periodYear: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const yr = Number(e.target.value);
+                      const emp = employees.find(x => x.id === newPayroll.employeeId);
+                      const daysInM = new Date(yr, newPayroll.periodMonth, 0).getDate();
+                      const rate = emp?.rateAmount || 0;
+                      let base = rate;
+                      if (emp?.wageType === 'DAILY') {
+                        base = rate * daysInM;
+                      }
+                      setNewPayroll({
+                        ...newPayroll,
+                        periodYear: yr,
+                        daysWorked: daysInM,
+                        baseAmount: base,
+                        netAmountPaid: base,
+                      });
+                      setPayrollCalcResult(null);
+                    }}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                   />
                 </div>
@@ -10221,24 +10351,32 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               </div>
 
               {payrollCalcResult && (
-                <div className="p-3 bg-white border border-emerald-200 rounded-xl space-y-1 text-[11px]">
+                <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-1 text-[11px]">
                   <div className="flex justify-between text-gray-700">
                     <span>Wage Type / Rate:</span>
                     <span className="font-semibold text-gray-800">{payrollCalcResult.wageType} (₹{payrollCalcResult.rateAmount})</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>Base Earned:</span>
-                    <span>₹{Number(payrollCalcResult.baseEarned).toLocaleString()}</span>
+                    <span>Calendar Days / Days Worked:</span>
+                    <span className="font-semibold text-emerald-800">{new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate()} days in month / {payrollCalcResult.daysWorked} days worked</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>Overtime Earned ({payrollCalcResult.overtimeHours} hrs):</span>
-                    <span>₹{Number(payrollCalcResult.overtimeEarned).toLocaleString()}</span>
+                    <span>Base Wages Earned:</span>
+                    <span className="font-semibold text-gray-900">₹{Number(payrollCalcResult.baseEarned).toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-rose-600 font-medium">
-                    <span>Outstanding Advances:</span>
-                    <span>-₹{Number(payrollCalcResult.outstandingAdvance).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-emerald-700 font-bold border-t border-gray-200 pt-1 mt-1">
+                  {Number(payrollCalcResult.overtimeEarned) > 0 && (
+                    <div className="flex justify-between text-gray-700">
+                      <span>Overtime Earned ({payrollCalcResult.overtimeHours} hrs):</span>
+                      <span>₹{Number(payrollCalcResult.overtimeEarned).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {Number(payrollCalcResult.outstandingAdvance) > 0 && (
+                    <div className="flex justify-between text-rose-600 font-medium">
+                      <span>Outstanding Advance Deducted:</span>
+                      <span>-₹{Number(payrollCalcResult.outstandingAdvance).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-emerald-800 font-bold border-t border-emerald-200 pt-1 mt-1 text-xs">
                     <span>Net Computed Payable:</span>
                     <span>₹{Number(payrollCalcResult.netPayable).toLocaleString()}</span>
                   </div>
@@ -10251,9 +10389,60 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <input
                     type="number"
                     value={newPayroll.daysWorked}
-                    onChange={(e) => setNewPayroll({ ...newPayroll, daysWorked: Number(e.target.value) })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                    onChange={(e) => {
+                      const d = Number(e.target.value);
+                      const emp = employees.find(x => x.id === newPayroll.employeeId);
+                      const daysInM = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
+                      const rate = emp?.rateAmount || 0;
+                      let base = 0;
+                      if (emp?.wageType === 'MONTHLY') {
+                        if (d >= daysInM) {
+                          base = rate;
+                        } else if (d > 0) {
+                          base = Math.round((rate / daysInM) * d);
+                        } else {
+                          base = 0;
+                        }
+                      } else if (emp?.wageType === 'DAILY') {
+                        base = Math.round(rate * d);
+                      } else {
+                        base = Math.round(rate * d);
+                      }
+                      const net = Math.max(0, base + (newPayroll.bonusAllowance || 0) - (newPayroll.deductions || 0));
+                      setNewPayroll({
+                        ...newPayroll,
+                        daysWorked: d,
+                        baseAmount: base,
+                        netAmountPaid: net,
+                      });
+                    }}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-semibold"
                   />
+                  {(() => {
+                    const emp = employees.find(x => x.id === newPayroll.employeeId);
+                    const daysInM = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
+                    if (!emp) return null;
+                    if (emp.wageType === 'MONTHLY') {
+                      return (
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Month has <strong className="text-emerald-800">{daysInM} days</strong> · Daily rate: ₹{(emp.rateAmount / daysInM).toFixed(2)}/day
+                          {newPayroll.daysWorked >= daysInM ? (
+                            <span className="block text-emerald-700 font-semibold mt-0.5">✓ Full month present ({daysInM} days) = ₹{emp.rateAmount} full pay</span>
+                          ) : (
+                            <span className="block text-amber-700 font-medium mt-0.5">Pro-rata: (₹{emp.rateAmount} ÷ {daysInM}) × {newPayroll.daysWorked} = ₹{newPayroll.baseAmount}</span>
+                          )}
+                        </p>
+                      );
+                    }
+                    if (emp.wageType === 'DAILY') {
+                      return (
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Daily rate: ₹{emp.rateAmount}/day · Total = ₹{emp.rateAmount * newPayroll.daysWorked}
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">Overtime (Hours)</label>
@@ -11225,11 +11414,15 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         <td className="py-2.5 text-right font-medium text-rose-600">
                           {entry.debit > 0 ? `₹${Number(entry.debit).toLocaleString()}` : '—'}
                         </td>
-                        <td className="py-2.5 text-right font-medium text-emerald-300">
+                        <td className="py-2.5 text-right font-medium text-emerald-700">
                           {entry.credit > 0 ? `₹${Number(entry.credit).toLocaleString()}` : '—'}
                         </td>
-                        <td className="py-2.5 text-right font-bold text-gray-900">
-                          ₹{Number(entry.runningBalance).toLocaleString()}
+                        <td className={`py-2.5 text-right font-bold ${Number(entry.runningBalance) > 0 ? 'text-rose-700' : Number(entry.runningBalance) < 0 ? 'text-emerald-700' : 'text-gray-900'}`}>
+                          {Number(entry.runningBalance) > 0 
+                            ? `₹${Number(entry.runningBalance).toLocaleString()} (Adv Owed)`
+                            : Number(entry.runningBalance) < 0 
+                              ? `-₹${Math.abs(Number(entry.runningBalance)).toLocaleString()} (Credit / Settled)`
+                              : '₹0'}
                         </td>
                         <td className="py-2.5 text-gray-500">{entry.notes || '—'}</td>
                       </tr>

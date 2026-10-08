@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 interface LoadingOverlayProps {
   show: boolean;
@@ -35,8 +35,8 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
           <div className="absolute inset-2 rounded-full border-2 border-transparent border-b-emerald-700 border-l-amber-600 animate-[spin_1.5s_linear_infinite_reverse]" />
           
           {/* Center brand logo badge */}
-          <div className="relative z-10 w-12 h-12 bg-gradient-to-tr from-emerald-800 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-900/30">
-            <Flame className="w-6 h-6 text-amber-300 animate-pulse" />
+          <div className="relative z-10 w-12 h-12 rounded-full overflow-hidden flex items-center justify-center shadow-lg shadow-emerald-900/30 border border-emerald-400/40">
+            <img src="/rr-logo.png" className="w-full h-full object-cover animate-pulse" alt="RR Jaggery Logo" />
           </div>
         </div>
 
