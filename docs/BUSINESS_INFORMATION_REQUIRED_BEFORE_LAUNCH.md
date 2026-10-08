@@ -1,85 +1,71 @@
-# RR JAGGERY TRADERS — BUSINESS & LEGAL INFORMATION CHECKLIST BEFORE LAUNCH
+# RR JAGGERY — AUTHORITATIVE BUSINESS & COMPLIANCE CONFIGURATION
 
-> **Status:** Pre-Production Mandatory Input Document  
-> **Target Audience:** Business Owner / Management  
-> **Purpose:** Document all official legal, compliance, tax, and policy details required before the production domain and public deployment go live.
+> **Status:** Configured for Pre-Production Deployment Testing  
+> **Authority:** Business Owner Provided  
+> **Notice:** DO NOT modify these authoritative values without explicit business owner instruction.
 
 ---
 
 ## 1. Legal & Entity Identification
 
-| Item | Current Status / Placeholder | Required Business Value from Owner |
+| Item | Authoritative Value | Notes |
 | :--- | :--- | :--- |
-| **Registered Business Name** | `[LEGAL_ENTITY_NAME_PLACEHOLDER]` | Exact registered firm or proprietorship name (e.g., *RR Jaggery Traders*) |
-| **Business Registration / Type** | `[BUSINESS_ENTITY_TYPE_PLACEHOLDER]` | Sole Proprietorship / Partnership / LLP / Private Limited |
-| **GSTIN Registration Number** | `37AABCR1234F1Z5` *(Dev/Mock Format)* | Official 15-digit GSTIN issued by the Commercial Taxes Department (Andhra Pradesh state code `37`) |
-| **FSSAI License / Registration No.** | `[FSSAI_LICENSE_NUMBER_PLACEHOLDER]` | 14-digit FSSAI Food Safety and Standards Authority of India License or Registration Number |
-| **Registered Business Address** | `Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163` | Complete postal address of primary office / manufacturing unit |
-| **Legal Jurisdiction** | `[LEGAL_JURISDICTION_CITY_PLACEHOLDER]` | City/District court jurisdiction for dispute settlement (e.g., *Krishna District, Andhra Pradesh*) |
+| **Business Name** | `RR Jaggery` | Standard business name across all customer-facing surfaces |
+| **Business Type** | `Jaggery Manufacturing` | Manufacturing unit |
+| **GST Registration** | **NOT GST REGISTERED** | **CRITICAL:** Do NOT display GSTIN anywhere. No GSTIN: NA, no fake GSTIN, no GST claims. Zero GST charged on orders. |
+| **FSSAI Number** | None available | Do NOT invent or display any FSSAI number |
+| **Registered Business Address** | `Vollurupallem, Thotlavalluru, Andhra Pradesh, PIN 521163` | PIN is exactly `521163` |
+| **Legal Jurisdiction** | `Krishna District / Vijayawada, Andhra Pradesh` | District court jurisdiction |
 
 ---
 
 ## 2. Customer Communication & Support Channels
 
-| Item | Current Status / Placeholder | Required Business Value from Owner |
+| Item | Authoritative Value | Notes |
 | :--- | :--- | :--- |
-| **Customer Support Email** | `[SUPPORT_EMAIL_PLACEHOLDER]` | Dedicated business email address (e.g., `support@rrjaggery.com` or `sales@rrjaggery.com`) |
-| **Customer Support Phone** | `[SUPPORT_PHONE_PLACEHOLDER]` | Verified helpline phone number(s) |
-| **Support Working Hours** | `[SUPPORT_HOURS_PLACEHOLDER]` | Working hours & days (e.g., *Monday - Saturday, 9:00 AM - 6:00 PM IST*) |
-| **Grievance Redressal Officer** | `[GRIEVANCE_OFFICER_NAME_PLACEHOLDER]` | Name and contact details of designated grievance officer as required under Indian IT Rules |
+| **Support Email** | `rrjaggery@gmail.com` | Official support email |
+| **Support Phone** | `9948533315` | Helpline phone & WhatsApp |
+| **Support Hours** | `10:00 AM – 6:00 PM` | Monday – Saturday |
+| **Grievance Officer** | `CH Padma` | Mandated under Indian IT Rules |
 
 ---
 
 ## 3. Shipping & Logistics Policies
 
-| Item | Current Status / Placeholder | Required Business Value from Owner |
+| Item | Authoritative Value | Notes |
 | :--- | :--- | :--- |
-| **Courier / Logistics Partners** | `[COURIER_PARTNERS_PLACEHOLDER]` | Contracted couriers (e.g., *Delhivery, DTDC, India Post Speed Post, Blue Dart*) |
-| **Serviceable Delivery Pin Codes** | `[SHIPPING_SERVICEABLE_REGIONS_PLACEHOLDER]` | Delivery regions (e.g., *Pan-India, South India, or selected state pin codes*) |
-| **Order Dispatch Timeline** | `[DISPATCH_TIMELINE_PLACEHOLDER]` | Standard time from order confirmation to handover to courier (e.g., *24 to 48 business hours*) |
-| **Average Delivery Transit Time** | `[ESTIMATED_DELIVERY_DAYS_PLACEHOLDER]` | Expected transit duration (e.g., *3 to 7 business days*) |
-| **Free Delivery Order Threshold** | Currently hardcoded at `₹999` in commerce service | Confirm or adjust free shipping order minimum |
-| **Standard Delivery Charge** | Currently hardcoded at `₹60` in commerce service | Confirm or adjust shipping fee for orders below threshold |
+| **Primary Fast-Delivery Region** | `Vijayawada and Guntur` | Fast delivery available in and around Vijayawada and Guntur |
+| **Other Locations** | Subject to office confirmation | "Fast delivery is available in and around Vijayawada and Guntur. For shipping to other locations, please contact our office for available shipping options." |
+| **Delivery Timeline** | `3–5 business days` | Standard delivery window |
+| **Shipping Fees** | Free above ₹500; ₹50 below ₹500 | Calculated transparently at checkout |
 
 ---
 
-## 4. Refund & Cancellation Terms (Agricultural Consumables)
+## 4. Refund & Cancellation Policy
 
-| Item | Current Status / Placeholder | Required Business Value from Owner |
+| Item | Authoritative Value | Notes |
 | :--- | :--- | :--- |
-| **Cancellation Window** | Allowed while status is `PENDING` or `CONFIRMED` | Confirm whether customers can self-cancel prior to `DISPATCHED` |
-| **Transit Defect Reporting Window** | `[RETURN_NOTIFICATION_HOURS_PLACEHOLDER]` | Time window for customer to report transit damage / defective seal (e.g., *within 48 hours of delivery*) |
-| **Required Proof for Claims** | Photos of packaging and shipping label | Confirm acceptable evidence (unboxing video, photographs) |
-| **Refund Processing Timeline** | `[REFUND_PROCESSING_DAYS_PLACEHOLDER]` | Number of days to refund to original payment method (e.g., *5 to 7 working days*) |
-| **Return of Food Items** | Non-returnable once seal is broken | Reaffirm policy that consumable agricultural produce cannot be returned once opened |
+| **Refund Policy** | **NO REFUND** | Clear customer-facing wording. No promises of refunds or processing periods. |
+| **Cancellation** | Customer may cancel only while `PENDING` | Cancellation does not grant monetary refund. |
+| **Food Product Notice** | Consumable agricultural produce | Opened packages cannot be returned. |
 
 ---
 
-## 5. Payment Gateway & Financial Configuration
+## 5. Domain Configuration
 
-| Item | Current Status / Placeholder | Required Business Value from Owner |
+| Item | Value | Notes |
 | :--- | :--- | :--- |
-| **Production Payment Gateway** | `TEST_PAYMENT` / `CASH_ON_DELIVERY` | Approved payment gateway provider (e.g., *Razorpay, Cashfree, PhonePe Payment Gateway*) |
-| **Payment Gateway API Keys** | Missing / Not Configured | Production Key ID & Secret Key from payment gateway merchant dashboard |
-| **Bank Account for Settlements** | Internal Merchant Bank Account | Current account details configured in merchant dashboard for daily payouts |
-| **Applicable GST Rates** | `5%` for natural jaggery products | Verify GST HSN Code (`1701 13` / `1701 14`) and tax rate (standard 5% GST: 2.5% CGST + 2.5% SGST) |
+| **Temporary Deployment / Testing Domain** | `rrdentalneeds.online` | Initial deployment and testing environment only |
+| **Permanent Future Domain** | `rrjaggery.com` | Future domain — NOT currently active |
+| **Configuration Principle** | Environment-configurable | Fully replaceable via `.env` (`DOMAIN_NAME`, `VITE_API_BASE_URL`, `ALLOWED_ORIGINS`) without code changes |
 
 ---
 
-## 6. Production Domain & Infrastructure Access
+## 6. Payment Gateway Preparation (Razorpay)
 
-| Item | Current Status / Placeholder | Required Business Value from Owner |
+| Item | Status | Notes |
 | :--- | :--- | :--- |
-| **Production Domain Name** | `[PRODUCTION_DOMAIN_PLACEHOLDER]` | Registered domain name (e.g., `rrjaggery.com` or `rrjaggerytraders.com`) |
-| **DNS Management Provider** | Cloudflare recommended | Cloudflare DNS account access or active nameservers |
-| **OCI / VPS Hosting Server** | Not yet provisioned (pre-deployment state) | ARM64 Ampere A1 (or standard VPS) public IP address & SSH key |
-| **Production Secrets** | To be generated before launch | Strong random secrets for `JWT_SECRET`, `DB_PASSWORD`, `BOOTSTRAP_ADMIN_PASSWORD` |
-
----
-
-## 7. Action Plan
-
-1. Owner fills out the actual values in this document.
-2. Update `frontend/src/components/LegalPages.tsx` and `frontend/src/App.tsx` with confirmed entity and contact information.
-3. Configure production `.env` file on VPS with production secrets and payment gateway keys.
-4. Execute deployment runbook in `DEPLOYMENT.md`.
+| **Gateway** | Razorpay | Architecture prepared: order creation, frontend checkout script, server-side signature verification, webhook handler |
+| **Production Credentials** | **PENDING FROM OWNER** | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` |
+| **Current Operational Mode** | Scaffolding prepared (`RAZORPAY_ENABLED=false`) | Live payments inactive until owner supplies production credentials |
+| **Authority** | Server-side authoritative | Orders are NEVER marked paid solely by frontend report |

@@ -87,7 +87,7 @@ Configure `.env` with:
 - `BOOTSTRAP_ADMIN_USERNAME=admin@rrjaggery.com`
 - `BOOTSTRAP_ADMIN_PASSWORD=<generated_admin_password>`
 - `SPRING_PROFILES_ACTIVE=prod`
-- `PRODUCTION_DOMAIN=rrjaggery.com`
+- `PRODUCTION_DOMAIN=rrdentalneeds.online`  ← temporary testing domain; change to `rrjaggery.com` when permanent domain is ready
 
 ---
 
@@ -269,7 +269,7 @@ docker compose -f compose.production.yaml down
 - [ ] Manager account creation verified under Admin Access.
 - [ ] Customer registration, login, and token generation verified.
 - [ ] Product catalogue renders properly with categories.
-- [ ] Cart item additions, updates, and checkout calculate 5% GST and order total authoritatively.
+- [ ] Cart item additions, updates, and checkout calculate order total authoritatively (no GST — RR Jaggery is NOT GST registered).
 - [ ] Order confirmation and tax invoice generation render complete invoice details.
 - [ ] Legal pages (Terms, Privacy, Refund, Shipping, About, Contact) load without login and are mobile-responsive.
 - [ ] PostgreSQL port 5432 and backend ports 8081–8088 are inaccessible from outside the VPS.

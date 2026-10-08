@@ -1,0 +1,43 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: customer-finance-service
+  datasource:
+    url: "jdbc:h2:mem:custfin_test_db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER;INIT=CREATE SCHEMA IF NOT EXISTS customer_schema\\;CREATE SCHEMA IF NOT EXISTS finance_schema\\;CREATE SCHEMA IF NOT EXISTS notification_schema"
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+    show-sql: false
+  h2:
+    console:
+      enabled: false
+
+app:
+  forms:
+    enabled: true
+    api-base: /api/v1/customers/forms
+    secondary-api-base: /api/v1/finance/forms
+    owned-keys: WHOLESALE_ORDER,EXPENSE,INVESTMENT,STAFF,ATTENDANCE,PAYROLL
+  demo-data:
+    seed-enabled: true
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000
+  services:
+    commerce-base-url: http://localhost:8082
+    inventory-base-url: http://localhost:8084
+
+logging:
+  level:
+    com.rrjaggery: WARN
+    org.hibernate: WARN
+    org.springframework: WARN

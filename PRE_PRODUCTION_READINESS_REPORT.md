@@ -80,8 +80,9 @@ The RR Jaggery Traders codebase and container infrastructure have completed full
   - API rate limiting (`30r/s` general, `5r/s` auth).
 
 ### 3.6 Order & Financial Authority
-- Product prices, unit totals, line tax (5% GST), shipping fee, and grand total are authoritatively calculated in `OrderService` and `CartService` from database records.
+- Product prices, unit totals, line tax (zero — RR Jaggery is NOT GST registered), shipping fee, and grand total are authoritatively calculated in `OrderService` and `CartService` from database records.
 - Client-submitted prices or totals are completely ignored by the backend.
+- `GST_RATE = BigDecimal.ZERO` hardcoded in `OrderService`. CGST/SGST fields retained in DB schema for backward compatibility but are always `0.00`.
 
 ### 3.7 File & Image Upload Security
 - `ImageStorageService` validates file extension against an allowlist (`.jpg`, `.jpeg`, `.png`, `.webp`).
@@ -98,8 +99,8 @@ Added dedicated public legal and policy pages accessible without authentication 
 5. **Contact Us** (`ContactPage`)
 6. **About Us** (`AboutPage`)
 - All legal pages are responsive, use RR Jaggery branding, and contain **NO fabricated company data**.
-- All missing business data is clearly marked with bracketed placeholders (`[LEGAL_ENTITY_NAME_PLACEHOLDER]`, `[GSTIN_PLACEHOLDER]`, etc.).
-- Created comprehensive checklist in `docs/BUSINESS_INFORMATION_REQUIRED_BEFORE_LAUNCH.md`.
+- All placeholder business information replaced with authoritative data: business name, address (PIN 521163), email, phone, grievance officer CH Padma. No GSTIN (not registered). No FSSAI (not available).
+- See `docs/BUSINESS_INFORMATION_REQUIRED_BEFORE_LAUNCH.md` for the authoritative business record.
 
 ### 3.9 Dependency Security
 - **npm audit:** Applied non-breaking security updates. 7 remaining vulnerabilities are in build-time devDependencies (`tailwindcss` file-watcher `chokidar` / `braces` / `micromatch`). Because they do not run in production or in the browser bundle, they represent an **ACCEPTED BUILD-TIME RISK**.
@@ -150,9 +151,9 @@ Added dedicated public legal and policy pages accessible without authentication 
 | Severity | Item | Details & Recommendation |
 | :--- | :--- | :--- |
 | **INFORMATIONAL** | Production Server Provisioning | Provision Ubuntu 24.04 VPS (e.g. OCI Ampere A1) during the deployment phase. |
-| **INFORMATIONAL** | DNS & Cloudflare Setup | Point domain A-record to VPS IP and enable Cloudflare proxy when ready to deploy. |
-| **INFORMATIONAL** | Owner Business Information | Owner to provide official entity name, GSTIN, FSSAI license, support email from `docs/BUSINESS_INFORMATION_REQUIRED_BEFORE_LAUNCH.md`. |
-| **INFORMATIONAL** | Payment Gateway Keys | If online payment is preferred over COD/Test Payment, merchant keys to be added to `.env`. |
+| **INFORMATIONAL** | DNS & Cloudflare Setup | Point `rrdentalneeds.online` A-record to VPS IP. Future: switch to `rrjaggery.com` via env vars only. |
+| **INFORMATIONAL** | Razorpay Credentials | Owner must supply `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`. Integration code is ready; payments currently fall back to TEST_PAYMENT/COD. |
+
 
 **Blockers: ZERO (0)**  
 **High Issues: ZERO (0)**

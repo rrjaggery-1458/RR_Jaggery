@@ -1,6 +1,6 @@
 # RR Jaggery Traders — Implementation Status Matrix
 
-**Current Status:** ACCESS MODEL REVISION COMPLETED & VERIFIED (PRE-SPRINT 6)
+**Current Status:** SPRINT 9 SERVICE CONSOLIDATION & PRODUCTION-READINESS COMPLETED & VERIFIED
 
 Sprint 0 — **ACCEPTED**  
 Sprint 1 — **ACCEPTED**  
@@ -8,7 +8,22 @@ Sprint 2 — **ACCEPTED**
 Sprint 3 — **ACCEPTED**  
 Sprint 4 — **ACCEPTED**  
 Sprint 5 — **ACCEPTED**  
-Access Model Revision — **COMPLETED & VERIFIED** (Pre-Sprint 6)
+Access Model Revision — **ACCEPTED** (Pre-Sprint 6)  
+Sprint 6 — **ACCEPTED**  
+Sprint 7 — **ACCEPTED**  
+Sprint 8 — **ACCEPTED**  
+Sprint 9 — **COMPLETED & READY FOR PROJECT OWNER REVIEW** (Service Consolidation & Production-Readiness)
+
+---
+
+## Sprint 9: Service Consolidation & Production-Readiness Summary
+
+### Architecture & Service Consolidation:
+* **Consolidation to 5 JVM Services**: 8 microservices consolidated to 5 services (`auth-service` 8081, `commerce-service` 8082, `customer-finance-service` 8083, `inventory-procurement-service` 8084, `production-service` 8086).
+* **Strict Database Isolation**: All 8 PostgreSQL schemas (`auth_schema`, `commerce_schema`, `customer_schema`, `finance_schema`, `notification_schema`, `inventory_schema`, `procurement_schema`, `production_schema`) preserved without merging, renaming, or destructive DDL.
+* **In-Process Integration**: Procurement → Inventory and Finance → Customer/Ledger calls converted from HTTP to in-process Java service calls.
+* **Full Redis Decommissioning**: 100% removal of Redis container, dependencies, configs, and health probes from runtime.
+* **Target VPS Sizing**: 4 GB RAM recommended based on observed resource profiling.
 
 ---
 

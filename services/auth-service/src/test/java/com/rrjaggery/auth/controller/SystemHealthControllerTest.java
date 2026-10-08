@@ -110,7 +110,6 @@ public class SystemHealthControllerTest {
                 .andExpect(jsonPath("$.data.services").isArray())
                 .andExpect(jsonPath("$.data.schemas").isArray())
                 .andExpect(jsonPath("$.data.containers").isArray())
-                .andExpect(jsonPath("$.data.redis").exists())
                 .andExpect(jsonPath("$.data.gateway").exists())
                 .andExpect(jsonPath("$.data.runtime").exists())
                 .andExpect(jsonPath("$.data.structureAndMigration").exists())

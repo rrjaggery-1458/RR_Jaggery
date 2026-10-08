@@ -124,7 +124,7 @@ public class OrderControllerTest {
                         .header("Authorization", customerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.sellerGstin").value("37AABCR1234F1Z5"))
+                .andExpect(jsonPath("$.data.sellerName").value("RR Jaggery")) // No GSTIN — not GST registered
                 .andExpect(jsonPath("$.data.orderId").value(orderId));
 
         // 5. Admin updates status to PROCESSING -> DISPATCHED

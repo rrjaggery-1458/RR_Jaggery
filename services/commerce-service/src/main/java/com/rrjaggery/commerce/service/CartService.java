@@ -20,7 +20,9 @@ import java.util.UUID;
 @Transactional
 public class CartService {
 
-    private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST for jaggery products
+    // RR Jaggery is NOT GST registered — no GST is charged on customer carts/orders.
+    // Tax fields are retained in DTO/schema for backward compatibility.
+    private static final BigDecimal GST_RATE = BigDecimal.ZERO;
     private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("500.00");
     private static final BigDecimal STANDARD_SHIPPING_FEE = new BigDecimal("50.00");
 

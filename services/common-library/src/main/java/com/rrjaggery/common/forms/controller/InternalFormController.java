@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("${app.forms.api-base:/api/v1/forms}")
+@RequestMapping({"${app.forms.api-base:/api/v1/forms}", "${app.forms.secondary-api-base:/internal/forms/disabled-secondary}"})
 @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 @ConditionalOnProperty(prefix = "app.forms", name = "enabled", havingValue = "true")
 public class InternalFormController {

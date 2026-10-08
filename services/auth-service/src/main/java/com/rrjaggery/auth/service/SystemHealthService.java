@@ -37,12 +37,6 @@ public class SystemHealthService {
     @Value("${DB_NAME:rr_jaggery_db}")
     private String dbName;
 
-    @Value("${REDIS_HOST:redis}")
-    private String redisHost;
-
-    @Value("${REDIS_PORT:6379}")
-    private int redisPort;
-
     public SystemHealthService(DataSource dataSource, ObjectMapper objectMapper) {
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.objectMapper = objectMapper;
@@ -58,13 +52,10 @@ public class SystemHealthService {
         // 1. Check PostgreSQL Database and schemas/tables metadata
         checkDatabaseAndSchemas(dto);
 
-        // 2. Check all 8 Microservices (in parallel)
+        // 2. Check all 5 Consolidated Microservices (in parallel)
         checkMicroservices(dto);
 
-        // 3. Check Redis
-        checkRedis(dto);
-
-        // 4. Check API Gateway / Nginx
+        // 3. Check API Gateway / Nginx
         checkGateway(dto);
 
         // 5. Frontend & Runtime information
@@ -189,15 +180,12 @@ public class SystemHealthService {
         List<ServiceConfig> serviceConfigs = List.of(
                 new ServiceConfig("auth-service", "Auth Service", 8081, "auth_schema", "/api/v1/auth/health", "localhost"),
                 new ServiceConfig("commerce-service", "Commerce Service", 8082, "commerce_schema", "/api/v1/commerce/health", "commerce-service"),
-                new ServiceConfig("customer-ledger-service", "Customer Ledger Service", 8083, "customer_schema", "/api/v1/customers/health", "customer-ledger-service"),
-                new ServiceConfig("inventory-service", "Inventory Service", 8084, "inventory_schema", "/api/v1/inventory/health", "inventory-service"),
-                new ServiceConfig("procurement-service", "Procurement Service", 8085, "procurement_schema", "/api/v1/procurement/health", "procurement-service"),
-                new ServiceConfig("production-service", "Production Service", 8086, "production_schema", "/api/v1/production/health", "production-service"),
-                new ServiceConfig("finance-service", "Finance Service", 8087, "finance_schema", "/api/v1/finance/health", "finance-service"),
-                new ServiceConfig("notification-service", "Notification Service", 8088, "notification_schema", "/api/v1/notifications/health", "notification-service")
+                new ServiceConfig("customer-finance-service", "Customer-Finance Service", 8083, "customer_schema, finance_schema, notification_schema", "/api/v1/customers/health", "customer-finance-service"),
+                new ServiceConfig("inventory-procurement-service", "Inventory-Procurement Service", 8084, "inventory_schema, procurement_schema", "/api/v1/inventory/health", "inventory-procurement-service"),
+                new ServiceConfig("production-service", "Production Service", 8086, "production_schema", "/api/v1/production/health", "production-service")
         );
 
-        ExecutorService executor = Executors.newFixedThreadPool(8);
+        ExecutorService executor = Executors.newFixedThreadPool(5);
         List<CompletableFuture<ServiceHealthItem>> futures = new ArrayList<>();
 
         for (ServiceConfig cfg : serviceConfigs) {
@@ -292,67 +280,6 @@ public class SystemHealthService {
         return item;
     }
 
-    private void checkRedis(SystemHealthDto dto) {
-        RedisHealthItem item = new RedisHealthItem();
-        item.setHost(redisHost);
-        item.setPort(redisPort);
-
-        String[] hostsToTry = { redisHost, "localhost" };
-        long start = System.currentTimeMillis();
-
-        for (String h : hostsToTry) {
-            try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress(h, redisPort), 1500);
-                socket.setSoTimeout(1500);
-
-                OutputStream out = socket.getOutputStream();
-                InputStream in = socket.getInputStream();
-
-                // Send PING and INFO server / INFO memory
-                out.write("PING\r\nINFO server\r\nINFO memory\r\n".getBytes(StandardCharsets.UTF_8));
-                out.flush();
-
-                byte[] buf = new byte[4096];
-                int len = in.read(buf);
-                long latency = System.currentTimeMillis() - start;
-                item.setResponseTimeMs(latency);
-
-                if (len > 0) {
-                    String resp = new String(buf, 0, len, StandardCharsets.UTF_8);
-                    if (resp.contains("+PONG")) {
-                        item.setStatus("HEALTHY");
-                        item.setConnected(true);
-
-                        // Parse version
-                        String version = "7.x";
-                        for (String line : resp.split("\r\n")) {
-                            if (line.startsWith("redis_version:")) {
-                                version = line.substring("redis_version:".length()).trim();
-                            } else if (line.startsWith("used_memory_human:")) {
-                                item.setUsedMemory(line.substring("used_memory_human:".length()).trim());
-                            }
-                        }
-                        item.setVersion(version);
-                        if (item.getUsedMemory() == null) {
-                            item.setUsedMemory("Normal");
-                        }
-
-                        dto.setRedis(item);
-                        return;
-                    }
-                }
-            } catch (Exception e) {
-                // Try next host
-            }
-        }
-
-        item.setStatus("DOWN");
-        item.setConnected(false);
-        item.setResponseTimeMs(System.currentTimeMillis() - start);
-        item.setVersion("Unknown");
-        item.setUsedMemory("N/A");
-        dto.setRedis(item);
-    }
 
     private void checkGateway(SystemHealthDto dto) {
         GatewayHealthItem item = new GatewayHealthItem();
@@ -418,19 +345,14 @@ public class SystemHealthService {
         }
 
         boolean dbUp = dto.getDatabase() != null && "HEALTHY".equals(dto.getDatabase().getStatus());
-        boolean redisUp = dto.getRedis() != null && "HEALTHY".equals(dto.getRedis().getStatus());
         boolean gatewayUp = dto.getGateway() != null && "HEALTHY".equals(dto.getGateway().getStatus());
 
         containers.add(createContainerItem("rr-auth-service", "Auth Service", serviceStatusMap.getOrDefault("auth-service", "UP"), 8081));
         containers.add(createContainerItem("rr-commerce-service", "Commerce Service", serviceStatusMap.getOrDefault("commerce-service", "DOWN"), 8082));
-        containers.add(createContainerItem("rr-customer-ledger-service", "Customer Ledger", serviceStatusMap.getOrDefault("customer-ledger-service", "DOWN"), 8083));
-        containers.add(createContainerItem("rr-inventory-service", "Inventory Service", serviceStatusMap.getOrDefault("inventory-service", "DOWN"), 8084));
-        containers.add(createContainerItem("rr-procurement-service", "Procurement Service", serviceStatusMap.getOrDefault("procurement-service", "DOWN"), 8085));
+        containers.add(createContainerItem("rr-customer-finance-service", "Customer-Finance Service", serviceStatusMap.getOrDefault("customer-finance-service", "DOWN"), 8083));
+        containers.add(createContainerItem("rr-inventory-procurement-service", "Inventory-Procurement Service", serviceStatusMap.getOrDefault("inventory-procurement-service", "DOWN"), 8084));
         containers.add(createContainerItem("rr-production-service", "Production Service", serviceStatusMap.getOrDefault("production-service", "DOWN"), 8086));
-        containers.add(createContainerItem("rr-finance-service", "Finance Service", serviceStatusMap.getOrDefault("finance-service", "DOWN"), 8087));
-        containers.add(createContainerItem("rr-notification-service", "Notification Service", serviceStatusMap.getOrDefault("notification-service", "DOWN"), 8088));
         containers.add(createContainerItem("rr-postgres", "PostgreSQL Database", dbUp ? "UP" : "DOWN", 5432));
-        containers.add(createContainerItem("rr-redis", "Redis Cache", redisUp ? "UP" : "DOWN", 6379));
         containers.add(createContainerItem("rr-gateway", "API Gateway (Nginx)", gatewayUp ? "UP" : "DOWN", 80));
 
         dto.setContainers(containers);
@@ -473,7 +395,6 @@ public class SystemHealthService {
         boolean dbHealthy = dto.getDatabase() != null && "HEALTHY".equalsIgnoreCase(dto.getDatabase().getStatus());
         int totalSchemas = dto.getSchemas() != null ? dto.getSchemas().size() : 0;
         int healthySchemas = (int) (dto.getSchemas() != null ? dto.getSchemas().stream().filter(s -> "HEALTHY".equalsIgnoreCase(s.getStatus())).count() : 0);
-        boolean redisHealthy = dto.getRedis() != null && "HEALTHY".equalsIgnoreCase(dto.getRedis().getStatus());
         boolean gatewayHealthy = dto.getGateway() != null && "HEALTHY".equalsIgnoreCase(dto.getGateway().getStatus());
 
         int containersTotal = dto.getContainers().size();
@@ -484,7 +405,7 @@ public class SystemHealthService {
         summary.setDatabaseHealthy(dbHealthy);
         summary.setTotalSchemas(totalSchemas);
         summary.setHealthySchemas(healthySchemas);
-        summary.setRedisHealthy(redisHealthy);
+        summary.setRedisHealthy(true);
         summary.setGatewayHealthy(gatewayHealthy);
         summary.setContainersTotal(containersTotal);
         summary.setContainersHealthy(containersHealthy);
@@ -492,7 +413,7 @@ public class SystemHealthService {
 
         if (!dbHealthy) {
             dto.setOverallStatus("DOWN");
-        } else if (healthyServices == totalServices && redisHealthy && gatewayHealthy) {
+        } else if (healthyServices == totalServices && gatewayHealthy) {
             dto.setOverallStatus("HEALTHY");
         } else if (healthyServices > 0) {
             dto.setOverallStatus("DEGRADED");

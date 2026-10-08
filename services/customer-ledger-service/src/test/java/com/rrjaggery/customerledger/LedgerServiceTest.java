@@ -48,7 +48,7 @@ class LedgerServiceTest {
     void testRecordPaymentAndStatement() {
         CustomerDto customer = createTestCustomer();
 
-        // 1. Create order for 10 units @ 1000 = 10,000 + 500 tax = 10,500
+        // 1. Create order for 10 units @ 1000 = 10,000 (zero GST — RR Jaggery is not GST registered)
         CreateOfflineOrderRequest orderReq = new CreateOfflineOrderRequest();
         orderReq.setCustomerId(customer.getId());
         orderReq.setPaymentMethod("CREDIT");
@@ -66,10 +66,10 @@ class LedgerServiceTest {
 
         OfflineOrderDto order = offlineOrderService.createOfflineOrder(orderReq, "admin@rrjaggery.com");
 
-        // Verify initial ledger balance is ₹10,500
+        // Verify initial ledger balance is ₹10,000
         CustomerStatementDto initialStatement = ledgerService.getCustomerStatement(customer.getId(), null, null);
-        assertEquals(new BigDecimal("10500.00"), initialStatement.getCurrentOutstanding());
-        assertEquals(new BigDecimal("10500.00"), initialStatement.getTotalDebits());
+        assertEquals(new BigDecimal("10000.00"), initialStatement.getCurrentOutstanding());
+        assertEquals(new BigDecimal("10000.00"), initialStatement.getTotalDebits());
         assertEquals(BigDecimal.ZERO, initialStatement.getTotalCredits());
         assertEquals(1, initialStatement.getEntries().size());
 
@@ -84,17 +84,17 @@ class LedgerServiceTest {
         assertNotNull(payment1.getPaymentNumber());
         assertEquals(new BigDecimal("5000.00"), payment1.getAmount());
 
-        // Verify balance is now ₹5,500
+        // Verify balance is now ₹5,000
         CustomerStatementDto midStatement = ledgerService.getCustomerStatement(customer.getId(), null, null);
-        assertEquals(new BigDecimal("5500.00"), midStatement.getCurrentOutstanding());
-        assertEquals(new BigDecimal("10500.00"), midStatement.getTotalDebits());
+        assertEquals(new BigDecimal("5000.00"), midStatement.getCurrentOutstanding());
+        assertEquals(new BigDecimal("10000.00"), midStatement.getTotalDebits());
         assertEquals(new BigDecimal("5000.00"), midStatement.getTotalCredits());
         assertEquals(2, midStatement.getEntries().size());
 
-        // 3. Make Final Payment of ₹5,500 to clear entire balance to ₹0
+        // 3. Make Final Payment of ₹5,000 to clear entire balance to ₹0
         RecordPaymentRequest pay2 = new RecordPaymentRequest();
         pay2.setOfflineOrderId(order.getId());
-        pay2.setAmount(new BigDecimal("5500.00"));
+        pay2.setAmount(new BigDecimal("5000.00"));
         pay2.setPaymentMethod("UPI");
         pay2.setReferenceNotes("UPI Ref: 9876543210@upi");
 
@@ -104,8 +104,8 @@ class LedgerServiceTest {
         // Verify balance is ₹0
         CustomerStatementDto finalStatement = ledgerService.getCustomerStatement(customer.getId(), null, null);
         assertEquals(new BigDecimal("0.00"), finalStatement.getCurrentOutstanding());
-        assertEquals(new BigDecimal("10500.00"), finalStatement.getTotalDebits());
-        assertEquals(new BigDecimal("10500.00"), finalStatement.getTotalCredits());
+        assertEquals(new BigDecimal("10000.00"), finalStatement.getTotalDebits());
+        assertEquals(new BigDecimal("10000.00"), finalStatement.getTotalCredits());
         assertEquals(3, finalStatement.getEntries().size());
 
         // Verify order status is PAID

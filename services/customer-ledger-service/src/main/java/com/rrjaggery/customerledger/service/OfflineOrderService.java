@@ -23,8 +23,10 @@ import java.util.stream.Collectors;
 @Service
 public class OfflineOrderService {
 
-    private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST
-    private static final BigDecimal HALF_GST_RATE = new BigDecimal("0.025"); // 2.5% CGST + 2.5% SGST
+    // RR Jaggery is NOT GST registered — no GST is charged on wholesale/offline orders.
+    // Tax fields are retained in DB schema for backward compatibility only.
+    private static final BigDecimal GST_RATE = BigDecimal.ZERO;
+    private static final BigDecimal HALF_GST_RATE = BigDecimal.ZERO;
     private static final AtomicInteger ORDER_SEQ = new AtomicInteger(100);
 
     private final CustomerRepository customerRepository;
@@ -278,8 +280,9 @@ public class OfflineOrderService {
         invoice.setItems(order.getItems().stream().map(OfflineOrderItemDto::fromEntity).collect(Collectors.toList()));
         invoice.setSubtotal(order.getSubtotalAmount());
 
-        BigDecimal cgst = order.getSubtotalAmount().multiply(HALF_GST_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal sgst = order.getSubtotalAmount().multiply(HALF_GST_RATE).setScale(2, RoundingMode.HALF_UP);
+        // RR Jaggery is NOT GST registered — CGST/SGST are zero.
+        BigDecimal cgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
         invoice.setCgstAmount(cgst);
         invoice.setSgstAmount(sgst);

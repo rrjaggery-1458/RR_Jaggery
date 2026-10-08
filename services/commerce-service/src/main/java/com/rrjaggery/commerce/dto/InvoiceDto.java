@@ -11,10 +11,10 @@ public class InvoiceDto {
     private UUID orderId;
     private String orderNumber;
     private Instant invoiceDate;
-    private String sellerName = "RR JAGGERY TRADERS";
-    private String sellerGstin = "37AABCR1234F1Z5";
-    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163";
-    private String sellerContact = "+91 9948533315 / +91 123456789 | rrjaggery@gmail.com";
+    private String sellerName = "RR Jaggery";
+    // RR Jaggery is NOT GST registered — no GSTIN field is exposed on invoices.
+    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh - 521163";
+    private String sellerContact = "+91 9948533315 | rrjaggery@gmail.com";
     private String customerName;
     private String customerEmail;
     private String customerPhone;
@@ -46,8 +46,6 @@ public class InvoiceDto {
     public String getSellerName() { return sellerName; }
     public void setSellerName(String sellerName) { this.sellerName = sellerName; }
 
-    public String getSellerGstin() { return sellerGstin; }
-    public void setSellerGstin(String sellerGstin) { this.sellerGstin = sellerGstin; }
 
     public String getSellerAddress() { return sellerAddress; }
     public void setSellerAddress(String sellerAddress) { this.sellerAddress = sellerAddress; }

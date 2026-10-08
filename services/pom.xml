@@ -30,12 +30,11 @@
         <module>common-library</module>
         <module>auth-service</module>
         <module>commerce-service</module>
-        <module>customer-ledger-service</module>
-        <module>inventory-service</module>
-        <module>procurement-service</module>
+        <!-- Sprint 9: customer-ledger-service + finance-service + notification-service consolidated -->
+        <module>customer-finance-service</module>
+        <!-- Sprint 9: inventory-service + procurement-service consolidated -->
+        <module>inventory-procurement-service</module>
         <module>production-service</module>
-        <module>finance-service</module>
-        <module>notification-service</module>
     </modules>
 
     <dependencyManagement>

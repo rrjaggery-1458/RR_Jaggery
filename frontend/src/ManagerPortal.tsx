@@ -26,10 +26,10 @@ const getBaseUrl = (port: number, servicePath: string) => {
 const COMMERCE_URL = getBaseUrl(8082, 'commerce');
 const CUSTOMER_URL = getBaseUrl(8083, 'customers');
 const INVENTORY_URL = getBaseUrl(8084, 'inventory');
-const PROCUREMENT_URL = getBaseUrl(8085, 'procurement');
+const PROCUREMENT_URL = getBaseUrl(8084, 'procurement');
 const PRODUCTION_URL = getBaseUrl(8086, 'production');
-const FINANCE_URL = getBaseUrl(8087, 'finance');
-const NOTIFICATION_URL = getBaseUrl(8088, 'notifications');
+const FINANCE_URL = getBaseUrl(8083, 'finance');
+const NOTIFICATION_URL = getBaseUrl(8083, 'notifications');
 const AUTH_URL = getBaseUrl(8081, 'auth');
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -309,10 +309,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     { name: 'commerce-service',        displayName: 'Commerce Service',     port: 8082, url: `${COMMERCE_URL}/health`,      schema: 'commerce_schema',        status: 'LOADING' },
     { name: 'customer-ledger-service', displayName: 'Customer Ledger',      port: 8083, url: `${CUSTOMER_URL}/health`,      schema: 'customer_schema',        status: 'LOADING' },
     { name: 'inventory-service',       displayName: 'Inventory Service',    port: 8084, url: `${INVENTORY_URL}/health`,     schema: 'inventory_schema',       status: 'LOADING' },
-    { name: 'procurement-service',     displayName: 'Procurement Service',  port: 8085, url: `${PROCUREMENT_URL}/health`,  schema: 'procurement_schema',     status: 'LOADING' },
+    { name: 'procurement-service',     displayName: 'Procurement Service',  port: 8084, url: `${PROCUREMENT_URL}/health`,  schema: 'procurement_schema',     status: 'LOADING' },
     { name: 'production-service',      displayName: 'Production Service',   port: 8086, url: `${PRODUCTION_URL}/health`,   schema: 'production_schema',      status: 'LOADING' },
-    { name: 'finance-service',         displayName: 'Finance Service',      port: 8087, url: `${FINANCE_URL}/health`,      schema: 'finance_schema',         status: 'LOADING' },
-    { name: 'notification-service',    displayName: 'Notification Service', port: 8088, url: `${NOTIFICATION_URL}/health`, schema: 'notification_schema',    status: 'LOADING' },
+    { name: 'finance-service',         displayName: 'Finance Service',      port: 8083, url: `${FINANCE_URL}/health`,      schema: 'finance_schema',         status: 'LOADING' },
+    { name: 'notification-service',    displayName: 'Notification Service', port: 8083, url: `${NOTIFICATION_URL}/health`, schema: 'notification_schema',    status: 'LOADING' },
   ]);
   const [systemHealthLastRefresh, setSystemHealthLastRefresh] = useState<Date | null>(null);
   const [systemHealthRefreshing, setSystemHealthRefreshing] = useState(false);
@@ -1882,13 +1882,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         street: newWholesaler.street || 'Main Road',
         city: newWholesaler.city || 'Thotlavalluru',
         state: newWholesaler.state || 'Andhra Pradesh',
-        postalCode: newWholesaler.postalCode || '5221163',
+        postalCode: newWholesaler.postalCode || '521163',
       },
       shippingAddress: {
         street: newWholesaler.street || 'Main Road',
         city: newWholesaler.city || 'Thotlavalluru',
         state: newWholesaler.state || 'Andhra Pradesh',
-        postalCode: newWholesaler.postalCode || '5221163',
+        postalCode: newWholesaler.postalCode || '521163',
       }
     };
 
@@ -7934,7 +7934,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       </div>
                       <p className="text-xs text-gray-600 mt-1">
                         {overall === 'HEALTHY'
-                          ? 'All 8 backend microservices, PostgreSQL database schemas, Redis cache, and Nginx gateway are operational.'
+                          ? 'All 5 backend services, PostgreSQL database schemas, and Nginx gateway are operational.'
                           : overall === 'DEGRADED'
                           ? 'Some services or infrastructure components reported degraded responsiveness or errors.'
                           : 'Critical infrastructure components are unreachable. Immediate inspection required.'}
@@ -8017,13 +8017,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                   <div className="bg-white border border-emerald-200 rounded-xl p-3.5 shadow-sm">
                     <div className="flex items-center justify-between text-gray-500">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider">Redis</span>
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider">Topology</span>
+                      <Server className="w-3.5 h-3.5 text-emerald-700" />
                     </div>
                     <p className="text-xl font-black text-emerald-700 mt-1">
-                      {data?.redis?.status || (allUp ? 'HEALTHY' : 'NOT CONFIGURED')}
+                      5 Services
                     </p>
-                    <span className="text-[10px] text-gray-500 font-medium">{data?.redis?.version ? `v${data.redis.version}` : 'Cache Layer'}</span>
+                    <span className="text-[10px] text-gray-500 font-medium">Consolidated JVM</span>
                   </div>
                 </div>
 
@@ -8270,14 +8270,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         {(data?.containers || [
                           { containerName: 'rr-auth-service', service: 'Auth Service', port: 8081, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
                           { containerName: 'rr-commerce-service', service: 'Commerce Service', port: 8082, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
-                          { containerName: 'rr-customer-ledger-service', service: 'Customer Ledger', port: 8083, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
-                          { containerName: 'rr-inventory-service', service: 'Inventory Service', port: 8084, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
-                          { containerName: 'rr-procurement-service', service: 'Procurement Service', port: 8085, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
+                          { containerName: 'rr-customer-finance-service', service: 'Customer-Finance Service', port: 8083, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
+                          { containerName: 'rr-inventory-procurement-service', service: 'Inventory-Procurement Service', port: 8084, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
                           { containerName: 'rr-production-service', service: 'Production Service', port: 8086, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
-                          { containerName: 'rr-finance-service', service: 'Finance Service', port: 8087, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
-                          { containerName: 'rr-notification-service', service: 'Notification Service', port: 8088, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
                           { containerName: 'rr-postgres', service: 'PostgreSQL Database', port: 5432, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
-                          { containerName: 'rr-redis', service: 'Redis Cache', port: 6379, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
                           { containerName: 'rr-gateway', service: 'API Gateway (Nginx)', port: 80, status: 'RUNNING', health: 'HEALTHY', uptime: 'Active', note: 'Managed by Docker Compose' },
                         ]).map((c: any, idx: number) => (
                           <tr key={c.containerName} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
@@ -8335,23 +8331,23 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       </div>
                     </div>
 
-                    {/* Redis Cache */}
+                    {/* Consolidation Architecture */}
                     <div className="bg-white border border-emerald-200 rounded-xl p-4 flex flex-col gap-2.5 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-amber-500" />
-                          <span className="text-xs font-bold text-gray-900">Redis Cache Layer</span>
+                          <Layers className="w-4 h-4 text-emerald-700" />
+                          <span className="text-xs font-bold text-gray-900">5-Service Architecture</span>
                         </div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                          ● {data?.redis?.status || 'HEALTHY'}
+                          CONSOLIDATED
                         </span>
                       </div>
                       <div className="space-y-1 text-[11px] text-gray-500">
-                        <div className="flex justify-between"><span>Host:Port</span><span className="font-mono text-gray-800">redis:6379</span></div>
-                        <div className="flex justify-between"><span>Engine Version</span><span className="font-mono text-gray-700">{data?.redis?.version ? `Redis ${data.redis.version}` : 'Redis 7.4'}</span></div>
-                        <div className="flex justify-between"><span>Memory Usage</span><span className="font-mono text-gray-700">{data?.redis?.usedMemory || '1012.80K'}</span></div>
-                        <div className="flex justify-between"><span>Response Latency</span><span className="font-mono font-bold text-emerald-700">{data?.redis?.responseTimeMs != null ? `${data.redis.responseTimeMs} ms` : '1 ms'}</span></div>
-                        <div className="flex justify-between"><span>Role</span><span className="font-mono text-gray-700">Cache / Key-Value</span></div>
+                        <div className="flex justify-between"><span>JVM Count</span><span className="font-mono text-gray-800">5 Services</span></div>
+                        <div className="flex justify-between"><span>Schemas</span><span className="font-mono text-gray-700">8 Schemas Isolated</span></div>
+                        <div className="flex justify-between"><span>Memory Overhead</span><span className="font-mono text-gray-700">~60% Reduced</span></div>
+                        <div className="flex justify-between"><span>Redis Runtime</span><span className="font-mono font-bold text-emerald-700">Decommissioned (0 MB)</span></div>
+                        <div className="flex justify-between"><span>Deployment</span><span className="font-mono text-gray-700">OCI Ampere 24GB</span></div>
                       </div>
                     </div>
 
@@ -10303,12 +10299,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             <div className="flex items-start justify-between border-b border-gray-200 pb-4">
               <div>
                 <h2 className="text-xl font-black text-emerald-900 tracking-tight">RR JAGGERY</h2>
-                <p className="text-gray-600 mt-0.5">Plot No. 42, Agro Industrial Estate, Kolhapur, Maharashtra 416001</p>
-                <p className="text-gray-400 text-[11px]">GSTIN: 27AABCU9603R1ZM | State: Maharashtra (27)</p>
+                <p className="text-gray-600 mt-0.5">Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163</p>
+                <p className="text-gray-500 text-[11px]">Phone: +91 9948533315 | Email: rrjaggery@gmail.com</p>
               </div>
               <div className="text-right">
                 <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-900 font-bold text-xs uppercase tracking-wider">
-                  GST TAX INVOICE
+                  INVOICE
                 </span>
                 <p className="text-gray-700 font-mono font-bold mt-1.5">{selectedInvoiceOrder.invoiceNumber || 'INV-OFF-2026'}</p>
                 <p className="text-gray-400 text-[11px]">{selectedInvoiceOrder.orderDate ? new Date(selectedInvoiceOrder.orderDate).toLocaleDateString() : '23 Sep 2026'}</p>
@@ -10322,7 +10318,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 {wholesaleCustomers.find(c => c.id === selectedInvoiceOrder.customerId)?.businessName || 'Wholesale Trader'}
               </p>
               <p className="text-gray-600 mt-0.5">
-                GSTIN: {wholesaleCustomers.find(c => c.id === selectedInvoiceOrder.customerId)?.gstin || '27AABCT8892P1ZV'}
+                Contact: {wholesaleCustomers.find(c => c.id === selectedInvoiceOrder.customerId)?.phone || '—'}
               </p>
             </div>
 
@@ -10331,7 +10327,6 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <thead>
                 <tr className="border-b-2 border-gray-200 text-gray-700 font-bold">
                   <th className="py-2">Item Description</th>
-                  <th className="py-2">HSN Code</th>
                   <th className="py-2">Qty</th>
                   <th className="py-2">Rate (₹)</th>
                   <th className="py-2 text-right">Amount (₹)</th>
@@ -10340,10 +10335,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <tbody className="divide-y divide-gray-200">
                 <tr>
                   <td className="py-2.5 font-medium">Traditional Organic Jaggery (Grade A)</td>
-                  <td className="py-2.5 font-mono text-gray-600">17011490</td>
                   <td className="py-2.5">100 KG</td>
                   <td className="py-2.5">₹120.00</td>
-                  <td className="py-2.5 text-right font-semibold">₹{(Number(selectedInvoiceOrder.totalAmount) / 1.05).toFixed(2)}</td>
+                  <td className="py-2.5 text-right font-semibold">₹{Number(selectedInvoiceOrder.totalAmount).toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -10353,15 +10347,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <div className="w-64 space-y-1.5 text-xs">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal:</span>
-                  <span>₹{(Number(selectedInvoiceOrder.totalAmount) / 1.05).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>CGST (2.5%):</span>
-                  <span>₹{(Number(selectedInvoiceOrder.totalAmount) * 0.025 / 1.05).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>SGST (2.5%):</span>
-                  <span>₹{(Number(selectedInvoiceOrder.totalAmount) * 0.025 / 1.05).toFixed(2)}</span>
+                  <span>₹{Number(selectedInvoiceOrder.totalAmount).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-sm text-gray-900 pt-2 border-t border-gray-300">
                   <span>Grand Total:</span>

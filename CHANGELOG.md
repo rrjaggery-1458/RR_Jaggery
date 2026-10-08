@@ -5,6 +5,35 @@ All notable changes to the **RR Jaggery Traders** platform will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - Sprint 9: Service Consolidation & Production-Readiness
+
+### Added
+- **5-Service Consolidated Architecture:**
+  * Consolidated 8 separate backend JVM microservices down to 5 application services: `auth-service` (8081), `commerce-service` (8082), `customer-finance-service` (8083), `inventory-procurement-service` (8084), and `production-service` (8086).
+  * Maintained strict database schema isolation: all 8 PostgreSQL schemas (`auth_schema`, `commerce_schema`, `customer_schema`, `finance_schema`, `notification_schema`, `inventory_schema`, `procurement_schema`, `production_schema`) remain completely separate and intact on PostgreSQL.
+- **In-Process Domain Internalization:**
+  * Internalized Procurement → Inventory stock updates: `InventoryService` injected directly into `ProcurementService.receiveGoods(...)` within a unified transaction boundary.
+  * Internalized Finance → Customer/Ledger calls: `OfflineOrderService` injected directly into `FinanceOrderServiceClient` for in-memory offline order retrieval without HTTP.
+- **Dynamic Multi-Form Registry Support (`common-library`):**
+  * Updated `InternalFormController` in `common-library` to support multiple mapped base paths simultaneously (`/api/v1/customers/forms` and `/api/v1/finance/forms`).
+- **Comprehensive Consolidation Integration Tests:**
+  * `CustomerFinanceApplicationTests`, `FinanceCustomerConsolidationIntegrationTest`, `NotificationIntegrationTest` in `customer-finance-service`.
+  * `InventoryProcurementApplicationTests`, `InventoryProcurementIntegrationTest` in `inventory-procurement-service`.
+
+### Changed
+- **Nginx Reverse Proxy Upstreams (`infrastructure/nginx/`):**
+  * Consolidated upstreams to 5 backend targets while preserving all existing public REST endpoints under `/api/v1/*`.
+- **Docker Compose Topology (`docker-compose.yml` & `compose.production.yaml`):**
+  * Consolidated to 5 application containers + PostgreSQL + Nginx (7 total containers).
+- **Frontend Alignment (`frontend/`):**
+  * Updated Manager Portal and App component service port references and health indicators.
+
+### Removed
+- **Redis Runtime Fully Decommissioned:**
+  * Removed Redis container, Compose service definitions, environment variables, Actuator health dependencies, and TCP socket probes from `auth-service`. Zero Redis runtime footprint.
+
+---
+
 ## [1.5.0] - Pre-Sprint 6: Business Access Model Revision, Data Reconciliation & Drill-down Dashboards
 
 ### Added

@@ -21,8 +21,10 @@ import java.util.stream.Collectors;
 @Transactional
 public class OrderService {
 
-    private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% total GST on jaggery
-    private static final BigDecimal HALF_GST_RATE = new BigDecimal("0.025"); // 2.5% CGST & 2.5% SGST
+    // RR Jaggery is NOT GST registered — no GST is charged on customer orders.
+    // Tax fields are retained in DB schema for audit/backward compatibility only.
+    private static final BigDecimal GST_RATE = BigDecimal.ZERO;
+    private static final BigDecimal HALF_GST_RATE = BigDecimal.ZERO;
     private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("500.00");
     private static final BigDecimal STANDARD_SHIPPING_FEE = new BigDecimal("50.00");
 
@@ -275,8 +277,9 @@ public class OrderService {
         invoice.setItems(order.getItems().stream().map(OrderItemDto::fromEntity).collect(Collectors.toList()));
         invoice.setSubtotal(order.getSubtotalAmount());
 
-        BigDecimal cgst = order.getSubtotalAmount().multiply(HALF_GST_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal sgst = order.getSubtotalAmount().multiply(HALF_GST_RATE).setScale(2, RoundingMode.HALF_UP);
+        // RR Jaggery is NOT GST registered — CGST/SGST are zero for all new invoices.
+        BigDecimal cgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
         invoice.setCgstAmount(cgst);
         invoice.setSgstAmount(sgst);

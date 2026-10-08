@@ -144,7 +144,7 @@ interface Invoice {
   orderNumber: string;
   invoiceDate: string;
   sellerName: string;
-  sellerGstin: string;
+  sellerGstin?: string;
   sellerAddress: string;
   sellerContact: string;
   customerName: string;
@@ -206,10 +206,10 @@ const INITIAL_SERVICES: ServiceHealth[] = [
   { name: 'Commerce Service', code: 'commerce', port: 8082, endpoint: `${COMMERCE_BASE}/health`, schema: 'commerce_schema', role: 'Catalog, Cart & Orders', status: 'CONNECTING' },
   { name: 'Customer & Ledger', code: 'customer-ledger', port: 8083, endpoint: `${getApiBaseUrl(8083, 'customers')}/health`, schema: 'customer_schema', role: 'Wholesale & Ledgers', status: 'CONNECTING' },
   { name: 'Inventory Service', code: 'inventory', port: 8084, endpoint: `${getApiBaseUrl(8084, 'inventory')}/health`, schema: 'inventory_schema', role: 'Stock & Movements', status: 'CONNECTING' },
-  { name: 'Procurement', code: 'procurement', port: 8085, endpoint: `${getApiBaseUrl(8085, 'procurement')}/health`, schema: 'procurement_schema', role: 'Cane Inward & POs', status: 'CONNECTING' },
+  { name: 'Procurement', code: 'procurement', port: 8084, endpoint: `${getApiBaseUrl(8084, 'procurement')}/health`, schema: 'procurement_schema', role: 'Cane Inward & POs', status: 'CONNECTING' },
   { name: 'Production', code: 'production', port: 8086, endpoint: `${getApiBaseUrl(8086, 'production')}/health`, schema: 'production_schema', role: 'Batch Processing', status: 'CONNECTING' },
-  { name: 'Finance Service', code: 'finance', port: 8087, endpoint: `${getApiBaseUrl(8087, 'finance')}/health`, schema: 'finance_schema', role: 'Costing & Payroll', status: 'CONNECTING' },
-  { name: 'Notifications', code: 'notifications', port: 8088, endpoint: `${getApiBaseUrl(8088, 'notifications')}/health`, schema: 'notification_schema', role: 'Alerts & Messages', status: 'CONNECTING' },
+  { name: 'Finance Service', code: 'finance', port: 8083, endpoint: `${getApiBaseUrl(8083, 'finance')}/health`, schema: 'finance_schema', role: 'Costing & Payroll', status: 'CONNECTING' },
+  { name: 'Notifications', code: 'notifications', port: 8083, endpoint: `${getApiBaseUrl(8083, 'notifications')}/health`, schema: 'notification_schema', role: 'Alerts & Messages', status: 'CONNECTING' },
 ];
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
@@ -641,10 +641,6 @@ function CartDrawer({
                   <span className="font-medium text-gray-900">{formatPrice(cart.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>GST (5% Organic Cane Jaggery):</span>
-                  <span className="font-medium text-gray-900">{formatPrice(cart.taxAmount)}</span>
-                </div>
-                <div className="flex justify-between">
                   <span>Shipping:</span>
                   <span className="font-medium text-emerald-700">
                     {cart.shippingAmount === 0 ? 'FREE (Orders > ₹500)' : formatPrice(cart.shippingAmount)}
@@ -693,7 +689,7 @@ function CheckoutModal({
     streetAddress: 'Vollurupallem, Thotlavalluru',
     city: 'Thotlavalluru',
     state: 'Andhra Pradesh',
-    postalCode: '5221163',
+    postalCode: '521163',
   });
   const [paymentMethod, setPaymentMethod] = useState<'TEST_PAYMENT' | 'CASH_ON_DELIVERY'>('TEST_PAYMENT');
   const [notes, setNotes] = useState('');
@@ -894,10 +890,6 @@ function CheckoutModal({
               <span className="text-gray-900 font-medium">{formatPrice(cart.subtotal)}</span>
             </div>
             <div className="flex justify-between text-gray-500">
-              <span>GST Tax (5%):</span>
-              <span className="text-gray-900 font-medium">{formatPrice(cart.taxAmount)}</span>
-            </div>
-            <div className="flex justify-between text-gray-500">
               <span>Delivery / Shipping:</span>
               <span className="text-emerald-700 font-medium">
                 {cart.shippingAmount === 0 ? 'FREE' : formatPrice(cart.shippingAmount)}
@@ -1039,7 +1031,7 @@ function InvoiceModal({
         <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-emerald-700" />
-            <h2 className="text-lg font-bold text-gray-900">GST Tax Invoice</h2>
+            <h2 className="text-lg font-bold text-gray-900">Invoice</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1067,9 +1059,8 @@ function InvoiceModal({
             {/* Header & Seller details */}
             <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
               <div>
-                <div id="invoice-seller-name" className="font-extrabold text-xl text-white tracking-tight">{invoice.sellerName}</div>
+                <div id="invoice-seller-name" className="font-extrabold text-xl text-gray-900 tracking-tight">{invoice.sellerName}</div>
                 <div className="text-gray-500 text-[11px] mt-1">{invoice.sellerAddress}</div>
-                <div className="text-gray-500 text-[11px]">GSTIN: <strong className="text-emerald-700">{invoice.sellerGstin}</strong></div>
                 <div className="text-gray-500 text-[11px]">Contact: {invoice.sellerContact}</div>
               </div>
               <div className="sm:text-right space-y-1">
@@ -1090,9 +1081,8 @@ function InvoiceModal({
                 <div className="text-gray-500">Phone: {invoice.shippingAddress.phone} | Email: {invoice.customerEmail}</div>
               </div>
               <div className="sm:text-right">
-                <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">HSN / SAC Code</div>
-                <div className="text-gray-900 font-mono mt-1">17011490 (Cane Jaggery)</div>
-                <div className="text-gray-500 text-[11px]">Place of Supply: Andhra Pradesh (37)</div>
+                <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">Business Type</div>
+                <div className="text-gray-900 font-medium mt-1">Jaggery Manufacturing</div>
               </div>
             </div>
 
@@ -1105,7 +1095,6 @@ function InvoiceModal({
                     <th className="py-2">SKU</th>
                     <th className="py-2 text-right">Qty</th>
                     <th className="py-2 text-right">Unit Rate</th>
-                    <th className="py-2 text-right">Tax (5%)</th>
                     <th className="py-2 text-right">Total</th>
                   </tr>
                 </thead>
@@ -1116,7 +1105,6 @@ function InvoiceModal({
                       <td className="py-2.5 text-gray-500 font-mono">{item.sku}</td>
                       <td className="py-2.5 text-right text-gray-900">{item.quantity}</td>
                       <td className="py-2.5 text-right text-gray-900">{formatPrice(item.unitPrice)}</td>
-                      <td className="py-2.5 text-right text-gray-500">{formatPrice(item.taxAmount)}</td>
                       <td className="py-2.5 text-right text-emerald-700 font-semibold">{formatPrice(item.lineTotal)}</td>
                     </tr>
                   ))}
@@ -1133,14 +1121,6 @@ function InvoiceModal({
                 <div className="flex justify-between">
                   <span className="text-gray-500">Subtotal:</span>
                   <span className="text-gray-900 font-medium">{formatPrice(invoice.subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">CGST (2.5%):</span>
-                  <span className="text-gray-700">{formatPrice(invoice.cgstAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">SGST (2.5%):</span>
-                  <span className="text-gray-700">{formatPrice(invoice.sgstAmount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Shipping:</span>
@@ -2194,7 +2174,7 @@ function ContactPage() {
                 <div>
                   <strong className="block text-white text-xs font-bold mb-0.5">Factory & Works:</strong>
                   <p className="text-emerald-50 text-xs leading-relaxed font-medium">
-                    Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163
+                    Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163
                   </p>
                 </div>
               </div>
@@ -2206,7 +2186,7 @@ function ContactPage() {
                 <div>
                   <strong className="block text-white text-xs font-bold mb-0.5">Phone / WhatsApp:</strong>
                   <p className="text-emerald-50 text-xs font-medium">
-                    +91 9948533315 / +91 123456789
+                    +91 9948533315
                   </p>
                 </div>
               </div>
@@ -2228,9 +2208,9 @@ function ContactPage() {
                   <Clock className="h-4 w-4" />
                 </div>
                 <div>
-                  <strong className="block text-white text-xs font-bold mb-0.5">Business Hours:</strong>
+                  <strong className="block text-white text-xs font-bold mb-0.5">Support Hours:</strong>
                   <p className="text-emerald-50 text-xs font-medium">
-                    Mon - Sat: 8:00 AM - 7:00 PM
+                    10:00 AM – 6:00 PM (Mon–Sat)
                   </p>
                 </div>
               </div>
@@ -4083,7 +4063,7 @@ export function App() {
           <div>
             <h4 className="font-bold text-white text-sm mb-3 font-serif">Quality Standards</h4>
             <ul className="space-y-2 text-emerald-200/90">
-              <li>✓ FSSAI Certified Processing</li>
+              <li>✓ Traditional Natural Processing</li>
               <li>✓ Authentic Traditional Craft</li>
               <li>✓ Naturally Made with Care</li>
               <li>✓ Natural Taste & Aroma</li>
@@ -4094,7 +4074,7 @@ export function App() {
             <h4 className="font-bold text-white text-sm mb-3 font-serif">Factory Works</h4>
             <p className="text-emerald-200/90 leading-relaxed">
               Vollurupallem, Thotlavalluru,<br />
-              Andhra Pradesh 5221163
+              Andhra Pradesh 521163
             </p>
           </div>
         </div>

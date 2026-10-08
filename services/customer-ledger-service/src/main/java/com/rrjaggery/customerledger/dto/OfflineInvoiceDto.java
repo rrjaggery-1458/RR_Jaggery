@@ -14,11 +14,11 @@ public class OfflineInvoiceDto {
     private Instant dueDate;
     private boolean overdue;
 
-    // Seller Info (RR Jaggery Factory & Works)
-    private String sellerName = "RR JAGGERY TRADERS";
-    private String sellerGstin = "37AABCR1234F1Z5";
-    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163";
-    private String sellerContact = "+91 9948533315 / +91 123456789 | rrjaggery@gmail.com";
+    // Seller Info (RR Jaggery — Jaggery Manufacturing)
+    private String sellerName = "RR Jaggery";
+    // RR Jaggery is NOT GST registered — no GSTIN is displayed on invoices.
+    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh - 521163";
+    private String sellerContact = "+91 9948533315 | rrjaggery@gmail.com";
 
     // Buyer Info
     private UUID customerId;
@@ -65,9 +65,6 @@ public class OfflineInvoiceDto {
 
     public String getSellerName() { return sellerName; }
     public void setSellerName(String sellerName) { this.sellerName = sellerName; }
-
-    public String getSellerGstin() { return sellerGstin; }
-    public void setSellerGstin(String sellerGstin) { this.sellerGstin = sellerGstin; }
 
     public String getSellerAddress() { return sellerAddress; }
     public void setSellerAddress(String sellerAddress) { this.sellerAddress = sellerAddress; }
