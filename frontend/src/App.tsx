@@ -2193,7 +2193,8 @@ function Storefront({
       </section>
 
       {/* Main Content Area */}
-      <div id="catalog-section" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 pt-4 sm:pt-10">
+      <div className="bg-[#e8f5f1] pb-12 border-t border-emerald-100/60">
+        <div id="catalog-section" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 pt-4 sm:pt-10">
         {/* Flipkart-Style Horizontal Category Strip (Mobile & Tablet) */}
         <div className="mb-3 sm:mb-6">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth">
@@ -2394,6 +2395,7 @@ function Storefront({
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* Quick View Modal */}
