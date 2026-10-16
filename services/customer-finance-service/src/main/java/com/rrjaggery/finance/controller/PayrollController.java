@@ -12,6 +12,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.DateTimeException;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -75,13 +78,28 @@ public class PayrollController {
 
         LocalDate start = startDate;
         LocalDate end = endDate;
-        if (start == null && year != null && month != null) {
-            java.time.YearMonth ym = java.time.YearMonth.of(year, month);
+        if ((start == null) != (end == null)) {
+            throw new IllegalArgumentException("Both startDate and endDate are required for an attendance date range.");
+        }
+        if ((year == null) != (month == null)) {
+            throw new IllegalArgumentException("Both year and month are required for an attendance month filter.");
+        }
+        if (start != null && start.isAfter(end)) {
+            throw new IllegalArgumentException("Attendance startDate must be on or before endDate.");
+        }
+        if (start == null && year != null) {
+            YearMonth ym;
+            try {
+                ym = YearMonth.of(year, month);
+            } catch (DateTimeException ex) {
+                throw new IllegalArgumentException("Attendance year and month must be valid.", ex);
+            }
             start = ym.atDay(1);
             end = ym.atEndOfMonth();
         } else if (start == null) {
-            start = LocalDate.now().withDayOfMonth(1);
-            end = LocalDate.now();
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+            start = today.withDayOfMonth(1);
+            end = today;
         }
 
         if (employeeId != null) {

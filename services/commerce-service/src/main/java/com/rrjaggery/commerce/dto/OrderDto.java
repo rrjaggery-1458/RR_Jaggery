@@ -55,10 +55,12 @@ public class OrderDto {
         dto.shippingAddress = new AddressDto(
             order.getRecipientName(),
             order.getPhone(),
+            order.getApartmentName(),
             order.getStreetAddress(),
             order.getCity(),
             order.getState(),
-            order.getPostalCode()
+            order.getPostalCode(),
+            order.getNearestLandmark()
         );
         dto.notes = order.getNotes();
         dto.items = order.getItems().stream().map(OrderItemDto::fromEntity).collect(Collectors.toList());

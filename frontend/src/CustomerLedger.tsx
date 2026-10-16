@@ -239,68 +239,68 @@ export function CustomerDirectoryPage({
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Top Banner & Quick Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="bg-white border border-emerald-200 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-gray-500">Total B2B Accounts</p>
-              <h3 id="stat-total-customers" className="text-2xl font-black text-gray-900 mt-1">{wholesaleCustomers} <span className="text-xs text-gray-500">/ {totalCustomers} total</span></h3>
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-500">Total B2B Accounts</p>
+              <h3 id="stat-total-customers" className="text-lg sm:text-2xl font-black text-gray-900 mt-1">{wholesaleCustomers} <span className="text-[10px] sm:text-xs text-gray-500">/ {totalCustomers}</span></h3>
             </div>
-            <div className="p-3 bg-emerald-50 text-amber-700 rounded-xl border border-emerald-500/20">
-              <Users className="h-6 w-6" />
+            <div className="p-2 sm:p-3 bg-emerald-50 text-amber-700 rounded-xl border border-emerald-500/20">
+              <Users className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-gray-500">Total Outstanding (Receivables)</p>
-              <h3 id="stat-total-outstanding" className="text-2xl font-black text-emerald-700 mt-1">{formatPrice(totalOutstanding)}</h3>
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-500">Total Receivables</p>
+              <h3 id="stat-total-outstanding" className="text-lg sm:text-2xl font-black text-emerald-700 mt-1">{formatPrice(totalOutstanding)}</h3>
             </div>
-            <div className="p-3 bg-red-500/10 text-red-600 rounded-xl border border-red-500/20">
-              <BookOpen className="h-6 w-6" />
+            <div className="p-2 sm:p-3 bg-red-500/10 text-red-600 rounded-xl border border-red-500/20">
+              <BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-gray-500">Active Credit Facility</p>
-              <h3 id="stat-total-credit-limit" className="text-2xl font-black text-emerald-700 mt-1">{formatPrice(totalCreditLimit)}</h3>
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-500">Active Credit Facility</p>
+              <h3 id="stat-total-credit-limit" className="text-lg sm:text-2xl font-black text-emerald-700 mt-1">{formatPrice(totalCreditLimit)}</h3>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-700 rounded-xl border border-emerald-500/20">
-              <ShieldCheck className="h-6 w-6" />
+            <div className="p-2 sm:p-3 bg-emerald-500/10 text-emerald-700 rounded-xl border border-emerald-500/20">
+              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white border border-emerald-200 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-gray-500">GST Compliance</p>
-              <h3 className="text-2xl font-black text-sky-700 mt-1">5.0% <span className="text-xs text-gray-500 font-normal">(CGST+SGST)</span></h3>
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-500">Commercial GST</p>
+              <h3 className="text-lg sm:text-2xl font-black text-sky-700 mt-1">Not charged</h3>
             </div>
-            <div className="p-3 bg-sky-500/10 text-sky-700 rounded-xl border border-sky-500/20">
-              <FileSpreadsheet className="h-6 w-6" />
+            <div className="p-2 sm:p-3 bg-sky-500/10 text-sky-700 rounded-xl border border-sky-500/20">
+              <FileSpreadsheet className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Action Bar & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-emerald-50/60 p-4 rounded-2xl border border-gray-200">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 bg-emerald-50/60 p-3 sm:p-4 rounded-2xl border border-gray-200">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap pb-1 md:pb-0 w-full md:w-auto">
           {['ALL', 'OFFLINE_WHOLESALE', 'REGISTERED_WHOLESALE', 'RETAIL'].map(type => (
             <button
               key={type}
               id={`filter-${type.toLowerCase()}`}
               onClick={() => setFilterType(type)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 ${
                 filterType === type
-                  ? 'bg-emerald-600 text-gray-900 shadow-md shadow-emerald-500/20'
-                  : 'bg-emerald-50 text-gray-500 hover:text-gray-900'
+                  ? 'bg-emerald-600 text-gray-900 shadow-md shadow-emerald-500/20 font-bold'
+                  : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
               }`}
             >
               {type === 'ALL' ? 'All Customers' : type.replace('_', ' ')}
@@ -308,7 +308,7 @@ export function CustomerDirectoryPage({
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -325,7 +325,7 @@ export function CustomerDirectoryPage({
             id="btn-refresh-customers"
             onClick={fetchCustomers}
             title="Refresh"
-            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-gray-700 rounded-xl transition"
+            className="p-2 bg-white hover:bg-emerald-100 text-gray-700 rounded-xl border border-gray-200 transition shrink-0"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -333,17 +333,17 @@ export function CustomerDirectoryPage({
           <button
             id="btn-open-add-customer"
             onClick={() => setIsAddCustomerOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-gray-900 font-bold text-xs rounded-xl shadow-sm transition whitespace-nowrap shrink-0"
           >
-            <Plus className="h-4 w-4" /> <span>Add Business Customer</span>
+            <Plus className="h-4 w-4" /> <span>Add Customer</span>
           </button>
 
           <button
             id="btn-open-offline-order"
             onClick={() => onOpenNewOrder()}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-amber-700 border border-emerald-500/30 font-bold text-xs rounded-xl transition whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-emerald-100 text-amber-700 border border-emerald-500/30 font-bold text-xs rounded-xl transition whitespace-nowrap shrink-0"
           >
-            <Receipt className="h-4 w-4" /> <span>+ New Offline Order</span>
+            <Receipt className="h-4 w-4" /> <span>+ Offline Order</span>
           </button>
         </div>
       </div>
@@ -623,7 +623,7 @@ export function AddCustomerModal({
                 id="input-business-name"
                 type="text"
                 required
-                placeholder="e.g. Mysuru Sweet Center"
+                placeholder="Your business name"
                 value={businessName}
                 onChange={e => setBusinessName(e.target.value)}
                 className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -635,7 +635,7 @@ export function AddCustomerModal({
               <input
                 id="input-contact-person"
                 type="text"
-                placeholder="e.g. Anand Murthy"
+                placeholder="Your name"
                 value={contactPerson}
                 onChange={e => setContactPerson(e.target.value)}
                 className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -648,7 +648,7 @@ export function AddCustomerModal({
                 id="input-customer-phone"
                 type="tel"
                 required
-                placeholder="+91 98450 12345"
+                placeholder="Your phone number"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -660,7 +660,7 @@ export function AddCustomerModal({
               <input
                 id="input-customer-email"
                 type="email"
-                placeholder="buyer@example.com"
+                placeholder="Your email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -672,7 +672,7 @@ export function AddCustomerModal({
               <input
                 id="input-customer-gstin"
                 type="text"
-                placeholder="29ABCDE1234F1Z5"
+                placeholder="Your GSTIN (optional)"
                 value={gstin}
                 onChange={e => setGstin(e.target.value.toUpperCase())}
                 className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 font-mono uppercase focus:outline-none focus:border-emerald-600"
@@ -688,7 +688,7 @@ export function AddCustomerModal({
                 <input
                   id="input-customer-street"
                   type="text"
-                  placeholder="e.g. 45, Devaraja Market"
+                  placeholder="Your street address"
                   value={street}
                   onChange={e => setStreet(e.target.value)}
                   className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -700,7 +700,7 @@ export function AddCustomerModal({
                 <input
                   id="input-customer-city"
                   type="text"
-                  placeholder="e.g. Mysuru"
+                  placeholder="Your city"
                   value={city}
                   onChange={e => setCity(e.target.value)}
                   className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -723,7 +723,7 @@ export function AddCustomerModal({
                   <input
                     id="input-customer-pincode"
                     type="text"
-                    placeholder="570001"
+                    placeholder="Your 6-digit PIN code"
                     value={postalCode}
                     onChange={e => setPostalCode(e.target.value)}
                     className="w-full mt-1 bg-white border border-emerald-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -899,15 +899,11 @@ export function CreateOfflineOrderModal({
   const lineCalculations = items.map(item => {
     const totalWeightKg = item.unitWeightKg * item.quantity;
     const subtotal = item.wholesalePrice * item.quantity;
-    const gstRate = 5.0;
-    const gstAmount = (subtotal * gstRate) / 100.0;
-    const totalAmount = subtotal + gstAmount;
-    return { ...item, totalWeightKg, subtotal, gstRate, gstAmount, totalAmount };
+    return { ...item, totalWeightKg, subtotal, gstRate: 0, gstAmount: 0, totalAmount: subtotal };
   });
 
   const subtotalSum = lineCalculations.reduce((s, i) => s + i.subtotal, 0);
-  const totalGstSum = lineCalculations.reduce((s, i) => s + i.gstAmount, 0);
-  const totalOrderAmount = subtotalSum + totalGstSum;
+  const totalOrderAmount = subtotalSum;
   const upfrontPaid = paymentMode === 'CASH' ? totalOrderAmount : paymentMode === 'PARTIAL' ? parseFloat(paidAmount) || 0 : 0;
   const balanceToLedger = Math.max(0, totalOrderAmount - upfrontPaid);
 
@@ -1014,7 +1010,7 @@ export function CreateOfflineOrderModal({
         <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
           <Receipt className="h-5 w-5 text-amber-700" /> Create Offline Wholesale Order
         </h2>
-        <p className="text-xs text-gray-500 mb-5">Direct mill dispatch, wholesale pricing, automatic 5% GST computation & ledger posting</p>
+        <p className="text-xs text-gray-500 mb-5">Direct mill dispatch, wholesale pricing, commercial order totals & ledger posting</p>
 
         {error && (
           <div className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
@@ -1205,7 +1201,7 @@ export function CreateOfflineOrderModal({
                       Total Weight: <span className="text-gray-900 font-mono">{lineCalculations[idx].totalWeightKg} kg</span>
                     </div>
                     <div>
-                      Taxable: <span className="text-gray-900 font-mono">{formatPrice(lineCalculations[idx].subtotal)}</span> + GST (5%): <span className="text-gray-700 font-mono">{formatPrice(lineCalculations[idx].gstAmount)}</span> = Line Total: <strong className="text-amber-700 font-mono">{formatPrice(lineCalculations[idx].totalAmount)}</strong>
+                      Line Total: <strong className="text-amber-700 font-mono">{formatPrice(lineCalculations[idx].totalAmount)}</strong>
                     </div>
                   </div>
                 </div>
@@ -1297,20 +1293,8 @@ export function CreateOfflineOrderModal({
                 <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Order Financial Breakdown</h4>
                 <div className="space-y-2 text-gray-700">
                   <div className="flex justify-between">
-                    <span>Taxable Subtotal:</span>
+                    <span>Subtotal:</span>
                     <span className="font-mono text-gray-900">{formatPrice(subtotalSum)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-500 text-[11px]">
-                    <span>CGST (2.5%):</span>
-                    <span className="font-mono">{formatPrice(totalGstSum / 2)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-500 text-[11px]">
-                    <span>SGST (2.5%):</span>
-                    <span className="font-mono">{formatPrice(totalGstSum / 2)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-sky-700 font-semibold">
-                    <span>Total GST (5%):</span>
-                    <span className="font-mono">{formatPrice(totalGstSum)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                     <span>Grand Total:</span>
@@ -1725,7 +1709,7 @@ export function RecordPaymentModal({
   );
 }
 
-// ─── Component: Offline GST Tax Invoice Modal ────────────────────────────────
+// ─── Component: Offline Commercial Invoice Modal ─────────────────────────────
 
 export function OfflineInvoiceModal({
   order,
@@ -1738,6 +1722,8 @@ export function OfflineInvoiceModal({
 
   const items = order.items || [];
   const customerDisplayName = order.businessName || order.customerName || 'Wholesale Buyer';
+  const subtotal = Number(order.subtotalAmount ?? order.totalAmount ?? 0);
+  const recordedTax = Number(order.totalGstAmount ?? order.taxAmount ?? 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm animate-fadeIn">
@@ -1769,9 +1755,10 @@ export function OfflineInvoiceModal({
           {/* Header & Seller details */}
           <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
             <div>
-              <div className="font-extrabold text-xl text-gray-900 tracking-tight">RR JAGGERY</div>
+              <div className="font-extrabold text-xl text-gray-900 tracking-tight">RR JAGGERY TRADERS</div>
               <div className="text-gray-500 text-[11px] mt-1">Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163</div>
               <div className="text-gray-500 text-[11px]">Phone: +91 9948533315 | Email: rrjaggery@gmail.com</div>
+              <div className="text-gray-500 text-[11px]">Commercial invoice; GST is not included in the amounts shown.</div>
             </div>
             <div className="sm:text-right space-y-1">
               <div className="text-sm font-bold text-emerald-700 font-mono">INV-{order.orderNumber}</div>
@@ -1829,8 +1816,14 @@ export function OfflineInvoiceModal({
             <div className="sm:text-right space-y-1.5 w-full sm:w-64">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span className="font-mono text-gray-900">{formatPrice(order.subtotalAmount || order.totalAmount)}</span>
+                <span className="font-mono text-gray-900">{formatPrice(subtotal)}</span>
               </div>
+              {recordedTax > 0 && (
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Tax recorded on order:</span>
+                  <span className="font-mono text-gray-900">{formatPrice(recordedTax)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                 <span>Invoice Total:</span>
                 <span className="text-amber-700 font-mono">{formatPrice(order.totalAmount)}</span>

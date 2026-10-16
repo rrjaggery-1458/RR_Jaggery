@@ -2,7 +2,6 @@ package com.rrjaggery.auth.service;
 
 import com.rrjaggery.auth.dto.AuthResponse;
 import com.rrjaggery.auth.dto.LoginRequest;
-import com.rrjaggery.auth.dto.RegisterRequest;
 import com.rrjaggery.auth.dto.UserDto;
 import com.rrjaggery.auth.entity.CustomerType;
 import com.rrjaggery.auth.entity.Role;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,28 +36,6 @@ public class AuthService {
         this.expirationMs = expirationMs;
     }
 
-    @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail().toLowerCase().trim())) {
-            throw new IllegalArgumentException("User with email already exists: " + request.getEmail());
-        }
-
-        User user = new User(
-                request.getEmail().toLowerCase().trim(),
-                passwordEncoder.encode(request.getPassword()),
-                request.getFullName().trim(),
-                request.getPhone(),
-                CustomerType.RETAIL
-        );
-
-        user.setBusinessName(request.getBusinessName());
-        user.setGstin(request.getGstin());
-        user.setRoles(Set.of(Role.CUSTOMER));
-
-        User saved = userRepository.save(user);
-        return generateAuthResponse(saved);
-    }
-
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
@@ -69,11 +45,16 @@ public class AuthService {
             throw new IllegalStateException("Account is disabled. Please contact support.");
         }
 
+        boolean internalAccount = user.getRoles().contains(Role.ADMIN) || user.getRoles().contains(Role.MANAGER);
+        if (!internalAccount && !user.isEmailVerified()) {
+            throw new IllegalStateException("Email address is not verified. Complete email verification before logging in.");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid email or password");
         }
 
-        return generateAuthResponse(user);
+        return createAuthenticationResponse(user);
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +64,7 @@ public class AuthService {
         return UserDto.fromEntity(user);
     }
 
-    private AuthResponse generateAuthResponse(User user) {
+    AuthResponse createAuthenticationResponse(User user) {
         List<String> roleNames = user.getRoles().stream()
                 .map(r -> "ROLE_" + r.name())
                 .collect(Collectors.toList());

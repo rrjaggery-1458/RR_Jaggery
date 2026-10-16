@@ -1,9 +1,12 @@
 package com.rrjaggery.finance.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 public class RecordSalaryPaymentRequest {
@@ -12,13 +15,17 @@ public class RecordSalaryPaymentRequest {
     private UUID employeeId;
 
     @NotNull(message = "Period year is required")
+    @Min(value = 2000, message = "Period year must be 2000 or later")
+    @Max(value = 9999, message = "Period year must be a four-digit year")
     private int periodYear;
 
     @NotNull(message = "Period month is required")
+    @Min(value = 1, message = "Period month must be between 1 and 12")
+    @Max(value = 12, message = "Period month must be between 1 and 12")
     private int periodMonth;
 
     @NotNull(message = "Payment date is required")
-    private LocalDate paymentDate = LocalDate.now();
+    private LocalDate paymentDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
 
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.01", message = "Payment amount must be greater than 0")

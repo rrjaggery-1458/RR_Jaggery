@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class OrderService {
 
-    // RR Jaggery is NOT GST registered — no GST is charged on customer orders.
+    // Commercial orders currently store item prices without GST. Statutory tax handling is separate.
     // Tax fields are retained in DB schema for audit/backward compatibility only.
     private static final BigDecimal GST_RATE = BigDecimal.ZERO;
     private static final BigDecimal HALF_GST_RATE = BigDecimal.ZERO;
@@ -32,20 +32,20 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
-    private final InventoryStockClient inventoryStockClient;
+    private final StockOutboxService stockOutboxService;
 
     public OrderService(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             CartItemRepository cartItemRepository,
             ProductRepository productRepository,
-            InventoryStockClient inventoryStockClient
+            StockOutboxService stockOutboxService
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
-        this.inventoryStockClient = inventoryStockClient;
+        this.stockOutboxService = stockOutboxService;
     }
 
     public OrderDto checkout(
@@ -71,10 +71,12 @@ public class OrderService {
         AddressDto addr = request.getShippingAddress();
         order.setRecipientName(addr.getRecipientName());
         order.setPhone(addr.getPhone());
+        order.setApartmentName(addr.getApartmentName());
         order.setStreetAddress(addr.getStreetAddress());
         order.setCity(addr.getCity());
         order.setState(addr.getState());
         order.setPostalCode(addr.getPostalCode());
+        order.setNearestLandmark(addr.getNearestLandmark());
         order.setNotes(request.getNotes());
 
         PaymentMethod paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.TEST_PAYMENT;
@@ -140,15 +142,8 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
 
-        if (saved.getStatus() == OrderStatus.CONFIRMED) {
-            for (OrderItem item : saved.getItems()) {
-                inventoryStockClient.deductSaleStock(
-                        item.getSku(),
-                        BigDecimal.valueOf(item.getQuantity()),
-                        saved.getOrderNumber() + ":" + item.getId(),
-                        saved.getOrderNumber()
-                );
-            }
+        if (isStockConsumingStatus(saved.getStatus())) {
+            stockOutboxService.enqueueSale(saved);
         }
 
         // Clear cart atomically
@@ -185,10 +180,14 @@ public class OrderService {
             throw new SecurityException("Unauthorized: You do not have permission to cancel this order.");
         }
 
-        if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
-            throw new IllegalStateException("Cannot cancel order in status: " + order.getStatus() + ". Only PENDING or CONFIRMED orders can be cancelled.");
+        if (!isCancellableStatus(order.getStatus())) {
+            throw new IllegalStateException("Cannot cancel order in status: " + order.getStatus()
+                    + ". Only PENDING or CONFIRMED orders can be cancelled automatically.");
         }
 
+        if (order.getStatus() == OrderStatus.CONFIRMED) {
+            stockOutboxService.enqueueRestoration(order);
+        }
         order.setStatus(OrderStatus.CANCELLED);
         if (order.getPaymentStatus() == PaymentStatus.PAID) {
             order.setPaymentStatus(PaymentStatus.REFUNDED);
@@ -213,15 +212,18 @@ public class OrderService {
 
         if (newStatus != null) {
             OrderStatus previousStatus = order.getStatus();
-            if (newStatus == OrderStatus.CONFIRMED && previousStatus != OrderStatus.CONFIRMED) {
-                for (OrderItem item : order.getItems()) {
-                    inventoryStockClient.deductSaleStock(
-                            item.getSku(),
-                            BigDecimal.valueOf(item.getQuantity()),
-                            order.getOrderNumber() + ":" + item.getId(),
-                            order.getOrderNumber()
-                    );
-                }
+            if (previousStatus == OrderStatus.CANCELLED && newStatus != OrderStatus.CANCELLED) {
+                throw new IllegalStateException("Cancelled orders cannot return to fulfillment.");
+            }
+            if (newStatus == OrderStatus.CANCELLED && previousStatus != OrderStatus.CANCELLED
+                    && !isCancellableStatus(previousStatus)) {
+                throw new IllegalStateException("Orders already in processing or dispatch cannot be cancelled automatically.");
+            }
+            if (!isStockConsumingStatus(previousStatus) && isStockConsumingStatus(newStatus)) {
+                stockOutboxService.enqueueSale(order);
+            }
+            if (newStatus == OrderStatus.CANCELLED && previousStatus != OrderStatus.CANCELLED) {
+                stockOutboxService.enqueueRestoration(order);
             }
             order.setStatus(newStatus);
             if (newStatus == OrderStatus.DELIVERED && order.getPaymentStatus() == PaymentStatus.PENDING && newPaymentStatus == null) {
@@ -244,7 +246,19 @@ public class OrderService {
     public void deleteOrder(UUID orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found with ID: " + orderId));
+        if (isStockConsumingStatus(order.getStatus())) {
+            throw new IllegalStateException("Fulfilled orders cannot be deleted; cancel an eligible order to restore stock first.");
+        }
         orderRepository.delete(order);
+    }
+
+    private boolean isStockConsumingStatus(OrderStatus status) {
+        return status == OrderStatus.CONFIRMED || status == OrderStatus.PROCESSING
+                || status == OrderStatus.DISPATCHED || status == OrderStatus.DELIVERED;
+    }
+
+    private boolean isCancellableStatus(OrderStatus status) {
+        return status == OrderStatus.PENDING || status == OrderStatus.CONFIRMED;
     }
 
     @Transactional(readOnly = true)
@@ -268,16 +282,18 @@ public class OrderService {
         invoice.setShippingAddress(new AddressDto(
                 order.getRecipientName(),
                 order.getPhone(),
+                order.getApartmentName(),
                 order.getStreetAddress(),
                 order.getCity(),
                 order.getState(),
-                order.getPostalCode()
+                order.getPostalCode(),
+                order.getNearestLandmark()
         ));
 
         invoice.setItems(order.getItems().stream().map(OrderItemDto::fromEntity).collect(Collectors.toList()));
         invoice.setSubtotal(order.getSubtotalAmount());
 
-        // RR Jaggery is NOT GST registered — CGST/SGST are zero for all new invoices.
+        // Commercial invoice tax values come from the stored order; do not infer tax in this projection.
         BigDecimal cgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         BigDecimal sgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 

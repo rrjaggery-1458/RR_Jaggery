@@ -1,15 +1,43 @@
 server:
   port: ${AUTH_SERVICE_PORT:8081}
+  tomcat:
+    threads:
+      max: 50           # default 200 is wasteful for dev; tune up for prod
+      min-spare: 5      # keep 5 threads warm to avoid cold-start latency
 
 spring:
   application:
     name: auth-service
+  main:
+    lazy-initialization: true
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
   datasource:
     url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rr_jaggery_db}?currentSchema=auth_schema}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres_dev_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10          # max concurrent DB connections
+      minimum-idle: 5                # keep 5 warm connections ready
+      connection-timeout: 3000       # 3 s — fail fast if pool exhausted
+      idle-timeout: 300000           # release idle connections after 5 min
+      max-lifetime: 600000           # recycle connections after 10 min
+      auto-commit: false
   jpa:
+    open-in-view: false              # avoid holding DB connections during view rendering
     hibernate:
       ddl-auto: update
     properties:
@@ -20,6 +48,8 @@ spring:
     show-sql: false
 
 app:
+  mail:
+    from: ${CONTACT_EMAIL_FROM:${SMTP_USERNAME:}}
   jwt:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}

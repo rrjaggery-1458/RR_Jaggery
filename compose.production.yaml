@@ -54,6 +54,13 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
+      CONTACT_EMAIL_FROM: "${CONTACT_EMAIL_FROM:-${SMTP_USERNAME:-}}"
       SPRING_PROFILES_ACTIVE: prod
     # Backend port 8081 remains internal to rr-network
     depends_on:
@@ -115,6 +122,14 @@ services:
       COMMERCE_SERVICE_URL: http://commerce-service:8082
       # Points to consolidated inventory-procurement-service (port 8084)
       INVENTORY_SERVICE_URL: http://inventory-procurement-service:8084
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
+      CONTACT_EMAIL_FROM: "${CONTACT_EMAIL_FROM:-${SMTP_USERNAME:-}}"
+      CONTACT_EMAIL_RECIPIENT: ${CONTACT_EMAIL_RECIPIENT:-rrjaggery@gmail.com}
       SPRING_PROFILES_ACTIVE: prod
     # Backend port 8083 remains internal to rr-network
     depends_on:

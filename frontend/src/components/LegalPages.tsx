@@ -14,7 +14,7 @@ const BIZ_EMAIL = 'rrjaggery@gmail.com';
 const BIZ_PHONE = '+91 9948533315';
 const BIZ_HOURS = '10:00 AM – 6:00 PM (Mon–Sat)';
 const BIZ_GRIEVANCE_OFFICER = 'CH Padma';
-// GST: RR Jaggery is NOT GST registered — do not add GSTIN here.
+// Do not infer GST registration status or add an unverified GSTIN.
 // FSSAI: No FSSAI number available — do not invent one.
 
 export const TermsPage: React.FC<LegalPageProps> = ({ onBackToStore }) => {
@@ -69,8 +69,8 @@ export const TermsPage: React.FC<LegalPageProps> = ({ onBackToStore }) => {
                 We specialize in naturally processed sugarcane jaggery products, including jaggery powder, blocks, and syrup.
               </p>
               <ul className="list-disc pl-5 space-y-1 text-xs">
-                <li>All prices listed are final. {BIZ_NAME} is not GST registered; no GST is collected or charged on your purchase.</li>
-                <li>Product weights and specifications are measured at the time of packing. Minor natural variations in color, moisture, or texture may occur due to traditional artisan boiling processes.</li>
+                <li>All prices listed are final. GST is not charged or included in the commercial order totals shown on this website.</li>
+                <li>Product weights and specifications are measured at the time of packing. Minor natural variations in color, moisture, or texture may occur due to traditional natural boiling processes.</li>
                 <li>Wholesale tier pricing and minimum order quantities (MOQ) apply strictly to wholesale orders as configured by our management.</li>
               </ul>
             </section>

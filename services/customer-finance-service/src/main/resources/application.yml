@@ -4,6 +4,19 @@ server:
 spring:
   application:
     name: customer-finance-service
+  main:
+    lazy-initialization: true
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
   datasource:
     url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rr_jaggery_db}}
     username: ${DB_USER:postgres}
@@ -22,6 +35,9 @@ spring:
       fail-on-empty-beans: false
 
 app:
+  contact:
+    recipient: ${CONTACT_EMAIL_RECIPIENT:rrjaggery@gmail.com}
+    from: ${CONTACT_EMAIL_FROM:${SMTP_USERNAME:}}
   forms:
     enabled: true
     api-base: /api/v1/customers/forms

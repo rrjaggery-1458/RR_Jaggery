@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Store, LayoutDashboard, LogIn, UserPlus, LogOut,
   ArrowRight, RefreshCw, Activity, Server,
@@ -8,7 +8,7 @@ import {
   Sparkles, ShoppingCart, Trash2, CreditCard,
   FileText, Truck, Printer, Receipt, ArrowLeft, Users, Factory,
   Shield, BarChart3, AlertTriangle, Star, MapPin, Phone, Mail,
-  MessageSquare, Send, Leaf, Award, Clock
+  MessageSquare, Send, Leaf, Award, Clock, Info, User
 } from 'lucide-react';
 import {
   CustomerDirectoryPage,
@@ -22,6 +22,7 @@ import { Sprint4Operations } from './Sprint4Operations';
 import { Sprint5Production } from './Sprint5Production';
 import { ManagerPortal } from './ManagerPortal';
 import { TermsPage, PrivacyPage, RefundPolicyPage, ShippingPolicyPage } from './components/LegalPages';
+import { ProfilePage } from './components/ProfilePage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,10 +98,12 @@ interface Cart {
 interface Address {
   recipientName: string;
   phone: string;
+  apartmentName: string;
   streetAddress: string;
   city: string;
   state: string;
   postalCode: string;
+  nearestLandmark: string;
 }
 
 interface OrderItem {
@@ -200,6 +203,10 @@ const getApiBaseUrl = (port: number, servicePath: string) => {
 
 const AUTH_BASE = getApiBaseUrl(8081, 'auth');
 const COMMERCE_BASE = getApiBaseUrl(8082, 'commerce');
+const CONTACT_BASE = getApiBaseUrl(8083, 'contact');
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 const INITIAL_SERVICES: ServiceHealth[] = [
   { name: 'Auth Service', code: 'auth', port: 8081, endpoint: `${AUTH_BASE}/health`, schema: 'auth_schema', role: 'Security & Identity', status: 'CONNECTING' },
@@ -244,26 +251,34 @@ function packageLabel(p: string) {
 
 const TOKEN_KEY = 'rr_jwt_token';
 const USER_KEY = 'rr_user';
+const LAST_ACTIVITY_KEY = 'rr_last_activity';
+const AUTH_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 function loadAuthState(): AuthState {
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const userStr = localStorage.getItem(USER_KEY);
-    if (token && userStr) {
+    const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+    const elapsed = Date.now() - lastActivity;
+    if (token && userStr && Number.isFinite(lastActivity)
+      && lastActivity > 0 && elapsed >= 0 && elapsed < AUTH_INACTIVITY_TIMEOUT_MS) {
       return { token, user: JSON.parse(userStr) };
     }
   } catch { }
+  clearAuthState();
   return { token: null, user: null };
 }
 
 function saveAuthState(token: string, user: User) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
 }
 
 function clearAuthState() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
 }
 
 // ─── UI Helper Components ─────────────────────────────────────────────────────
@@ -310,19 +325,82 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [regForm, setRegForm] = useState({
-    email: '', password: '', fullName: '', phone: '', customerType: 'RETAIL',
-    businessName: '', gstin: '',
+    email: '', password: '', fullName: '', phone: '',
   });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Registration OTP state
+  const [registrationOtpSent, setRegistrationOtpSent] = useState(false);
+  const [registrationOtp, setRegistrationOtp] = useState('');
+  const [registrationChallengeId, setRegistrationChallengeId] = useState('');
+  const [registrationEmailStatus, setRegistrationEmailStatus] = useState<'PENDING' | 'SENT' | 'FAILED'>('PENDING');
+
+  // Forgot Password state
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'newPassword' | 'success'>('email');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotChallengeToken, setForgotChallengeToken] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setTab('login');
       setError('');
+      setSuccessMsg('');
+      setIsForgotPassword(false);
+      setForgotStep('email');
+      setForgotEmail('');
+      setForgotChallengeToken('');
+      setForgotOtp('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setRegistrationOtpSent(false);
+      setRegistrationOtp('');
+      setRegistrationChallengeId('');
+      setRegistrationEmailStatus('PENDING');
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !registrationOtpSent || !registrationChallengeId) return;
+
+    let cancelled = false;
+    let timer: number | undefined;
+    const checkDelivery = async () => {
+      try {
+        const res = await fetch(
+          `${AUTH_BASE}/register/status?challengeId=${encodeURIComponent(registrationChallengeId)}`,
+        );
+        const body = await res.json();
+        if (!res.ok || !body.success) {
+          throw new Error(body.error?.message ?? 'Could not check verification email status.');
+        }
+
+        const status = body.data?.status;
+        if (status === 'SENT' || status === 'FAILED') {
+          if (!cancelled) setRegistrationEmailStatus(status);
+          return;
+        }
+        if (!cancelled) timer = window.setTimeout(checkDelivery, 1000);
+      } catch {
+        if (!cancelled) {
+          setError('Could not check email delivery status. The code may still arrive; try again shortly.');
+        }
+      }
+    };
+
+    checkDelivery();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [isOpen, registrationOtpSent, registrationChallengeId]);
 
   if (!isOpen) return null;
 
@@ -357,22 +435,135 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${AUTH_BASE}/register`, {
+      const res = await fetch(`${AUTH_BASE}${registrationOtpSent ? '/register/verify' : '/register'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(regForm),
+        body: JSON.stringify(registrationOtpSent
+          ? { email: regForm.email, challengeId: registrationChallengeId, otp: registrationOtp }
+          : regForm),
       });
       const body = await res.json();
       if (res.ok && body.success) {
-        const { token, user } = body.data;
-        saveAuthState(token, user);
-        onLogin(token, user);
-        onClose();
+        if (registrationOtpSent) {
+          const { token, user } = body.data;
+          saveAuthState(token, user);
+          onLogin(token, user);
+          onClose();
+        } else {
+          if (!body.data?.challengeId) throw new Error('Registration verification could not be started.');
+          setRegistrationChallengeId(body.data.challengeId);
+          setRegistrationEmailStatus('PENDING');
+          setRegistrationOtpSent(true);
+        }
       } else {
         setError(body.error?.message ?? 'Registration failed. Check input details.');
       }
+    } catch (error) {
+      setError(error instanceof Error && error.message !== 'Failed to fetch'
+        ? error.message
+        : 'Cannot reach Auth Service. Please ensure backend services are running.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Forgot Password Handlers ──
+  async function handleRequestForgotOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    const emailToVerify = forgotEmail.trim();
+    if (!emailToVerify) {
+      setError('Please enter your email address.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToVerify }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setForgotChallengeToken(body.data?.challengeToken);
+        setSuccessMsg(`A 6-digit OTP has been sent to ${emailToVerify}. Please check your inbox.`);
+        setForgotStep('otp');
+      } else {
+        setError(body.error?.message ?? 'This email is not registered with RR Jaggery.');
+      }
     } catch {
       setError('Cannot reach Auth Service. Please ensure backend services are running.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyForgotOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    const otpCode = forgotOtp.trim();
+    if (!otpCode || otpCode.length !== 6) {
+      setError('Please enter the 6-digit OTP code.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/forgot-password/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeToken: forgotChallengeToken,
+          otp: otpCode,
+        }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setSuccessMsg('OTP verified successfully! Now create your new password.');
+        setForgotStep('newPassword');
+      } else {
+        setError(body.error?.message ?? 'Invalid OTP code. Please check your email.');
+      }
+    } catch {
+      setError('Cannot reach Auth Service. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResetPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeToken: forgotChallengeToken,
+          otp: forgotOtp.trim(),
+          newPassword: newPassword,
+        }),
+      });
+      const body = await res.json();
+      if (res.ok && body.success) {
+        setForgotStep('success');
+        setLoginEmail(forgotEmail);
+      } else {
+        setError(body.error?.message ?? 'Failed to reset password. Please try again.');
+      }
+    } catch {
+      setError('Cannot reach Auth Service. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -392,83 +583,296 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
         <div className="flex items-center gap-3 mb-6">
           <img src="/rr-logo.png" className="h-10 w-10 rounded-full object-cover shadow-md" alt="RR Jaggery Logo" />
           <div>
-            <div className="font-extrabold text-lg text-white">RR JAGGERY TRADERS</div>
+            <div className="font-extrabold text-lg text-gray-900">RR JAGGERY TRADERS</div>
             <div className="text-[10px] text-gray-500">Authentication & B2B Portal Access</div>
           </div>
         </div>
 
-        <div className="flex bg-white p-1 rounded-xl border border-gray-200 mb-6">
-          <button
-            id="tab-login"
-            onClick={() => { setTab('login'); setError(''); }}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${tab === 'login' ? 'bg-emerald-700 text-white' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            Sign In
-          </button>
-          <button
-            id="tab-register"
-            onClick={() => { setTab('register'); setError(''); }}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${tab === 'register' ? 'bg-emerald-700 text-white' : 'text-gray-500 hover:text-gray-900'}`}
-          >
-            Register
-          </button>
-        </div>
+        {/* ── FORGOT PASSWORD FLOW ── */}
+        {isForgotPassword ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsForgotPassword(false);
+                setError('');
+                setSuccessMsg('');
+                setForgotStep('email');
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-emerald-700 mb-4 transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Sign In</span>
+            </button>
 
-        {error && (
-          <div id="auth-error-message" className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {tab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
-              <input
-                id="login-email"
-                type="email"
-                required
-                value={loginEmail}
-                onChange={e => setLoginEmail(e.target.value)}
-                placeholder="customer@example.com"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-              />
+            <div className="mb-5">
+              <h3 className="text-lg font-bold text-gray-900">Reset Your Password</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {forgotStep === 'email' && 'Enter your registered email address. We will verify your account and send a 6-digit OTP.'}
+                {forgotStep === 'otp' && 'Enter the 6-digit verification code sent to your email.'}
+                {forgotStep === 'newPassword' && 'Create a new secure password for your account.'}
+                {forgotStep === 'success' && 'Your password has been reset successfully.'}
+              </p>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Password</label>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type={showPw ? 'text' : 'password'}
-                  required
-                  value={loginPassword}
-                  onChange={e => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-                />
-                <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800">
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+
+            {error && (
+              <div id="forgot-error-message" className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {successMsg && forgotStep !== 'success' && (
+              <div className="mb-4 flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            {forgotStep === 'email' && (
+              <form onSubmit={handleRequestForgotOtp} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Registered Email</label>
+                  <input
+                    id="forgot-email-input"
+                    type="email"
+                    required
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    placeholder="Your email"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                  />
+                </div>
+                <button
+                  id="forgot-submit-email"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-700/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+                >
+                  {loading ? <><Spinner size={4} /><span>Checking & Sending OTP…</span></> : <><Mail className="h-4 w-4" /><span>Send Reset Code</span></>}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 'otp' && (
+              <form onSubmit={handleVerifyForgotOtp} className="space-y-4">
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/60 text-xs text-amber-900 flex items-start gap-2">
+                  <Mail className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    We sent a branded OTP email to <strong className="font-semibold">{forgotEmail}</strong>. Please check your inbox or spam folder.
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">6-Digit Verification Code</label>
+                  <input
+                    id="forgot-otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={forgotOtp}
+                    onChange={e => setForgotOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Your 6-digit code"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-center text-xl font-mono font-bold tracking-widest text-emerald-900 placeholder-gray-300 focus:outline-none focus:border-emerald-600 transition"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotStep('email');
+                      setError('');
+                      setSuccessMsg('');
+                    }}
+                    className="text-gray-500 hover:text-gray-800 underline transition"
+                  >
+                    Change Email
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleRequestForgotOtp}
+                    className="text-emerald-700 font-semibold hover:underline transition"
+                  >
+                    Resend Code
+                  </button>
+                </div>
+
+                <button
+                  id="forgot-submit-otp"
+                  type="submit"
+                  disabled={loading || forgotOtp.length !== 6}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-700/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+                >
+                  {loading ? <><Spinner size={4} /><span>Verifying Code…</span></> : <><Check className="h-4 w-4" /><span>Verify OTP</span></>}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 'newPassword' && (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">New Password</label>
+                  <div className="relative">
+                    <input
+                      id="forgot-new-password"
+                      type={showNewPw ? 'text' : 'password'}
+                      required
+                      minLength={8}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Your new password"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                    />
+                    <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800">
+                      {showNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Confirm New Password</label>
+                  <input
+                    id="forgot-confirm-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your password"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                  />
+                </div>
+
+                <button
+                  id="forgot-submit-reset"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-emerald-700/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+                >
+                  {loading ? <><Spinner size={4} /><span>Updating Password…</span></> : <><Sparkles className="h-4 w-4" /><span>Update Password</span></>}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 'success' && (
+              <div className="text-center py-4 space-y-4">
+                <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                  <CheckCircle2 className="h-9 w-9 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-gray-900">Password Reset Successful!</h4>
+                  <p className="text-xs text-gray-600 mt-1 max-w-xs mx-auto">
+                    Your password has been securely updated. You can now log into your account using your new credentials.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="forgot-success-signin"
+                  onClick={() => {
+                    setIsForgotPassword(false);
+                    setTab('login');
+                    setForgotStep('email');
+                    setError('');
+                    setSuccessMsg('');
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-md transition"
+                >
+                  Sign In Now
                 </button>
               </div>
+            )}
+          </div>
+        ) : (
+          /* ── REGULAR SIGN IN / REGISTER TABS ── */
+          <>
+            <div className="flex bg-white p-1 rounded-xl border border-gray-200 mb-6">
+              <button
+                id="tab-login"
+                onClick={() => { setTab('login'); setError(''); }}
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${tab === 'login' ? 'bg-emerald-700 text-white' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Sign In
+              </button>
+              <button
+                id="tab-register"
+                onClick={() => { setTab('register'); setError(''); }}
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${tab === 'register' ? 'bg-emerald-700 text-white' : 'text-gray-500 hover:text-gray-900'}`}
+              >
+                Register
+              </button>
             </div>
 
-            <button
-              id="login-submit"
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-amber-600/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
-            >
-              {loading ? <><Spinner size={4} /><span>Signing In…</span></> : <><LogIn className="h-4 w-4" /><span>Sign In</span></>}
-            </button>
-            <p className="text-center text-[11px] text-gray-500 space-y-1">
-              <div>Admin: <span className="font-mono text-emerald-700 font-semibold">rrjaggery@gmail.com</span> / <span className="font-mono text-emerald-700">RRJAGGERY@775858</span></div>
-              <div>Manager: <span className="font-mono text-emerald-700 font-semibold">manager@rrjaggery.com</span> / <span className="font-mono text-emerald-700">Manager@123</span></div>
-              <div>Customer: <span className="font-mono text-emerald-700 font-semibold">retail@example.com</span> / <span className="font-mono text-emerald-700">Retail@123</span></div>
-            </p>
-          </form>
-        ) : (
+            {error && (
+              <div id="auth-error-message" className="mb-4 flex items-center gap-2 text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {tab === 'login' ? (
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
+                  <input
+                    id="login-email"
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
+                    placeholder="Your email"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Password</label>
+                    <button
+                      type="button"
+                      id="link-forgot-password"
+                      onClick={() => {
+                        setIsForgotPassword(true);
+                        setForgotStep('email');
+                        setForgotEmail(loginEmail || '');
+                        setError('');
+                        setSuccessMsg('');
+                      }}
+                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline transition"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="login-password"
+                      type={showPw ? 'text' : 'password'}
+                      required
+                      value={loginPassword}
+                      onChange={e => setLoginPassword(e.target.value)}
+                      placeholder="Your password"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                    />
+                    <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800">
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  id="login-submit"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-amber-600/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
+                >
+                  {loading ? <><Spinner size={4} /><span>Signing In…</span></> : <><LogIn className="h-4 w-4" /><span>Sign In</span></>}
+                </button>
+              </form>
+            ) : (
           <form onSubmit={handleRegisterSubmit} className="space-y-3">
+            {!registrationOtpSent ? (
+              <>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Full Name</label>
               <input
@@ -477,7 +881,7 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 required
                 value={regForm.fullName}
                 onChange={e => setRegForm(f => ({ ...f, fullName: e.target.value }))}
-                placeholder="Rohan Sharma"
+                placeholder="Your name"
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
               />
             </div>
@@ -489,7 +893,7 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 required
                 value={regForm.email}
                 onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="customer@example.com"
+                placeholder="Your email"
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
               />
             </div>
@@ -500,7 +904,7 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 type="tel"
                 value={regForm.phone}
                 onChange={e => setRegForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="+91 98765 43210"
+                placeholder="Your phone number"
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
               />
             </div>
@@ -513,22 +917,66 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 minLength={6}
                 value={regForm.password}
                 onChange={e => setRegForm(f => ({ ...f, password: e.target.value }))}
-                placeholder="Min 6 characters"
+                placeholder="Your password"
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
               />
             </div>
             <p className="text-[11px] text-gray-500">
-              Registration creates a retail customer storefront account. Wholesale B2B accounts are managed internally by administrators.
+              All new accounts are retail customer accounts. Verify your email to finish creating your account.
             </p>
+              </>
+            ) : (
+              <>
+                <div className={`rounded-xl border p-3 text-xs ${
+                  registrationEmailStatus === 'FAILED'
+                    ? 'border-red-200 bg-red-50 text-red-800'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                }`}>
+                  {registrationEmailStatus === 'PENDING' && <>Sending a verification code to <strong>{regForm.email}</strong>…</>}
+                  {registrationEmailStatus === 'SENT' && <>A verification code was sent to <strong>{regForm.email}</strong>.</>}
+                  {registrationEmailStatus === 'FAILED' && <>Could not send a verification code to <strong>{regForm.email}</strong>. Edit your details and try again.</>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Verification Code</label>
+                  <input
+                    id="register-email-otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    required
+                    value={registrationOtp}
+                    onChange={e => setRegistrationOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    placeholder="Your verification code"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegistrationOtpSent(false);
+                    setRegistrationOtp('');
+                    setRegistrationChallengeId('');
+                    setError('');
+                  }}
+                  className="text-xs text-emerald-700 font-semibold"
+                >
+                  Edit registration details
+                </button>
+              </>
+            )}
             <button
               id="register-submit"
               type="submit"
-              disabled={loading}
+              disabled={loading || (registrationOtpSent && !registrationOtp)}
               className="w-full mt-2 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-amber-600/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
             >
-              {loading ? <><Spinner size={4} /><span>Creating Account…</span></> : <><UserPlus className="h-4 w-4" /><span>Create Customer Account</span></>}
+              {loading
+                ? <><Spinner size={4} /><span>{registrationOtpSent ? 'Verifying email…' : 'Sending verification code…'}</span></>
+                : <><UserPlus className="h-4 w-4" /><span>{registrationOtpSent ? 'Verify Email & Create Account' : 'Send Email Verification Code'}</span></>}
             </button>
           </form>
+        )}
+          </>
         )}
       </div>
     </div>
@@ -557,7 +1005,7 @@ function CartDrawer({
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div className="absolute inset-0 bg-emerald-50/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
         <div className="w-screen max-w-md bg-white border-l border-gray-200 shadow-2xl flex flex-col justify-between">
           {/* Header */}
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -683,11 +1131,13 @@ function CheckoutModal({
 }) {
   const [address, setAddress] = useState<Address>({
     recipientName: auth.user?.fullName ?? '',
-    phone: auth.user?.phone ?? '+91 9948533315',
-    streetAddress: 'Vollurupallem, Thotlavalluru',
-    city: 'Thotlavalluru',
+    phone: auth.user?.phone ?? '',
+    apartmentName: '',
+    streetAddress: '',
+    city: '',
     state: 'Andhra Pradesh',
-    postalCode: '521163',
+    postalCode: '',
+    nearestLandmark: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<'TEST_PAYMENT' | 'CASH_ON_DELIVERY'>('TEST_PAYMENT');
   const [notes, setNotes] = useState('');
@@ -712,11 +1162,16 @@ function CheckoutModal({
           notes,
         }),
       });
-      const body = await res.json();
-      if (res.ok && body.success) {
+      let body: any = null;
+      try {
+        body = await res.json();
+      } catch {
+        // Non-JSON response (e.g. gateway error)
+      }
+      if (res.ok && body?.success) {
         onOrderPlaced(body.data);
       } else {
-        setError(body.error?.message ?? 'Checkout failed. Please review your cart.');
+        setError(body?.error?.message ?? (res.status === 504 ? 'Request timed out. Please try again.' : `Checkout error (${res.status}): Please check cart and try again.`));
       }
     } catch {
       setError('Cannot connect to Commerce Service. Please check backend.');
@@ -761,6 +1216,7 @@ function CheckoutModal({
                   required
                   value={address.recipientName}
                   onChange={e => setAddress(a => ({ ...a, recipientName: e.target.value }))}
+                  placeholder="Your name"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
@@ -770,32 +1226,73 @@ function CheckoutModal({
                   id="checkout-phone"
                   type="tel"
                   required
+                  pattern="(?:\+91[ -]?)?[6-9][0-9]{9}"
+                  title="Enter a valid Indian mobile number, optionally starting with +91."
                   value={address.phone}
                   onChange={e => setAddress(a => ({ ...a, phone: e.target.value }))}
+                  placeholder="Your phone number"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
-              <div className="sm:col-span-2">
-                <label className="text-gray-500 font-semibold">Street Address / Landmark</label>
+              <div>
+                <label className="text-gray-500 font-semibold">Apartment / Building Name</label>
+                <input
+                  id="checkout-apartment"
+                  type="text"
+                  required
+                  value={address.apartmentName}
+                  onChange={e => setAddress(a => ({ ...a, apartmentName: e.target.value }))}
+                  placeholder="Your apartment or building name"
+                  className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="text-gray-500 font-semibold">Street Name</label>
                 <input
                   id="checkout-street"
                   type="text"
                   required
                   value={address.streetAddress}
                   onChange={e => setAddress(a => ({ ...a, streetAddress: e.target.value }))}
+                  placeholder="Your street address"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
               <div>
-                <label className="text-gray-500 font-semibold">City</label>
+                <label className="text-gray-500 font-semibold">City / Village</label>
                 <input
                   id="checkout-city"
                   type="text"
                   required
                   value={address.city}
                   onChange={e => setAddress(a => ({ ...a, city: e.target.value }))}
+                  placeholder="Your city"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
+              </div>
+              <div>
+                <label className="text-gray-500 font-semibold">Nearest Landmark</label>
+                <input
+                  id="checkout-landmark"
+                  type="text"
+                  required
+                  value={address.nearestLandmark}
+                  onChange={e => setAddress(a => ({ ...a, nearestLandmark: e.target.value }))}
+                  placeholder="Your landmark"
+                  className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="text-gray-500 font-semibold">Verified Account Email</label>
+                <input
+                  id="checkout-email"
+                  type="email"
+                  value={auth.user?.email ?? ''}
+                  readOnly
+                  aria-readonly="true"
+                  className="w-full mt-1 bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-gray-700"
+                />
+                <p className="mt-1 text-[10px] text-emerald-700">Your verified email is linked to this account and cannot be changed at checkout.</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -806,6 +1303,7 @@ function CheckoutModal({
                     required
                     value={address.state}
                     onChange={e => setAddress(a => ({ ...a, state: e.target.value }))}
+                    placeholder="Your state"
                     className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
@@ -815,8 +1313,13 @@ function CheckoutModal({
                     id="checkout-postalcode"
                     type="text"
                     required
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    title="Enter a 6-digit PIN code."
                     value={address.postalCode}
                     onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))}
+                    placeholder="Your 6-digit PIN code"
                     className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
@@ -874,7 +1377,7 @@ function CheckoutModal({
             <input
               id="checkout-notes"
               type="text"
-              placeholder="e.g. Call before dispatch, unload at gate #2"
+              placeholder="Your delivery notes (optional)"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
@@ -964,7 +1467,10 @@ function OrderConfirmationModal({
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Delivery To:</span>
-            <span className="text-gray-700">{order.shippingAddress.recipientName}, {order.shippingAddress.city}</span>
+            <span className="text-gray-700">
+              {order.shippingAddress.recipientName}, {order.shippingAddress.apartmentName}, {order.shippingAddress.streetAddress}, {order.shippingAddress.city}
+              {order.shippingAddress.nearestLandmark ? ` (Near ${order.shippingAddress.nearestLandmark})` : ''}
+            </span>
           </div>
         </div>
 
@@ -974,7 +1480,7 @@ function OrderConfirmationModal({
             onClick={() => onViewInvoice(order.id)}
             className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-emerald-100 text-gray-800 font-bold text-xs border border-gray-300 transition flex items-center justify-center gap-1.5"
           >
-            <FileText className="h-4 w-4 text-emerald-700" /> View Tax Invoice
+            <FileText className="h-4 w-4 text-emerald-700" /> View Commercial Invoice
           </button>
           <button
             id="btn-confirm-view-orders"
@@ -989,7 +1495,7 @@ function OrderConfirmationModal({
   );
 }
 
-// ─── Printable Tax Invoice Modal ──────────────────────────────────────────────
+// ─── Printable Commercial Invoice Modal ──────────────────────────────────────
 
 function InvoiceModal({
   orderId,
@@ -1029,7 +1535,7 @@ function InvoiceModal({
         <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
           <div className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-emerald-700" />
-            <h2 className="text-lg font-bold text-gray-900">Invoice</h2>
+            <h2 className="text-lg font-bold text-gray-900">Commercial Invoice</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1057,7 +1563,9 @@ function InvoiceModal({
             {/* Header & Seller details */}
             <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
               <div>
-                <div id="invoice-seller-name" className="font-extrabold text-xl text-gray-900 tracking-tight">{invoice.sellerName}</div>
+                <div id="invoice-seller-name" className="font-extrabold text-xl text-gray-900 tracking-tight">
+                  {invoice.sellerName?.toLowerCase().includes('traders') ? invoice.sellerName : 'RR Jaggery Traders'}
+                </div>
                 <div className="text-gray-500 text-[11px] mt-1">{invoice.sellerAddress}</div>
                 <div className="text-gray-500 text-[11px]">Contact: {invoice.sellerContact}</div>
               </div>
@@ -1074,13 +1582,15 @@ function InvoiceModal({
               <div>
                 <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">Billed & Shipped To</div>
                 <div className="text-gray-900 font-bold mt-1">{invoice.customerName}</div>
+                {invoice.shippingAddress.apartmentName && <div className="text-gray-500">{invoice.shippingAddress.apartmentName}</div>}
                 <div className="text-gray-500">{invoice.shippingAddress.streetAddress}</div>
                 <div className="text-gray-500">{invoice.shippingAddress.city}, {invoice.shippingAddress.state} - {invoice.shippingAddress.postalCode}</div>
+                {invoice.shippingAddress.nearestLandmark && <div className="text-gray-500">Near: {invoice.shippingAddress.nearestLandmark}</div>}
                 <div className="text-gray-500">Phone: {invoice.shippingAddress.phone} | Email: {invoice.customerEmail}</div>
               </div>
               <div className="sm:text-right">
                 <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">Business Type</div>
-                <div className="text-gray-900 font-medium mt-1">Jaggery Manufacturing</div>
+                <div className="text-gray-900 font-medium mt-1">Jaggery Manufacturing & Distribution</div>
               </div>
             </div>
 
@@ -1113,13 +1623,19 @@ function InvoiceModal({
             {/* Totals Breakdown */}
             <div className="flex flex-col sm:flex-row justify-between gap-4 pt-4 border-t border-gray-200">
               <div className="text-gray-500 text-[11px] max-w-sm">
-                Declaration: We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+                Commercial invoice. GST is not included in the amounts shown.
               </div>
-              <div className="space-y-1.5 sm:text-right min-w-[220px]">
+              <div className="space-y-1.5 sm:text-right w-full sm:w-64 min-w-0">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Subtotal:</span>
                   <span className="text-gray-900 font-medium">{formatPrice(invoice.subtotal)}</span>
                 </div>
+                {Number(invoice.totalTax || 0) > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Tax recorded on order:</span>
+                    <span className="text-gray-900 font-medium">{formatPrice(invoice.totalTax)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Shipping:</span>
                   <span className="text-emerald-700">{invoice.shippingAmount === 0 ? 'FREE' : formatPrice(invoice.shippingAmount)}</span>
@@ -1206,7 +1722,7 @@ function OrderHistoryView({
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Receipt className="h-5 w-5 text-emerald-700" /> My Orders & Purchase History
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Track fulfillment stages, download tax invoices, or manage orders</p>
+            <p className="text-xs text-gray-500 mt-0.5">Track fulfillment stages, download commercial invoices, or manage orders</p>
           </div>
         </div>
         <button onClick={fetchOrders} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition" title="Refresh">
@@ -1430,7 +1946,7 @@ function AdminOrderManagement({ auth, onViewInvoice }: { auth: AuthState; onView
                         id={`admin-view-invoice-${o.orderNumber}`}
                         onClick={() => onViewInvoice(o.id)}
                         className="p-1.5 bg-gray-100 hover:bg-emerald-100 text-gray-700 rounded-lg transition"
-                        title="View Tax Invoice"
+                        title="View Commercial Invoice"
                       >
                         <FileText className="h-3.5 w-3.5 text-emerald-700" />
                       </button>
@@ -1452,17 +1968,22 @@ function Storefront({
   auth,
   onAddToCart,
   onNavigate,
+  searchQuery = '',
+  onSearchChange,
 }: {
   auth: AuthState;
   onAddToCart: (productId: string, quantity: number) => void;
   onNavigate?: (page: StorefrontPage) => void;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [localQuery, setLocalQuery] = useState('');
+  const query = onSearchChange ? searchQuery : localQuery;
+  const setQuery = onSearchChange || setLocalQuery;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeModalProduct, setActiveModalProduct] = useState<Product | null>(null);
@@ -1477,28 +1998,34 @@ function Storefront({
     try {
       const [catRes, prodRes, revRes] = await Promise.all([
         fetch(`${COMMERCE_BASE}/categories`),
-        fetch(`${COMMERCE_BASE}/products${selectedCategory ? `?categoryId=${selectedCategory}` : ''}${query ? `${selectedCategory ? '&' : '?'}query=${encodeURIComponent(query)}` : ''}`),
+        fetch(`${COMMERCE_BASE}/products`),
         fetch(`${COMMERCE_BASE}/reviews`),
       ]);
 
       const [catBody, prodBody, revBody] = await Promise.all([catRes.json(), prodRes.json(), revRes.json()]);
       if (catBody.success) setCategories(catBody.data);
-      if (prodBody.success) {
-        let prods: Product[] = prodBody.data;
-        if (selectedGrade) {
-          prods = prods.filter(p => p.grade === selectedGrade);
-        }
-        setProducts(prods);
-      }
+      if (prodBody.success) setProducts(prodBody.data);
       if (revBody.success) setReviews(revBody.data);
     } catch {
       setError('Cannot reach Commerce Service. Please check if services are running.');
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, selectedGrade, query]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const displayProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchCat = !selectedCategory || p.categoryId === selectedCategory;
+      const q = query.trim().toLowerCase();
+      const matchQuery = !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q));
+      return matchCat && matchQuery;
+    });
+  }, [products, selectedCategory, query]);
 
   const getProductAverageRating = (productId: string) => {
     const prodReviews = reviews.filter(r => r.productId === productId && r.status === 'APPROVED');
@@ -1510,27 +2037,30 @@ function Storefront({
   return (
     <div className="min-h-screen bg-emerald-50/30 text-gray-800 pb-16 font-sans">
       {/* Organic Light Hero Banner */}
-      <section className="relative overflow-hidden hero-organic py-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-200">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-7 space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-emerald-950 font-serif leading-tight">
-              100% Naturally Made,<span className="text-emerald-700">Organic</span> Jaggery
+      <section className="relative overflow-hidden hero-organic py-6 sm:py-10 lg:py-16 px-3 sm:px-6 lg:px-8 border-b border-emerald-200">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-center">
+          <div className="lg:col-span-7 space-y-3 sm:space-y-6">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] sm:text-xs font-bold tracking-wide uppercase">
+              <Sparkles className="h-3 w-3 text-emerald-700" /> 20+ Years of Excellence · 100% Chemical Free
+            </div>
+            <h1 className="text-2xl sm:text-4xl lg:text-6xl font-extrabold tracking-tight text-emerald-950 font-serif leading-tight">
+              100% Naturally Made,<span className="text-emerald-700"> Organic</span> Jaggery
             </h1>
-            <p className="text-lg text-gray-600 max-w-2xl leading-relaxed">
-              Crafted using traditional sugarcane boiling techniques passed down through generations. 100% natural goodness.
+            <p className="text-xs sm:text-base lg:text-lg text-gray-600 max-w-2xl leading-relaxed">
+              With over 20+ years of experience, we craft 100% chemical-free jaggery using traditional sugarcane boiling techniques passed down through generations.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1 sm:pt-2">
               <a
                 href="#catalog-section"
-                className="px-6 py-3.5 rounded-xl organic-gradient text-gray-900 font-bold text-sm shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 flex items-center gap-2"
+                className="px-4 py-2.5 sm:px-6 sm:py-3.5 rounded-xl organic-gradient text-white font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 flex items-center gap-2"
               >
                 Explore Products <ArrowRight className="h-4 w-4" />
               </a>
               {onNavigate && (
                 <button
                   onClick={() => onNavigate('about')}
-                  className="px-6 py-3.5 rounded-xl bg-white text-emerald-800 font-bold text-sm border border-emerald-200 hover:bg-emerald-50 transition shadow-sm"
+                  className="px-4 py-2.5 sm:px-6 sm:py-3.5 rounded-xl bg-white text-emerald-800 font-bold text-xs sm:text-sm border border-emerald-200 hover:bg-emerald-50 transition shadow-sm"
                 >
                   Our Heritage
                 </button>
@@ -1538,42 +2068,171 @@ function Storefront({
             </div>
 
             {/* Feature Pills */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-emerald-200/60 text-xs text-gray-600">
-              <div className="flex items-center gap-2 font-medium">
-                <Award className="h-5 w-5 text-emerald-700 shrink-0" />
-                <span>Quality Sugarcane</span>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-3 sm:pt-6 border-t border-emerald-200/60 text-[10px] sm:text-xs text-gray-600">
+              <div className="flex items-center gap-1.5 sm:gap-2 font-medium">
+                <Award className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-700 shrink-0" />
+                <span className="truncate">20+ Years Legacy</span>
               </div>
-              <div className="flex items-center gap-2 font-medium">
-                <Shield className="h-5 w-5 text-emerald-600 shrink-0" />
-                <span>Traditional Processing</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 font-medium">
+                <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 shrink-0" />
+                <span className="truncate">100% Chemical Free</span>
               </div>
-              <div className="flex items-center gap-2 font-medium">
-                <Truck className="h-5 w-5 text-amber-600 shrink-0" />
-                <span>Express Pan-India Shipping</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 font-medium">
+                <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 shrink-0" />
+                <span className="truncate">Express Shipping</span>
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative flex justify-center">
-            <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white bg-gradient-to-br from-amber-50 via-white to-emerald-50 flex items-center justify-center p-4">
+          <div className="lg:col-span-5 relative flex justify-center lg:justify-end items-center">
+            <div className="relative w-64 h-64 sm:w-80 sm:h-80 lg:w-[420px] lg:h-[420px] xl:w-[460px] xl:h-[460px] aspect-square rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-2 ring-emerald-200/90 bg-white flex items-center justify-center p-3 sm:p-4">
               <img
                 src="/hero-jaggery.jpg"
                 alt="RR Jaggery - 100% Naturally Made Traditional Jaggery"
-                className="w-full h-full object-contain rounded-2xl transform hover:scale-105 transition duration-500 drop-shadow-md"
+                className="w-full h-full object-contain rounded-2xl transform hover:scale-105 transition duration-500 drop-shadow-sm"
               />
             </div>
           </div>
         </div>
       </section>
 
+      {/* ─── Why Choose RR Jaggery — Homepage Highlights ─── */}
+      <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-14 pb-4 sm:pb-8">
+        <div className="text-center space-y-2 mb-6 sm:mb-8">
+          <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold tracking-wide border border-emerald-300 inline-flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-amber-600" />
+            20+ YEARS OF EXCELLENCE · 100% CHEMICAL FREE
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 font-serif leading-tight">
+            Real Makers, <span className="text-emerald-700">Not Just Resellers</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-600 max-w-2xl mx-auto">
+            With 20+ years of hands-on experience, RR Jaggery makes 100% chemical-free jaggery in our own facility — we are direct makers, not traders. Every batch is made under our direct care from farm to your kitchen.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          {/* Card 1 */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 space-y-2.5">
+            <div className="p-2.5 w-fit rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <Factory className="h-5 w-5" />
+            </div>
+            <h3 className="font-extrabold text-gray-900 text-sm sm:text-base">Quality Control</h3>
+            <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed">
+              20+ years making our own jaggery, not reselling. Direct chemical-free control at every step gives you 100% pure jaggery.
+            </p>
+          </div>
+
+          {/* Card 2 */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 space-y-2.5">
+            <div className="p-2.5 w-fit rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <Award className="h-5 w-5" />
+            </div>
+            <h3 className="font-extrabold text-gray-900 text-sm sm:text-base">Jaggery Specialists</h3>
+            <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed">
+              We only make 100% chemical-free jaggery — cubes, crushed powder & solid blocks made with pure care.
+            </p>
+          </div>
+
+          {/* Card 3 */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 space-y-2.5">
+            <div className="p-2.5 w-fit rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <Leaf className="h-5 w-5" />
+            </div>
+            <h3 className="font-extrabold text-gray-900 text-sm sm:text-base">Premium Sugarcane</h3>
+            <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed">
+              Sourced directly from Krishna river belt farmers at ₹5,000/ton premium for the finest cane.
+            </p>
+          </div>
+
+          {/* Card 4 */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 space-y-2.5">
+            <div className="p-2.5 w-fit rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <Shield className="h-5 w-5" />
+            </div>
+            <h3 className="font-extrabold text-gray-900 text-sm sm:text-base">Zero Bacteria</h3>
+            <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed">
+              Chemical-free processing — each cane washed with pure water to achieve certified nil bacterial count.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Nutrition Strip + CTA */}
+        <div className="mt-5 sm:mt-8 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-2 border-emerald-700/40 shadow-lg">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-5">
+            <div className="text-center px-3">
+              <span className="text-lg sm:text-xl font-black text-amber-400">20+</span>
+              <span className="block text-[10px] sm:text-xs text-emerald-200 font-medium">Years Experience</span>
+            </div>
+            <div className="w-px h-8 bg-emerald-700/60 hidden sm:block"></div>
+            <div className="text-center px-3">
+              <span className="text-lg sm:text-xl font-black text-emerald-400">100%</span>
+              <span className="block text-[10px] sm:text-xs text-emerald-200 font-medium">Chemical Free</span>
+            </div>
+            <div className="w-px h-8 bg-emerald-700/60 hidden sm:block"></div>
+            <div className="text-center px-3">
+              <span className="text-lg sm:text-xl font-black text-amber-400">282</span>
+              <span className="block text-[10px] sm:text-xs text-emerald-200 font-medium">Kcal / 100g</span>
+            </div>
+            <div className="w-px h-8 bg-emerald-700/60 hidden sm:block"></div>
+            <div className="text-center px-3">
+              <span className="text-lg sm:text-xl font-black text-emerald-400">Nil</span>
+              <span className="block text-[10px] sm:text-xs text-emerald-200 font-medium">Fat Content</span>
+            </div>
+          </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('about')}
+              className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-emerald-950 font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center gap-2 whitespace-nowrap shrink-0"
+            >
+              <span>Our Heritage &amp; Story</span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Main Content Area */}
-      <div id="catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+      <div id="catalog-section" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 pt-4 sm:pt-10">
+        {/* Flipkart-Style Horizontal Category Strip (Mobile & Tablet) */}
+        <div className="mb-3 sm:mb-6">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth">
+            <button
+              id="category-pill-all"
+              onClick={() => setSelectedCategory(null)}
+              className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 shadow-sm ${
+                !selectedCategory
+                  ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
+              }`}
+            >
+              <Leaf className="h-3.5 w-3.5" />
+              <span>All Products</span>
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                id={`category-pill-${cat.slug || cat.id}`}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all shadow-sm ${
+                  selectedCategory === cat.id
+                    ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
+                }`}
+              >
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Filter Controls & Search */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-emerald-200 mb-8 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-emerald-200 mb-4 sm:mb-8 space-y-3 sm:space-y-4">
+          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-center justify-between">
             <div className="relative w-full md:w-80">
-              <Search className="absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3.5 top-3 h-4 w-4 text-emerald-700" />
               <input
+                id="catalogue-search"
                 type="text"
                 placeholder="Search jaggery powder, blocks, syrup..."
                 value={query}
@@ -1582,44 +2241,25 @@ function Storefront({
               />
             </div>
 
-            {/* Category Pills */}
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${selectedCategory === null
-                  ? 'bg-emerald-700 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
-                  }`}
-              >
-                All Categories
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${selectedCategory === cat.id
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
-                    }`}
+            {/* Filter Dropdowns: Category */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto">
+              {/* Category Dropdown */}
+              <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
+                <span className="text-xs text-gray-600 font-semibold shrink-0">Category:</span>
+                <select
+                  id="select-category"
+                  value={selectedCategory || ''}
+                  onChange={(e) => setSelectedCategory(e.target.value || null)}
+                  className="px-3 py-2 rounded-xl border border-gray-200 bg-[#f2f8f3] text-xs font-medium text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full sm:w-auto cursor-pointer"
                 >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-
-            {/* Grade Filter */}
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <span className="text-xs text-gray-500 font-medium">Grade:</span>
-              <select
-                value={selectedGrade || ''}
-                onChange={(e) => setSelectedGrade(e.target.value || null)}
-                className="px-3 py-2 rounded-xl border border-gray-200 bg-[#f2f8f3] text-xs font-medium focus:border-emerald-500 outline-none"
-              >
-                <option value="">All Grades</option>
-                <option value="GRADE_A">Grade A (Premium)</option>
-                <option value="GRADE_B">Grade B (Standard)</option>
-                <option value="ORGANIC_CERTIFIED">Organic Certified</option>
-              </select>
+                  <option value="">All Categories</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -1636,26 +2276,26 @@ function Storefront({
             <p className="font-semibold text-sm">{error}</p>
             <button
               onClick={fetchData}
-              className="mt-4 px-4 py-2 bg-red-600 text-gray-900 text-xs font-bold rounded-xl hover:bg-red-700 transition"
+              className="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition"
             >
               Try Again
             </button>
           </div>
-        ) : products.length === 0 ? (
+        ) : displayProducts.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-emerald-200 max-w-md mx-auto my-8">
             <Package className="h-12 w-12 text-emerald-300 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-gray-800">No products found</h3>
             <p className="text-xs text-gray-500 mt-1">Try clearing filters or searching for another term.</p>
             <button
-              onClick={() => { setSelectedCategory(null); setSelectedGrade(null); setQuery(''); }}
+              onClick={() => { setSelectedCategory(null); setQuery(''); }}
               className="mt-4 px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-200 transition"
             >
               Reset All Filters
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product) => {
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
+            {displayProducts.map((product) => {
               const { avg, count } = getProductAverageRating(product.id);
               const price = isWholesale ? product.wholesalePrice : product.retailPrice;
               const qty = cardQuantities[product.id] || (isWholesale ? product.wholesaleMoq || 1 : 1);
@@ -1663,77 +2303,88 @@ function Storefront({
               return (
                 <div
                   key={product.id}
-                  className="sf-card group bg-white rounded-2xl overflow-hidden border border-emerald-200/80 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col"
+                  id={`product-card-${product.sku}`}
+                  className="sf-card group bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-emerald-200/80 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
                 >
-                  <div className="relative aspect-[4/3] bg-emerald-50/50 overflow-hidden">
-                    <img
-                      src={product.imageUrl || 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&q=80&w=600'}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 left-3 flex flex-col gap-1">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-emerald-800/90 text-white backdrop-blur-sm">
-                        {product.grade ? product.grade.replace('_', ' ') : 'GRADE A'}
-                      </span>
-                      {product.featured && (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider bg-emerald-700 text-gray-900">
-                          BESTSELLER
-                        </span>
-                      )}
+                  <div>
+                    <div className="relative aspect-square bg-gradient-to-br from-amber-50/60 to-emerald-50/40 overflow-hidden cursor-pointer" onClick={() => setActiveModalProduct(product)}>
+                      <img
+                        src={product.imageUrl || 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&q=80&w=600'}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                      <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col gap-1 items-start">
+                        {product.featured && (
+                          <span className="px-1.5 py-0.5 sm:px-2 rounded text-[8px] sm:text-[10px] font-bold tracking-wider bg-amber-500 text-gray-950 shadow-sm">
+                            BESTSELLER
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                    <div className="p-2 sm:p-3.5 lg:p-4 space-y-1.5 sm:space-y-2">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded truncate">
                           {product.categoryName || 'Pure Jaggery'}
                         </span>
-                        <div className="flex items-center gap-1 text-xs">
-                          <Star className="h-3.5 w-3.5 fill-amber-400 text-emerald-700" />
-                          <span className="font-bold text-gray-700">{avg}</span>
-                          <span className="text-gray-400 text-[10px]">({count})</span>
+                        <div className="flex items-center gap-0.5 sm:gap-1 bg-emerald-700 text-white px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold shrink-0">
+                          <span>{avg}</span>
+                          <Star className="h-2 w-2 sm:h-2.5 sm:w-2.5 fill-white text-white" />
+                          <span className="text-emerald-100 font-normal">({count})</span>
                         </div>
                       </div>
 
-                      <h3 className="font-bold text-gray-900 text-base group-hover:text-emerald-700 transition line-clamp-1">
+                      <h3
+                        onClick={() => setActiveModalProduct(product)}
+                        className="font-bold text-gray-900 text-xs sm:text-sm group-hover:text-emerald-700 transition line-clamp-2 leading-snug cursor-pointer min-h-[2rem] sm:min-h-[2.5rem]"
+                        title={product.name}
+                      >
                         {product.name}
                       </h3>
 
-                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                        {product.description || 'Authentic traditional jaggery processed with zero artificial additives.'}
-                      </p>
-
-                      <div className="text-[11px] text-gray-500 flex items-center gap-2 pt-1">
-                        <span>Pkg: <strong className="text-gray-700">{product.packageType || '1 kg Block'}</strong></span>
+                      <div className="text-[9px] sm:text-[10px] text-gray-500 flex items-center gap-1">
+                        <span className="bg-gray-100 px-1 py-0.5 rounded font-medium text-gray-700 truncate">{product.packageType || '1 kg Block'}</span>
                         <span>•</span>
-                        <span>Weight: <strong className="text-gray-700">{product.unitWeightKg} kg</strong></span>
+                        <span>{product.unitWeightKg} kg</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold block">
+                  <div className="p-2 sm:p-3.5 lg:p-4 pt-0">
+                    <div className="pt-2 border-t border-gray-100 flex flex-col xs:flex-row xs:items-center justify-between gap-1.5 sm:gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[8px] sm:text-[9px] text-gray-400 uppercase font-semibold block truncate">
                           {isWholesale ? 'Wholesale Price' : 'Price'}
                         </span>
-                        <span className="text-lg font-black text-emerald-800">
-                          {formatPrice(price)}
-                        </span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-sm sm:text-base lg:text-lg font-black text-emerald-800 truncate block">
+                            {formatPrice(price)}
+                          </span>
+                          <span className="text-[9px] text-gray-400 line-through hidden xs:inline">
+                            {formatPrice(Math.round(price * 1.25))}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 w-full xs:w-auto">
                         <button
+                          id={`view-details-${product.sku}`}
                           onClick={() => setActiveModalProduct(product)}
-                          className="p-2 rounded-xl text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 transition"
+                          className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 transition hidden xs:flex lg:flex"
                           title="Quick View"
+                          aria-label={`View details of ${product.name}`}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </button>
                         <button
+                          id={`add-to-cart-${product.sku}`}
                           onClick={() => onAddToCart(product.id, qty)}
-                          className="px-3.5 py-2 rounded-xl organic-gradient text-gray-900 text-xs font-bold shadow-sm hover:shadow-md transition flex items-center gap-1.5"
+                          className="flex-1 xs:flex-initial px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl organic-gradient text-white text-[11px] sm:text-xs font-bold shadow-sm hover:shadow-md transition flex items-center justify-center gap-1 hover:brightness-105 active:scale-95"
+                          aria-label={`Add ${product.name} to cart`}
                         >
-                          <ShoppingCart className="h-3.5 w-3.5" /> Add
+                          <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                          <span>Add</span>
                         </button>
                       </div>
                     </div>
@@ -1747,17 +2398,19 @@ function Storefront({
 
       {/* Quick View Modal */}
       {activeModalProduct && (
-        <div className="fixed inset-0 z-50 bg-emerald-50/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-emerald-200 relative animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-emerald-200 relative max-h-[90vh] overflow-y-auto">
             <button
+              id="close-product-modal"
               onClick={() => setActiveModalProduct(null)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100 transition z-10"
+              aria-label="Close product details"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-              <div className="aspect-square rounded-2xl bg-emerald-50 overflow-hidden border border-emerald-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 items-center pt-2 sm:pt-0">
+              <div className="aspect-square rounded-2xl bg-amber-50/40 overflow-hidden border border-emerald-200">
                 <img
                   src={activeModalProduct.imageUrl || 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&q=80&w=600'}
                   alt={activeModalProduct.name}
@@ -1765,38 +2418,43 @@ function Storefront({
                 />
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 <div>
-                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-md">
-                    {activeModalProduct.grade}
+                  <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-md">
+                    100% PURE & NATURAL
                   </span>
-                  <h3 className="text-xl font-bold text-gray-900 mt-2">{activeModalProduct.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{activeModalProduct.description}</p>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mt-2">{activeModalProduct.name}</h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{activeModalProduct.description}</p>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="text-2xl font-black text-emerald-800">
+                <div className="bg-slate-900 text-white rounded-2xl p-4 space-y-2 shadow-inner">
+                  <div className="text-2xl font-black text-amber-400">
                     {formatPrice(isWholesale ? activeModalProduct.wholesalePrice : activeModalProduct.retailPrice)}
                   </div>
                   {isWholesale && (
-                    <p className="text-[11px] text-amber-700 font-semibold">
+                    <p className="text-[11px] text-amber-300 font-semibold">
                       Wholesale MOQ: {activeModalProduct.wholesaleMoq} units
                     </p>
                   )}
+                  <p className="text-xs text-slate-300">
+                    Specifications: <strong className="text-white">{activeModalProduct.packageType}</strong> • <strong className="text-white">{activeModalProduct.unitWeightKg} kg</strong>
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3 pt-2">
                   <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
                     <button
                       onClick={() => setModalQty(Math.max(1, modalQty - 1))}
-                      className="px-3 py-2 text-gray-600 hover:bg-gray-200 text-xs font-bold"
+                      className="px-3.5 py-2 text-gray-600 hover:bg-gray-200 text-sm font-bold min-w-[36px]"
+                      aria-label="Decrease quantity"
                     >
                       -
                     </button>
-                    <span className="px-3 py-2 text-xs font-bold text-gray-800">{modalQty}</span>
+                    <span className="px-3 py-2 text-xs font-bold text-gray-800 min-w-[30px] text-center">{modalQty}</span>
                     <button
                       onClick={() => setModalQty(modalQty + 1)}
-                      className="px-3 py-2 text-gray-600 hover:bg-gray-200 text-xs font-bold"
+                      className="px-3.5 py-2 text-gray-600 hover:bg-gray-200 text-sm font-bold min-w-[36px]"
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>
@@ -1807,7 +2465,7 @@ function Storefront({
                       onAddToCart(activeModalProduct.id, modalQty);
                       setActiveModalProduct(null);
                     }}
-                    className="flex-1 py-2.5 rounded-xl organic-gradient text-gray-900 text-xs font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
+                    className="flex-1 py-2.5 px-4 rounded-xl organic-gradient text-gray-900 text-xs font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 hover:brightness-105"
                   >
                     <ShoppingCart className="h-4 w-4" /> Add to Cart
                   </button>
@@ -1976,7 +2634,7 @@ function ReviewsPage({ auth }: { auth: AuthState }) {
                   <option value="">-- Choose Product --</option>
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.grade})
+                      {p.name}
                     </option>
                   ))}
                 </select>
@@ -1986,7 +2644,7 @@ function ReviewsPage({ auth }: { auth: AuthState }) {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Your Name *</label>
                 <input
                   type="text"
-                  placeholder="e.g. Ramesh Kumar"
+                  placeholder="Your name"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="w-full p-3 rounded-xl border border-gray-200 bg-[#f2f8f3] text-xs font-medium focus:border-emerald-500 outline-none"
@@ -2006,7 +2664,7 @@ function ReviewsPage({ auth }: { auth: AuthState }) {
               <label className="block text-xs font-bold text-gray-700 mb-1">Your Review *</label>
               <textarea
                 rows={3}
-                placeholder="Tell us about the texture, sweetness, aroma, and packaging..."
+                placeholder="Your review"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 className="w-full p-3 rounded-xl border border-gray-200 bg-[#f2f8f3] text-xs font-medium focus:border-emerald-500 outline-none"
@@ -2061,69 +2719,297 @@ function ReviewsPage({ auth }: { auth: AuthState }) {
 
 // ─── About Us Page Component ──────────────────────────────────────────────────
 
-function AboutPage() {
+function AboutPage({
+  onBackToStore,
+  onNavigate,
+}: {
+  onBackToStore?: () => void;
+  onNavigate?: (page: StorefrontPage) => void;
+}) {
   return (
-    <div className="min-h-screen bg-[#f2f8f3] text-gray-900 py-12 px-4 sm:px-6 lg:px-8 font-sans space-y-12 max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#f2f8f3] text-gray-900 py-8 sm:py-14 px-3 sm:px-6 lg:px-8 font-sans space-y-12 max-w-6xl mx-auto">
+      {/* Hero Header */}
       <div className="text-center space-y-4">
-        <span className="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold tracking-wide border border-emerald-200 inline-block">
-          OUR TRADITION & HERITAGE
+        <div className="flex justify-center mb-2">
+          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl p-2 bg-white border-2 border-amber-400 shadow-md flex items-center justify-center">
+            <img
+              src="/rr-logo.png"
+              alt="RR Jaggery Official Logo"
+              className="w-full h-full object-contain rounded-xl"
+            />
+          </div>
+        </div>
+        <span className="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold tracking-wide border border-emerald-300 inline-flex items-center gap-1.5 shadow-sm">
+          <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+          20+ YEARS OF EXCELLENCE · 100% CHEMICAL FREE
         </span>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-emerald-950 font-serif leading-tight">
-          Traditional Jaggery, <span className="text-emerald-700">Rooted in Nature</span>
+        <h1 className="text-3xl sm:text-5xl font-extrabold text-emerald-950 font-serif leading-tight">
+          Introducing <span className="text-emerald-700">RR Jaggery</span>
         </h1>
-        <p className="text-base text-gray-700 max-w-2xl mx-auto leading-relaxed font-normal">
-          RR Jaggery carries forward the traditional craft of making authentic jaggery while focusing on natural quality, cleanliness, and purity.
+        <p className="text-base sm:text-lg font-medium text-amber-800">
+          Your Natural, Pure, Chemical-Free &amp; Hygienic Sweet Delight!
+        </p>
+        <p className="text-sm sm:text-base text-gray-700 max-w-3xl mx-auto leading-relaxed">
+          With over <strong>20+ years of hands-on experience</strong>, RR Jaggery is the exclusive <strong>100% chemical-free</strong> jaggery producer in Andhra Pradesh, India. While many other brands only buy and resell jaggery from open markets, we make it ourselves from start to finish. Our direct commitment to hygiene, chemical-free processing, and pure quality makes RR Jaggery the natural first choice for your home.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white p-8 rounded-3xl shadow-sm border border-emerald-200">
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-emerald-950 font-serif">Naturally Made. Traditionally Crafted.</h2>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            We believe good jaggery starts with quality sugarcane and careful traditional processing. Our jaggery is naturally made with care to preserve the authentic taste, colour, aroma, and character of traditional jaggery.
+      {/* 4 Pillars of Excellence */}
+      <div className="space-y-6">
+        <div className="text-center space-y-1">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 font-serif">
+            Why Choose RR Jaggery?
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-600">
+            20+ years of pure, chemical-free jaggery making, clean processes, and trusted farmer partnerships.
           </p>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            From jaggery powder and solid blocks to syrup, our products are crafted with care to bring naturally made jaggery from our production process to your kitchen.
-          </p>
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
-              <span className="text-2xl font-black text-emerald-800 block">100%</span>
-              <span className="text-xs font-bold text-gray-700">Authentic Taste</span>
-            </div>
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
-              <span className="text-2xl font-black text-emerald-800 block">100%</span>
-              <span className="text-xs font-bold text-gray-700">Naturally Made</span>
-            </div>
-          </div>
         </div>
-        <div className="aspect-video rounded-2xl overflow-hidden shadow-lg border border-emerald-200">
-          <img
-            src="https://images.unsplash.com/photo-1595855759920-86582396756a?auto=format&fit=crop&q=80&w=800"
-            alt="Traditional Sugarcane Processing"
-            className="w-full h-full object-cover"
-          />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Pillar 1 */}
+          <div className="bg-white p-6 sm:p-7 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-md transition space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                <Factory className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Pillar 01</span>
+                <h3 className="font-extrabold text-gray-900 text-lg">Control Over Quality</h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              With <strong>20+ years of experience</strong>, RR Jaggery is a pioneer in making <strong>100% chemical-free</strong> jaggery <strong>Cubes</strong> and <strong>Crushed Powder</strong>. We make our own jaggery — we are <strong>direct makers, not resellers</strong>. Unlike brands who simply buy mixed stock from local open markets, we maintain complete chemical-free control over quality at every single step. When you choose RR Jaggery, you get 100% pure, honest sweetener.
+            </p>
+          </div>
+
+          {/* Pillar 2 */}
+          <div className="bg-white p-6 sm:p-7 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-md transition space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                <Award className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Pillar 02</span>
+                <h3 className="font-extrabold text-gray-900 text-lg">Specialization in Jaggery</h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              For over 20+ years, our only focus has been making the finest <strong>chemical-free</strong> jaggery, not general grocery trading. Because we specialize only in jaggery, we maintain strict cleanliness and zero synthetic chemicals. We take great pride in making pure, clean jaggery and delivering it fresh to your kitchen.
+            </p>
+          </div>
+
+          {/* Pillar 3 */}
+          <div className="bg-white p-6 sm:p-7 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-md transition space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                <Leaf className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Pillar 03</span>
+                <h3 className="font-extrabold text-gray-900 text-lg">Quality Raw Materials</h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              Quality begins with the raw materials, and we understand that intimately. We pay our sugarcane growing farmers along the Krishna river belt a premium of <strong>₹5,000 per ton</strong>, making us the top paymaster in the region. This ensures we receive the highest quality sugarcane, adhering to RR Jaggery's strict Standard Operating Procedures (SOP).
+            </p>
+          </div>
+
+          {/* Pillar 4 */}
+          <div className="bg-white p-6 sm:p-7 rounded-3xl border border-emerald-200 shadow-sm hover:shadow-md transition space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                <Shield className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Pillar 04</span>
+                <h3 className="font-extrabold text-gray-900 text-lg">Bacterial Count Nil</h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              We take hygiene seriously. RR Jaggery is made <strong>100% chemical-free</strong> &mdash; after washing each sugarcane stalk thoroughly with pure, clean water to achieve a certified <strong>bacterial count of nil</strong>. No synthetic preservatives, no bleaching agents, no artificial additives. With RR Jaggery, your family&apos;s health comes first.
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
-          <div className="p-3 w-fit rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <Leaf className="h-6 w-6" />
-          </div>
-          <h3 className="font-bold text-gray-900 text-base">Traditional Craft</h3>
-          <p className="text-xs text-gray-600 leading-relaxed">
-            We follow authentic traditional methods of processing sugarcane juice to deliver pure, delicious jaggery.
+      {/* Easy Quality Check at Home */}
+      <div className="bg-white rounded-3xl p-6 sm:p-10 border border-emerald-200 shadow-sm space-y-8">
+        <div className="text-center space-y-2">
+          <span className="px-3.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold tracking-wide border border-amber-300 inline-block">
+            AUTHENTICITY TEST
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 font-serif">
+            Easy Quality Check at Home
+          </h2>
+          <p className="text-sm text-gray-700 max-w-2xl mx-auto leading-relaxed">
+            We are confident that once you experience RR Jaggery, you will never go back. If you ever need to confirm the quality, here is how you can do it at home:
           </p>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
-          <div className="p-3 w-fit rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <Award className="h-6 w-6" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Check 1 */}
+          <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+            <div className="flex items-center gap-2 text-emerald-900 font-bold text-base">
+              <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" />
+              <h4>No Fermented Smell</h4>
+            </div>
+            <p className="text-xs text-gray-700 leading-relaxed">
+              Local jaggery, often produced in unhygienic conditions, can carry a pungent fermented smell. RR Jaggery offers the natural, appetizing aroma of pure cooked sugarcane.
+            </p>
           </div>
-          <h3 className="font-bold text-gray-900 text-base">Careful Selection</h3>
-          <p className="text-xs text-gray-600 leading-relaxed">
-            We select quality sugarcane to ensure consistent sweetness, rich aroma, and natural character in every batch.
+
+          {/* Check 2 */}
+          <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+            <div className="flex items-center gap-2 text-emerald-900 font-bold text-base">
+              <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" />
+              <h4>No Burping in Tea</h4>
+            </div>
+            <p className="text-xs text-gray-700 leading-relaxed">
+              Local jaggery may contain adulterants like baking soda, causing acidity and discomfort when stirred in tea. With RR Jaggery, enjoy pure tea with zero unpleasant burping.
+            </p>
+          </div>
+
+          {/* Check 3 */}
+          <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+            <div className="flex items-center gap-2 text-emerald-900 font-bold text-base">
+              <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" />
+              <h4>Sucrose &lt; 85%</h4>
+            </div>
+            <p className="text-xs text-gray-700 leading-relaxed">
+              Our jaggery guarantees a sucrose percentage of less than 85%. Excessive sucrose is a clear indicator of refined white sugar adulteration.
+            </p>
+          </div>
+
+          {/* Check 4 */}
+          <div className="p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+            <div className="flex items-center gap-2 text-emerald-900 font-bold text-base">
+              <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" />
+              <h4>Sulphur &lt; 5 ppm</h4>
+            </div>
+            <p className="text-xs text-gray-700 leading-relaxed">
+              RR Jaggery is 100% chemical-free with sulphur and phosphate levels below 5 ppm — naturally occurring, not added chemicals. Higher levels indicate artificial bleaching and chemical preservatives.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Nutritional Information & Storage Conditions */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        {/* Nutrition Table (Black & Gold Premium Card) */}
+        <div className="lg:col-span-6 bg-gray-950 text-white rounded-3xl p-6 sm:p-8 border-2 border-amber-500/60 shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-amber-500/40">
+              <h3 className="text-lg sm:text-xl font-bold text-amber-400 font-serif">
+                Nutritional Information per 100 gms
+              </h3>
+              <span className="text-[11px] px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 font-semibold border border-amber-400/30">
+                100g Serving
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-3 font-sans">
+              <div className="flex justify-between items-center py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                <span className="text-sm font-semibold text-gray-200">Energy ( Kcal )</span>
+                <span className="text-base font-extrabold text-amber-300">282</span>
+              </div>
+              <div className="flex justify-between items-center py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                <span className="text-sm font-semibold text-gray-200">Fat</span>
+                <span className="text-base font-extrabold text-emerald-400">Nill</span>
+              </div>
+              <div className="flex justify-between items-center py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                <span className="text-sm font-semibold text-gray-200">Carbohydrate</span>
+                <span className="text-base font-extrabold text-amber-300">1.40 gms</span>
+              </div>
+              <div className="flex justify-between items-center py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                <span className="text-sm font-semibold text-gray-200">Protein</span>
+                <span className="text-base font-extrabold text-amber-300">2.25</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-800 text-xs text-amber-300/80 font-medium">
+            ** Approximate Values based on traditional unrefined sugarcane crystallization.
+          </div>
+        </div>
+
+        {/* Storage Guidelines & Whitish Layer Note */}
+        <div className="lg:col-span-6 bg-white rounded-3xl p-6 sm:p-8 border border-emerald-200 shadow-sm flex flex-col justify-between space-y-5">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2.5 text-emerald-950 font-serif text-xl font-bold">
+              <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+                <Info className="h-5 w-5" />
+              </div>
+              <h3>Storage &amp; Product Characteristics</h3>
+            </div>
+
+            <div className="space-y-3 text-sm text-gray-700">
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-start gap-3">
+                <Clock className="h-5 w-5 text-emerald-800 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-gray-900">Recommended Storage Temperature</p>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Store in cool, dry, and hygienic conditions <strong>below 22°C</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-800 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-gray-900">Sunlight &amp; Moisture Protection</p>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Keep away from direct sunlight and store in an airtight container once opened.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#f2f8f3] border border-emerald-200 text-xs leading-relaxed text-gray-700 space-y-1.5">
+                <p className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-600" />
+                  Natural Whitish Layer Note
+                </p>
+                <p>
+                  Temperature and humidity changes may cause natural jaggery to develop a thin whitish layer on the surface. This is a natural crystallization of unrefined sucrose and moisture breathing, completely normal and <strong>without affecting its fitness, purity, or safety for consumption</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Brand Creed & Closing */}
+      <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white rounded-3xl p-5 sm:p-10 md:p-12 shadow-xl border-2 border-emerald-700/60 text-center space-y-4 sm:space-y-6 relative overflow-hidden">
+        <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+          <span className="px-3 py-1 rounded-full bg-emerald-800/80 text-amber-300 text-[11px] sm:text-xs font-bold tracking-wide border border-emerald-500/40 inline-block uppercase">
+            The Choice is Crystal Clear
+          </span>
+          <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold font-serif text-white leading-snug sm:leading-tight">
+            RR Jaggery &mdash; 20+ Years of Pure, Chemical-Free Tradition
+          </h2>
+          <p className="text-xs sm:text-sm md:text-base text-emerald-100/90 leading-relaxed font-sans max-w-xl mx-auto">
+            Experience the difference of 20+ years of pure jaggery making &mdash; 100% chemical-free, hygienic, and naturally wholesome. Enjoy authentic sweetness made with direct care for you and your family.
           </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 max-w-xs sm:max-w-none mx-auto w-full">
+          {onBackToStore && (
+            <button
+              onClick={onBackToStore}
+              className="w-full sm:w-auto px-6 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-emerald-950 font-bold text-xs sm:text-sm shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+            >
+              <Package className="h-4 w-4" />
+              <span>Explore All Products</span>
+            </button>
+          )}
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('contact')}
+              className="w-full sm:w-auto px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm border border-white/20 transition flex items-center justify-center gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              <span>Contact Our Team</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -2134,12 +3020,40 @@ function AboutPage() {
 
 function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState('');
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setIsSending(true);
+    setSendError('');
+    try {
+      const response = await fetch(CONTACT_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const body: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorMessage = isRecord(body) && typeof body.message === 'string'
+          ? body.message
+          : isRecord(body) && isRecord(body.error) && typeof body.error.message === 'string'
+            ? body.error.message
+            : 'Unable to send your message. Please try again or contact us by email.';
+        throw new Error(errorMessage);
+      }
+      setSubmitted(true);
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Unable to send your message. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
+
+  const whatsappHref = `https://wa.me/919948533315?text=${encodeURIComponent(
+    `Website inquiry from ${formData.name} (${formData.email}${formData.phone ? `, ${formData.phone}` : ''}): ${formData.message}`
+  )}`;
 
   return (
     <div className="min-h-screen bg-[#f2f8f3] text-gray-900 py-12 px-4 sm:px-6 lg:px-8 font-sans">
@@ -2224,6 +3138,16 @@ function ContactPage() {
                 </div>
                 <h3 className="text-2xl font-bold text-emerald-950 font-serif">Message Sent Successfully!</h3>
                 <p className="text-sm text-gray-700 max-w-md mx-auto">Thank you for contacting RR Jaggery. Our sales team will get back to you within 24 hours.</p>
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition shadow-sm"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Continue in WhatsApp
+                </a>
+                <p className="text-xs text-gray-500">WhatsApp opens with your message ready for you to send.</p>
                 <button
                   onClick={() => setSubmitted(false)}
                   className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition shadow-sm"
@@ -2246,7 +3170,7 @@ function ContactPage() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Full Name"
+                      placeholder="Your name"
                       className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 text-xs font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none placeholder:text-gray-500"
                     />
                   </div>
@@ -2257,7 +3181,7 @@ function ContactPage() {
                       required
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="name@company.com"
+                      placeholder="Your email"
                       className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 text-xs font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none placeholder:text-gray-500"
                     />
                   </div>
@@ -2269,7 +3193,7 @@ function ContactPage() {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 99485 33315"
+                    placeholder="Your phone number"
                     className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 text-xs font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none placeholder:text-gray-500"
                   />
                 </div>
@@ -2281,17 +3205,26 @@ function ContactPage() {
                     required
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    placeholder="Tell us about your requirement or query..."
+                    placeholder="Your message"
                     className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 text-xs font-medium focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 outline-none placeholder:text-gray-500 resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
+                  disabled={isSending}
                   className="w-full py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
                 >
-                  <Send className="h-4 w-4" /> Send Message
+                  <Send className="h-4 w-4" /> {isSending ? 'Sending...' : 'Send Message'}
                 </button>
+                {sendError && (
+                  <div role="alert" className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                    <p>{sendError}</p>
+                    <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-semibold underline">
+                      Continue this inquiry on WhatsApp
+                    </a>
+                  </div>
+                )}
               </form>
             )}
           </div>
@@ -2421,7 +3354,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Package className="h-5 w-5 text-emerald-700" /> Master Catalogue Administration
           </h2>
-          <p className="text-xs text-gray-500 mt-1">Manage products, grades, categories, and wholesale rates (ROLE_ADMIN)</p>
+          <p className="text-xs text-gray-500 mt-1">Manage products, categories, and wholesale rates (ROLE_ADMIN)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center bg-white p-1 rounded-xl border border-gray-200 text-xs">
@@ -2486,7 +3419,6 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left px-4 py-3 text-gray-500 font-semibold">Product Name</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-semibold">SKU</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-semibold">Grade</th>
                   <th className="text-right px-4 py-3 text-gray-500 font-semibold">Retail Rate</th>
                   <th className="text-right px-4 py-3 text-gray-500 font-semibold">Wholesale Rate</th>
                   <th className="text-center px-4 py-3 text-gray-500 font-semibold">Active</th>
@@ -2498,9 +3430,6 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                   <tr key={p.id} id={`admin-product-row-${p.sku}`} className="border-b border-gray-200 hover:bg-gray-100/30 transition">
                     <td className="px-4 py-3 text-gray-900 font-medium">{p.name}</td>
                     <td className="px-4 py-3 text-gray-500 font-mono">{p.sku}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded bg-emerald-700/10 text-emerald-800 border border-emerald-200">{gradeLabel(p.grade)}</span>
-                    </td>
                     <td className="px-4 py-3 text-right text-emerald-700 font-semibold">{formatPrice(p.retailPrice)}</td>
                     <td className="px-4 py-3 text-right text-emerald-700 font-semibold">{formatPrice(p.wholesalePrice)}</td>
                     <td className="px-4 py-3 text-center">
@@ -2617,33 +3546,16 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-gray-500 font-semibold">Category</label>
-                  <select
-                    id="form-prod-category"
-                    value={productForm.categoryId}
-                    onChange={e => setProductForm(f => ({ ...f, categoryId: e.target.value }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
-                  >
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-gray-500 font-semibold">Grade</label>
-                  <select
-                    id="form-prod-grade"
-                    value={productForm.grade}
-                    onChange={e => setProductForm(f => ({ ...f, grade: e.target.value }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
-                  >
-                    <option value="GRADE_A_TRADITIONAL">Grade A Traditional</option>
-                    <option value="PREMIUM_POWDER">Premium Powder</option>
-                    <option value="EXPORT_CUBES">Export Cubes</option>
-                    <option value="ORGANIC_LIQUID">Organic Liquid</option>
-                    <option value="COMMERCIAL_BULK">Commercial Bulk</option>
-                  </select>
-                </div>
+              <div>
+                <label className="text-gray-500 font-semibold">Category</label>
+                <select
+                  id="form-prod-category"
+                  value={productForm.categoryId}
+                  onChange={e => setProductForm(f => ({ ...f, categoryId: e.target.value }))}
+                  className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                >
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
@@ -3434,7 +4346,7 @@ function AdminUserManagement({ auth }: { auth: AuthState }) {
                   required
                   value={createForm.fullName}
                   onChange={e => setCreateForm(f => ({ ...f, fullName: e.target.value }))}
-                  placeholder="Suresh Gowda"
+                  placeholder="Your name"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
@@ -3446,7 +4358,7 @@ function AdminUserManagement({ auth }: { auth: AuthState }) {
                   required
                   value={createForm.email}
                   onChange={e => setCreateForm(f => ({ ...f, email: e.target.value }))}
-                  placeholder="manager2@rrjaggery.com"
+                  placeholder="Your email"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
@@ -3457,7 +4369,7 @@ function AdminUserManagement({ auth }: { auth: AuthState }) {
                   type="tel"
                   value={createForm.phone}
                   onChange={e => setCreateForm(f => ({ ...f, phone: e.target.value }))}
-                  placeholder="+91 98451 23456"
+                  placeholder="Your phone number"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
@@ -3470,7 +4382,7 @@ function AdminUserManagement({ auth }: { auth: AuthState }) {
                   minLength={6}
                   value={createForm.password}
                   onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
-                  placeholder="Min 6 characters"
+                  placeholder="Your password"
                   className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
@@ -3496,7 +4408,7 @@ export function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onVie
   const isAdmin = auth.user?.roles.includes('ADMIN') ?? false;
 
   const [tab, setTab] = useState<'overview' | 'users' | 'customers' | 'orders' | 'catalogue' | 'operations' | 'production' | 'services' | 'roadmap'>(
-    isAdmin ? 'overview' : 'customers'
+    'catalogue'
   );
   const [activeLedgerCustomer, setActiveLedgerCustomer] = useState<Customer | null>(null);
   const [activePaymentCustomer, setActivePaymentCustomer] = useState<Customer | null>(null);
@@ -3539,7 +4451,7 @@ export function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onVie
             )}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 text-xs">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 text-xs overflow-x-auto no-scrollbar whitespace-nowrap lg:flex-wrap w-full sm:w-auto">
           {isAdmin && (
             <button
               id="tab-btn-overview"
@@ -3665,7 +4577,7 @@ export function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onVie
         />
       )}
 
-      {/* Offline Order Tax Invoice Modal */}
+      {/* Offline Order Commercial Invoice Modal */}
       {createdOfflineOrderForInvoice && (
         <OfflineInvoiceModal
           order={createdOfflineOrderForInvoice}
@@ -3680,7 +4592,7 @@ export function AdminDashboard({ auth, onViewInvoice }: { auth: AuthState; onVie
 
 export function App() {
   const [auth, setAuth] = useState<AuthState>(loadAuthState);
-  const [view, setView] = useState<'storefront' | 'orders' | 'admin'>('storefront');
+  const [view, setView] = useState<'storefront' | 'orders' | 'admin' | 'profile'>('storefront');
   const [storefrontPage, setStorefrontPage] = useState<StorefrontPage>('shop');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -3688,6 +4600,8 @@ export function App() {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [activeInvoiceOrderId, setActiveInvoiceOrderId] = useState<string | null>(null);
   const [cart, setCart] = useState<Cart | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [erpView, setErpView] = useState<'admin' | 'manager'>('admin');
 
   const isAdmin = auth.user?.roles.includes('ADMIN') ?? false;
   const isManager = auth.user?.roles.includes('MANAGER') ?? false;
@@ -3767,20 +4681,65 @@ export function App() {
   }
 
   function handleLogin(token: string, user: User) {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     setAuth({ token, user });
     if (user.roles.includes('ADMIN') || user.roles.includes('MANAGER')) {
       setView('admin');
+      if (user.roles.includes('MANAGER') && !user.roles.includes('ADMIN')) {
+        setErpView('manager');
+      } else {
+        setErpView('admin');
+      }
     } else {
       setView('storefront');
     }
   }
 
-  function handleLogout() {
+  const handleLogout = useCallback(() => {
     clearAuthState();
     setAuth({ token: null, user: null });
     setCart(null);
     setView('storefront');
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!auth.token) return;
+
+    const checkSession = () => {
+      if (localStorage.getItem(TOKEN_KEY) !== auth.token) {
+        handleLogout();
+        return true;
+      }
+      const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+      const elapsed = Date.now() - lastActivity;
+      if (!lastActivity || elapsed < 0 || elapsed >= AUTH_INACTIVITY_TIMEOUT_MS) {
+        handleLogout();
+        return true;
+      }
+      return false;
+    };
+
+    const recordActivity = () => {
+      if (checkSession()) return;
+
+      const now = Date.now();
+      const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+      if (now - lastActivity >= 15_000) {
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+      }
+    };
+
+    const activityEvents = ['pointerdown', 'pointermove', 'keydown', 'scroll', 'touchstart', 'focus'];
+    activityEvents.forEach(eventName => window.addEventListener(eventName, recordActivity, { passive: true }));
+    const intervalId = window.setInterval(checkSession, 15_000);
+    window.addEventListener('storage', checkSession);
+
+    return () => {
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, recordActivity));
+      window.clearInterval(intervalId);
+      window.removeEventListener('storage', checkSession);
+    };
+  }, [auth.token, handleLogout]);
 
   function handleOrderPlaced(order: Order) {
     setIsCheckoutOpen(false);
@@ -3790,136 +4749,213 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-gray-50 text-gray-900">
+    <div className="min-h-screen flex flex-col font-sans bg-gray-50 text-gray-900 overflow-x-hidden w-full max-w-[100vw]">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b backdrop-blur-md bg-white/95 border-emerald-200 shadow-sm transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Brand */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}>
-            <img src="/rr-logo.png" className="h-10 w-10 rounded-full object-cover shadow-sm" alt="RR Jaggery Logo" />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl tracking-tight text-gray-900 font-serif">RR JAGGERY</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  TRADERS
-                </span>
+      <header className="sticky top-0 z-50 border-b backdrop-blur-md bg-white/95 border-emerald-200 shadow-sm transition-colors w-full">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          {/* Main Top Header Bar */}
+          <div className="h-16 flex items-center justify-between gap-2 sm:gap-4">
+            {/* Brand */}
+            <div
+              className="flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0"
+              onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}
+            >
+              <img src="/rr-logo.png" className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover shadow-sm ring-1 ring-emerald-200" alt="RR Jaggery Logo" />
+              <div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="font-extrabold text-sm sm:text-xl tracking-tight text-gray-900 font-serif whitespace-nowrap">RR JAGGERY</span>
+                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
+                    TRADERS
+                  </span>
+                </div>
+                <p className="hidden sm:block text-[10px] text-gray-500 font-medium">100% Naturally Made Traditional Jaggery</p>
               </div>
-              <p className="text-[10px] text-gray-500">100% Naturally Made Traditional Jaggery</p>
             </div>
-          </div>
 
-          {/* Navigation & User controls */}
-          <div className="flex items-center gap-3">
-            {/* View Switcher for Logged In users */}
-            <div className="flex items-center gap-1 p-1 rounded-xl border bg-gray-100 border-gray-200">
-              <button
-                id="nav-storefront"
-                onClick={() => setView('storefront')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'storefront' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
-              >
-                <Store className="h-3.5 w-3.5" /> <span>Storefront</span>
-              </button>
+            {/* Desktop Search Bar (Flipkart style centered) */}
+            {view === 'storefront' && (
+              <div className="hidden lg:flex flex-1 max-w-md mx-4">
+                <div className="relative w-full">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-700" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search pure jaggery blocks, powder, syrup..."
+                    className="w-full pl-10 pr-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50/40 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+            )}
 
+            {/* Navigation & User controls */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              {/* Desktop View Switcher Pills (Only on laptop/desktop screens - mobile and tablet use bottom nav) */}
+              <div className="hidden lg:flex items-center gap-1 p-1 rounded-xl border bg-gray-100 border-gray-200">
+                <button
+                  id="nav-storefront"
+                  onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'storefront' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
+                >
+                  <Store className="h-3.5 w-3.5" /> <span>Storefront</span>
+                </button>
+
+                {auth.token && (
+                  <button
+                    id="nav-orders"
+                    onClick={() => setView('orders')}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'orders' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
+                  >
+                    <Receipt className="h-3.5 w-3.5" /> <span>My Orders</span>
+                  </button>
+                )}
+
+                {auth.token && (
+                  <button
+                    id="nav-profile"
+                    onClick={() => setView('profile')}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'profile' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
+                  >
+                    <User className="h-3.5 w-3.5" /> <span>Profile</span>
+                  </button>
+                )}
+
+                {isInternal && (
+                  <button
+                    id="nav-admin"
+                    onClick={() => setView('admin')}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'admin' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
+                  >
+                    <Building2 className="h-3.5 w-3.5" /> <span>{isAdmin ? 'Admin' : 'Operations'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Cart Button */}
               {auth.token && (
                 <button
-                  id="nav-orders"
-                  onClick={() => setView('orders')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'orders' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
+                  id="header-cart-btn"
+                  onClick={() => setIsCartOpen(true)}
+                  className="relative p-2 sm:p-2.5 rounded-xl border transition bg-white border-gray-200 text-emerald-800 hover:bg-emerald-50 shrink-0"
+                  title="Shopping Cart"
                 >
-                  <Receipt className="h-3.5 w-3.5" /> <span>My Orders</span>
+                  <ShoppingCart className="h-4 w-4 text-emerald-700" />
+                  {cart && cart.totalItems > 0 && (
+                    <span id="cart-badge-count" className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-emerald-700 text-white font-black text-[10px] flex items-center justify-center shadow-md animate-pulse">
+                      {cart.totalItems}
+                    </span>
+                  )}
                 </button>
               )}
 
-              {isInternal && (
+              {/* Auth Actions */}
+              {!auth.token ? (
                 <button
-                  id="nav-admin"
-                  onClick={() => setView('admin')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${view === 'admin' ? 'bg-emerald-700 text-white shadow-sm' : 'text-gray-600 hover:text-emerald-700'}`}
+                  id="header-signin-btn"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-xl organic-gradient text-white font-bold text-xs shadow-sm hover:shadow-md transition shrink-0"
                 >
-                  <Building2 className="h-3.5 w-3.5" /> <span>{isAdmin ? 'Admin Portal' : 'Operations Portal'}</span>
+                  <LogIn className="h-3.5 w-3.5" /> <span>Sign In</span>
                 </button>
+              ) : (
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div
+                    onClick={() => setView('profile')}
+                    className="hidden lg:block text-right cursor-pointer hover:opacity-80 transition"
+                    title="View Profile"
+                  >
+                    <div id="user-display-name" className="text-xs font-semibold text-gray-900 truncate max-w-[130px]">{auth.user?.fullName}</div>
+                    <div className="text-[10px] text-emerald-700 font-bold">
+                      {isAdmin ? 'Administrator' : isManager ? 'Operations Manager' : auth.user?.customerType === 'REGISTERED_WHOLESALE' ? 'Wholesale Buyer' : 'Customer'}
+                    </div>
+                  </div>
+                  <button
+                    id="logout-btn"
+                    onClick={handleLogout}
+                    title="Sign out"
+                    className="p-2 rounded-lg border transition bg-gray-100 border-gray-200 text-gray-600 hover:text-red-600 shrink-0"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
-
-            {/* Cart Button */}
-            {auth.token && (
-              <button
-                id="header-cart-btn"
-                onClick={() => setIsCartOpen(true)}
-                className="relative p-2.5 rounded-xl border transition bg-white border-gray-200 text-emerald-800 hover:bg-emerald-50"
-                title="Shopping Cart"
-              >
-                <ShoppingCart className="h-4 w-4 text-emerald-700" />
-                {cart && cart.totalItems > 0 && (
-                  <span id="cart-badge-count" className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-emerald-700 text-white font-black text-[10px] flex items-center justify-center shadow-md animate-pulse">
-                    {cart.totalItems}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* Auth Actions */}
-            {!auth.token ? (
-              <button
-                id="header-signin-btn"
-                onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl organic-gradient text-gray-900 font-bold text-xs shadow-sm hover:shadow-md transition"
-              >
-                <LogIn className="h-3.5 w-3.5" /> <span>Sign In</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:block text-right">
-                  <div id="user-display-name" className="text-xs font-semibold text-gray-900">{auth.user?.fullName}</div>
-                  <div className="text-[10px] text-emerald-700 font-bold">
-                    {isAdmin ? 'Administrator' : isManager ? 'Operations Manager' : auth.user?.customerType === 'REGISTERED_WHOLESALE' ? 'Wholesale Buyer' : 'Customer'}
-                  </div>
-                </div>
-                <button
-                  id="logout-btn"
-                  onClick={handleLogout}
-                  title="Sign out"
-                  className="p-2 rounded-lg border transition bg-gray-100 border-gray-200 text-gray-600 hover:text-red-600"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* Mobile Search Bar (Flipkart style second row) */}
+          {view === 'storefront' && (
+            <div className="pb-3 lg:hidden">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-700" />
+                <input
+                  id="header-search-input"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search pure jaggery blocks, powder, syrup..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50/50 text-xs text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Storefront Secondary Sub-navigation Bar */}
         {view === 'storefront' && (
-          <div className="bg-emerald-900 text-white py-2.5 px-4 sm:px-6 lg:px-8 border-t border-emerald-800">
-            <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
-              <div className="flex items-center gap-6 font-medium">
+          <div className="w-full bg-white lg:bg-emerald-950/95 border-b border-gray-200/90 lg:border-t lg:border-emerald-900 shadow-[0_1px_3px_rgba(0,0,0,0.03)] lg:shadow-inner py-2 px-3 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap w-full md:w-auto py-0.5 scroll-smooth">
                 <button
+                  id="subnav-shop"
                   onClick={() => setStorefrontPage('shop')}
-                  className={`transition ${storefrontPage === 'shop' ? 'font-bold text-white border-b-2 border-emerald-400 pb-0.5' : 'text-emerald-200 hover:text-white'}`}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
+                    storefrontPage === 'shop'
+                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                  }`}
                 >
-                  Shop Catalogue
+                  <Store className="w-3.5 h-3.5 lg:hidden text-emerald-200" />
+                  <span>Shop Catalogue</span>
                 </button>
                 <button
+                  id="subnav-about"
                   onClick={() => setStorefrontPage('about')}
-                  className={`transition ${storefrontPage === 'about' ? 'font-bold text-white border-b-2 border-emerald-400 pb-0.5' : 'text-emerald-200 hover:text-white'}`}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
+                    storefrontPage === 'about'
+                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                  }`}
                 >
-                  Our Heritage & About Us
+                  <Info className="w-3.5 h-3.5 lg:hidden text-emerald-600" />
+                  <span>Our Heritage & About Us</span>
                 </button>
                 <button
+                  id="subnav-reviews"
                   onClick={() => setStorefrontPage('reviews')}
-                  className={`transition ${storefrontPage === 'reviews' ? 'font-bold text-white border-b-2 border-emerald-400 pb-0.5' : 'text-emerald-200 hover:text-white'}`}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
+                    storefrontPage === 'reviews'
+                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                  }`}
                 >
-                  Verified Reviews
+                  <Star className="w-3.5 h-3.5 lg:hidden fill-amber-400 text-amber-500" />
+                  <span>Verified Reviews</span>
                 </button>
                 <button
+                  id="subnav-contact"
                   onClick={() => setStorefrontPage('contact')}
-                  className={`transition ${storefrontPage === 'contact' ? 'font-bold text-white border-b-2 border-emerald-400 pb-0.5' : 'text-emerald-200 hover:text-white'}`}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
+                    storefrontPage === 'contact'
+                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                  }`}
                 >
-                  Contact & Distribution
+                  <Phone className="w-3.5 h-3.5 lg:hidden text-emerald-600" />
+                  <span>Contact & Distribution</span>
                 </button>
               </div>
 
-              <div className="hidden md:flex items-center gap-4 text-emerald-200 text-[11px]">
+              <div className="hidden lg:flex items-center gap-4 text-emerald-300 text-[11px] shrink-0 font-medium">
                 <span>📞 Order Line: +91 9948533315</span>
                 <span>📍 Vollurupallem, Andhra Pradesh</span>
               </div>
@@ -3929,10 +4965,10 @@ export function App() {
       </header>
 
       {/* Main Content View Switcher */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className={`flex-1 w-full max-w-full overflow-x-hidden ${view === 'admin' ? 'p-0 pb-20 lg:pb-0' : 'max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 lg:pb-6'}`}>
         {view === 'storefront' ? (
           storefrontPage === 'about' ? (
-            <AboutPage />
+            <AboutPage onBackToStore={() => setStorefrontPage('shop')} onNavigate={(page) => setStorefrontPage(page)} />
           ) : storefrontPage === 'reviews' ? (
             <ReviewsPage auth={auth} />
           ) : storefrontPage === 'contact' ? (
@@ -3950,6 +4986,8 @@ export function App() {
               auth={auth}
               onAddToCart={handleAddToCart}
               onNavigate={(page) => setStorefrontPage(page)}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
             />
           )
         ) : view === 'orders' ? (
@@ -3958,20 +4996,139 @@ export function App() {
             onViewInvoice={id => setActiveInvoiceOrderId(id)}
             onBackToStore={() => setView('storefront')}
           />
-        ) : isInternal ? (
-          <ManagerPortal
-            token={auth.token!}
-            user={auth.user! as any}
+        ) : view === 'profile' && auth.token ? (
+          <ProfilePage
+            auth={auth}
+            onNavigateToOrders={() => setView('orders')}
+            onOpenCart={() => setIsCartOpen(true)}
+            onNavigateToAdmin={isInternal ? () => setView('admin') : undefined}
+            onNavigateToShop={() => { setView('storefront'); setStorefrontPage('shop'); }}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
             onLogout={handleLogout}
+            cartItemCount={cart?.totalItems ?? 0}
           />
+        ) : isInternal ? (
+          erpView === 'manager' ? (
+            <div className="w-full">
+              {isAdmin && (
+                <div className="bg-emerald-900 text-white px-4 py-2 flex items-center justify-between text-xs">
+                  <span className="font-semibold flex items-center gap-1.5"><Factory className="h-3.5 w-3.5 text-emerald-300" /> Operations & Mill ERP</span>
+                  <button
+                    id="switch-to-admin-dashboard"
+                    onClick={() => setErpView('admin')}
+                    className="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-emerald-200 font-medium transition"
+                  >
+                    Switch to Admin Master & B2B
+                  </button>
+                </div>
+              )}
+              <ManagerPortal
+                token={auth.token!}
+                user={auth.user! as any}
+                onLogout={handleLogout}
+              />
+            </div>
+          ) : (
+            <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+              <div className="mb-4 flex items-center justify-end">
+                <button
+                  id="switch-to-manager-portal"
+                  onClick={() => setErpView('manager')}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-bold border border-emerald-300 shadow-sm transition"
+                >
+                  <Factory className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>Switch to Unified Operations & Mill ERP</span>
+                </button>
+              </div>
+              <AdminDashboard
+                auth={auth}
+                onViewInvoice={id => setActiveInvoiceOrderId(id)}
+              />
+            </div>
+          )
         ) : (
           <Storefront
             auth={auth}
             onAddToCart={handleAddToCart}
             onNavigate={(page) => setStorefrontPage(page)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
           />
         )}
       </main>
+
+      {/* Flipkart-Style Bottom Navigation Bar (Mobile & Tablet - visible across Storefront, Orders, Profile & ERP) */}
+      <nav className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-gray-200 z-40 lg:hidden flex items-center justify-around py-2 px-1 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
+        <button
+          id="bottom-nav-shop"
+          onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}
+          className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+            view === 'storefront' && storefrontPage === 'shop' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <Store className="h-5 w-5" />
+          <span>Shop</span>
+        </button>
+
+        <button
+          id="bottom-nav-cart"
+          onClick={() => setIsCartOpen(true)}
+          className="relative flex flex-col items-center gap-0.5 text-[10px] font-semibold text-gray-500 hover:text-gray-900 transition"
+        >
+          <div className="relative">
+            <ShoppingCart className="h-5 w-5 text-emerald-700" />
+            {cart && cart.totalItems > 0 && (
+              <span className="absolute -top-1.5 -right-2 h-4 w-4 rounded-full bg-emerald-700 text-white font-black text-[9px] flex items-center justify-center shadow">
+                {cart.totalItems}
+              </span>
+            )}
+          </div>
+          <span>Cart</span>
+        </button>
+
+        <button
+          id="bottom-nav-orders"
+          onClick={() => {
+            if (auth.token) {
+              setView('orders');
+            } else {
+              setIsAuthModalOpen(true);
+            }
+          }}
+          className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+            view === 'orders' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <Receipt className="h-5 w-5" />
+          <span>Orders</span>
+        </button>
+
+        {auth.token && (
+          <button
+            id="bottom-nav-profile"
+            onClick={() => setView('profile')}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+              view === 'profile' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <User className="h-5 w-5" />
+            <span>Profile</span>
+          </button>
+        )}
+
+        {isInternal && (
+          <button
+            id="bottom-nav-admin"
+            onClick={() => setView('admin')}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+              view === 'admin' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Building2 className="h-5 w-5" />
+            <span>ERP</span>
+          </button>
+        )}
+      </nav>
 
       {/* Cart Drawer */}
       <CartDrawer
@@ -4009,7 +5166,7 @@ export function App() {
         }}
       />
 
-      {/* Tax Invoice Modal */}
+      {/* Commercial Invoice Modal */}
       <InvoiceModal
         orderId={activeInvoiceOrderId}
         auth={auth}
@@ -4024,61 +5181,63 @@ export function App() {
       />
 
       {/* Footer */}
-      <footer className="bg-emerald-950 text-white border-t border-emerald-900 py-10 px-4 sm:px-6 lg:px-8 mt-auto">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 mb-8 text-xs">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <img src="/rr-logo.png" className="h-6 w-6 rounded-full object-cover border border-emerald-400/40" alt="RR Jaggery Logo" />
-              <span className="font-extrabold text-base text-white font-serif tracking-tight">RR JAGGERY</span>
+      {view !== 'admin' && (
+        <footer className="bg-emerald-950 text-white border-t border-emerald-900 py-10 px-4 sm:px-6 lg:px-8 mt-auto pb-24 sm:pb-10">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 mb-8 text-xs">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <img src="/rr-logo.png" className="h-6 w-6 rounded-full object-cover border border-emerald-400/40" alt="RR Jaggery Logo" />
+                <span className="font-extrabold text-base text-white font-serif tracking-tight">RR JAGGERY</span>
+              </div>
+              <p className="text-emerald-200/90 leading-relaxed">
+                Producer of naturally made, authentic sugarcane jaggery powder, solid blocks, and syrup crafted with care.
+              </p>
             </div>
-            <p className="text-emerald-200/90 leading-relaxed">
-              Producer of naturally made, authentic sugarcane jaggery powder, solid blocks, and syrup crafted with care.
-            </p>
+
+            <div>
+              <h4 className="font-bold text-white text-sm mb-3 font-serif">Quick Navigation</h4>
+              <ul className="space-y-2 text-emerald-200/90">
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('shop'); }} className="hover:text-white transition">Shop Catalog</button></li>
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('about'); }} className="hover:text-white transition">About Our Heritage</button></li>
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('reviews'); }} className="hover:text-white transition">Verified Reviews</button></li>
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('contact'); }} className="hover:text-white transition">Contact Us</button></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-white text-sm mb-3 font-serif">Legal & Policies</h4>
+              <ul className="space-y-2 text-emerald-200/90">
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('terms'); }} className="hover:text-white transition">Terms & Conditions</button></li>
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('privacy'); }} className="hover:text-white transition">Privacy Policy</button></li>
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('refund'); }} className="hover:text-white transition">Refund & Cancellation</button></li>
+                <li><button onClick={() => { setView('storefront'); setStorefrontPage('shipping'); }} className="hover:text-white transition">Shipping Policy</button></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-white text-sm mb-3 font-serif">Quality Standards</h4>
+              <ul className="space-y-2 text-emerald-200/90">
+                <li>✓ Traditional Natural Processing</li>
+                <li>✓ Authentic Traditional Craft</li>
+                <li>✓ Naturally Made with Care</li>
+                <li>✓ Natural Taste & Aroma</li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-white text-sm mb-3 font-serif">Factory Works</h4>
+              <p className="text-emerald-200/90 leading-relaxed">
+                Vollurupallem, Thotlavalluru,<br />
+                Andhra Pradesh 521163
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h4 className="font-bold text-white text-sm mb-3 font-serif">Quick Navigation</h4>
-            <ul className="space-y-2 text-emerald-200/90">
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('shop'); }} className="hover:text-white transition">Shop Catalog</button></li>
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('about'); }} className="hover:text-white transition">About Our Heritage</button></li>
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('reviews'); }} className="hover:text-white transition">Verified Reviews</button></li>
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('contact'); }} className="hover:text-white transition">Contact Us</button></li>
-            </ul>
+          <div className="max-w-7xl mx-auto border-t border-emerald-900 pt-6 text-center text-[11px] text-emerald-300/80">
+            <p>© {new Date().getFullYear()} RR Jaggery Traders • Unified Commercial & Mill ERP Platform (Sprint 3 / Sprint 10 Production). All rights reserved.</p>
           </div>
-
-          <div>
-            <h4 className="font-bold text-white text-sm mb-3 font-serif">Legal & Policies</h4>
-            <ul className="space-y-2 text-emerald-200/90">
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('terms'); }} className="hover:text-white transition">Terms & Conditions</button></li>
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('privacy'); }} className="hover:text-white transition">Privacy Policy</button></li>
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('refund'); }} className="hover:text-white transition">Refund & Cancellation</button></li>
-              <li><button onClick={() => { setView('storefront'); setStorefrontPage('shipping'); }} className="hover:text-white transition">Shipping Policy</button></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-white text-sm mb-3 font-serif">Quality Standards</h4>
-            <ul className="space-y-2 text-emerald-200/90">
-              <li>✓ Traditional Natural Processing</li>
-              <li>✓ Authentic Traditional Craft</li>
-              <li>✓ Naturally Made with Care</li>
-              <li>✓ Natural Taste & Aroma</li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-white text-sm mb-3 font-serif">Factory Works</h4>
-            <p className="text-emerald-200/90 leading-relaxed">
-              Vollurupallem, Thotlavalluru,<br />
-              Andhra Pradesh 521163
-            </p>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto border-t border-emerald-900 pt-6 text-center text-[11px] text-emerald-300/80">
-          <p>© {new Date().getFullYear()} RR Jaggery. All rights reserved.</p>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

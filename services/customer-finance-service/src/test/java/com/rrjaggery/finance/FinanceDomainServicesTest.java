@@ -5,21 +5,26 @@ import com.rrjaggery.finance.dto.CreateEmployeeRequest;
 import com.rrjaggery.finance.dto.CreateExpenseRequest;
 import com.rrjaggery.finance.dto.CreatePayrollRequest;
 import com.rrjaggery.finance.dto.RecordAttendanceRequest;
+import com.rrjaggery.finance.dto.RecordSalaryPaymentRequest;
 import com.rrjaggery.finance.entity.Attendance;
 import com.rrjaggery.finance.entity.AttendanceStatus;
 import com.rrjaggery.finance.entity.Employee;
 import com.rrjaggery.finance.entity.Expense;
 import com.rrjaggery.finance.entity.PayrollRecord;
+import com.rrjaggery.finance.entity.SalaryPayment;
 import com.rrjaggery.finance.service.ExpenseService;
 import com.rrjaggery.finance.service.PayrollService;
+import com.rrjaggery.customerledger.service.OfflineInventoryStockClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @Transactional
 class FinanceDomainServicesTest {
+
+    @MockBean
+    private OfflineInventoryStockClient offlineInventoryStockClient;
 
     @Autowired
     private ExpenseService expenseService;
@@ -99,5 +107,130 @@ class FinanceDomainServicesTest {
         PayrollRecord pay = payrollService.createPayrollRecord(payReq);
         assertNotNull(pay.getId());
         assertEquals(new BigDecimal("16100.00"), pay.getNetAmountPaid());
+    }
+
+    @Test
+    @DisplayName("Attendance updates one employee-day record and rejects future dates")
+    void attendanceIsUpdatedInPlaceAndFutureDatesAreRejected() {
+        CreateEmployeeRequest employeeRequest = new CreateEmployeeRequest();
+        employeeRequest.setFullName("Attendance Test Worker");
+        employeeRequest.setDesignation("Operator");
+        employeeRequest.setWageType("DAILY");
+        employeeRequest.setRateAmount(new BigDecimal("600.00"));
+        Employee employee = payrollService.createEmployee(employeeRequest);
+
+        LocalDate attendanceDate = LocalDate.now(ZoneId.of("Asia/Kolkata")).minusDays(1);
+        RecordAttendanceRequest request = new RecordAttendanceRequest();
+        request.setEmployeeId(employee.getId());
+        request.setAttendanceDate(attendanceDate);
+        request.setStatus(AttendanceStatus.ABSENT);
+        Attendance created = payrollService.recordAttendance(request);
+
+        request.setStatus(AttendanceStatus.PRESENT);
+        Attendance updated = payrollService.recordAttendance(request);
+
+        assertEquals(created.getId(), updated.getId());
+        assertEquals(AttendanceStatus.PRESENT, updated.getStatus());
+        assertEquals(1, payrollService.getEmployeeAttendance(employee.getId(), attendanceDate, attendanceDate).size());
+
+        request.setAttendanceDate(LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(1));
+        assertThrows(IllegalArgumentException.class, () -> payrollService.recordAttendance(request));
+    }
+
+    @Test
+    @DisplayName("Salary payments are limited to the server-calculated remaining balance")
+    void salaryPaymentCannotExceedOrRepeatTheRemainingBalance() {
+        CreateEmployeeRequest employeeRequest = new CreateEmployeeRequest();
+        employeeRequest.setFullName("Payroll Test Worker");
+        employeeRequest.setDesignation("Operator");
+        employeeRequest.setWageType("DAILY");
+        employeeRequest.setRateAmount(new BigDecimal("600.00"));
+        Employee employee = payrollService.createEmployee(employeeRequest);
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        RecordAttendanceRequest attendanceRequest = new RecordAttendanceRequest();
+        attendanceRequest.setEmployeeId(employee.getId());
+        attendanceRequest.setAttendanceDate(today);
+        attendanceRequest.setStatus(AttendanceStatus.PRESENT);
+        payrollService.recordAttendance(attendanceRequest);
+
+        var calculation = payrollService.calculatePayroll(employee.getId(), today.getYear(), today.getMonthValue());
+        BigDecimal remainingBalance = calculation.getBalanceRemaining();
+        assertTrue(remainingBalance.compareTo(BigDecimal.ZERO) > 0);
+
+        RecordSalaryPaymentRequest request = new RecordSalaryPaymentRequest();
+        request.setEmployeeId(employee.getId());
+        request.setPeriodYear(today.getYear());
+        request.setPeriodMonth(today.getMonthValue());
+        request.setPaymentDate(today);
+        request.setAmount(remainingBalance.add(new BigDecimal("0.01")));
+        assertThrows(IllegalArgumentException.class, () -> payrollService.recordSalaryPayment(request));
+
+        request.setAmount(remainingBalance);
+        SalaryPayment payment = payrollService.recordSalaryPayment(request);
+        assertEquals(remainingBalance, payment.getAmount());
+
+        request.setAmount(new BigDecimal("0.01"));
+        assertThrows(IllegalArgumentException.class, () -> payrollService.recordSalaryPayment(request));
+    }
+
+    @Test
+    @DisplayName("Monthly and weekly payroll exclude Sunday attendance and overtime")
+    void monthlyAndWeeklyPayrollDoNotPayForSundays() {
+        LocalDate sunday = LocalDate.of(2026, 6, 7);
+        LocalDate monday = sunday.plusDays(1);
+
+        CreateEmployeeRequest monthlyRequest = new CreateEmployeeRequest();
+        monthlyRequest.setFullName("Monthly Payroll Test Worker");
+        monthlyRequest.setDesignation("Operator");
+        monthlyRequest.setWageType("MONTHLY");
+        monthlyRequest.setRateAmount(new BigDecimal("2600.00"));
+        Employee monthlyEmployee = payrollService.createEmployee(monthlyRequest);
+
+        RecordAttendanceRequest monthlySunday = new RecordAttendanceRequest();
+        monthlySunday.setEmployeeId(monthlyEmployee.getId());
+        monthlySunday.setAttendanceDate(sunday);
+        monthlySunday.setStatus(AttendanceStatus.PRESENT);
+        monthlySunday.setOvertimeHours(new BigDecimal("8.00"));
+        payrollService.recordAttendance(monthlySunday);
+
+        RecordAttendanceRequest monthlyMonday = new RecordAttendanceRequest();
+        monthlyMonday.setEmployeeId(monthlyEmployee.getId());
+        monthlyMonday.setAttendanceDate(monday);
+        monthlyMonday.setStatus(AttendanceStatus.PRESENT);
+        payrollService.recordAttendance(monthlyMonday);
+
+        var monthlyCalculation = payrollService.calculatePayroll(monthlyEmployee.getId(), 2026, 6);
+        assertEquals(0, new BigDecimal("1").compareTo(monthlyCalculation.getPresentDays()));
+        assertEquals(0, new BigDecimal("1").compareTo(monthlyCalculation.getPayableDays()));
+        assertEquals(0, new BigDecimal("100.00").compareTo(monthlyCalculation.getBaseEarned()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(monthlyCalculation.getOvertimeHours()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(monthlyCalculation.getOvertimePay()));
+
+        CreateEmployeeRequest weeklyRequest = new CreateEmployeeRequest();
+        weeklyRequest.setFullName("Weekly Payroll Test Worker");
+        weeklyRequest.setDesignation("Operator");
+        weeklyRequest.setWageType("WEEKLY");
+        weeklyRequest.setRateAmount(new BigDecimal("600.00"));
+        Employee weeklyEmployee = payrollService.createEmployee(weeklyRequest);
+
+        RecordAttendanceRequest weeklySunday = new RecordAttendanceRequest();
+        weeklySunday.setEmployeeId(weeklyEmployee.getId());
+        weeklySunday.setAttendanceDate(sunday);
+        weeklySunday.setStatus(AttendanceStatus.PRESENT);
+        weeklySunday.setOvertimeHours(new BigDecimal("8.00"));
+        payrollService.recordAttendance(weeklySunday);
+
+        RecordAttendanceRequest weeklyMonday = new RecordAttendanceRequest();
+        weeklyMonday.setEmployeeId(weeklyEmployee.getId());
+        weeklyMonday.setAttendanceDate(monday);
+        weeklyMonday.setStatus(AttendanceStatus.PRESENT);
+        payrollService.recordAttendance(weeklyMonday);
+
+        var weeklyCalculation = payrollService.calculatePayroll(weeklyEmployee.getId(), 2026, 6);
+        assertEquals(0, new BigDecimal("1").compareTo(weeklyCalculation.getPresentDays()));
+        assertEquals(0, new BigDecimal("100.00").compareTo(weeklyCalculation.getBaseEarned()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(weeklyCalculation.getOvertimeHours()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(weeklyCalculation.getOvertimePay()));
     }
 }

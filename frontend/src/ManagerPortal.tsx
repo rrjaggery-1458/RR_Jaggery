@@ -6,6 +6,7 @@ import {
   Calendar, Upload, Image as ImageIcon,
   IndianRupee, X, Check, Edit2, AlertCircle,
   PieChart as PieChartIcon, BarChart3, UserCheck, DollarSign,
+  Menu, LogOut,
   Sliders, Bell, Download, Printer, FileSpreadsheet,
   TrendingUp, CheckCheck, Clock,
   ShieldCheck, Info, Trash2, Truck, Building2, Landmark,
@@ -32,6 +33,63 @@ const PRODUCTION_URL = getBaseUrl(8086, 'production');
 const FINANCE_URL = getBaseUrl(8083, 'finance');
 const NOTIFICATION_URL = getBaseUrl(8083, 'notifications');
 const AUTH_URL = getBaseUrl(8081, 'auth');
+
+const getLocalDateInputValue = (date = new Date()): string => {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 10);
+};
+
+const isSundayDate = (dateValue: string): boolean => {
+  if (!dateValue) return false;
+  const [year, month, day] = dateValue.split('-').map(Number);
+  return new Date(year, month - 1, day).getDay() === 0;
+};
+
+const isSundayOffWageType = (wageType?: string): boolean =>
+  wageType === 'MONTHLY' || wageType === 'WEEKLY';
+
+const wageTypeLabels: Record<string, string> = {
+  DAILY: 'Daily',
+  WEEKLY: 'Weekly',
+  MONTHLY: 'Monthly',
+  BATCH_BASED: 'Batch Wise',
+  PER_KG: 'Per KG',
+  CONTRACT: 'Contract',
+};
+
+const wageTypeUnits: Record<string, string> = {
+  DAILY: 'day',
+  WEEKLY: 'week',
+  MONTHLY: 'month',
+  BATCH_BASED: 'batch',
+  PER_KG: 'kg',
+  CONTRACT: 'contract',
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const getResponseErrorMessage = async (response: Response, fallback: string): Promise<string> => {
+  const body: unknown = await response.json().catch(() => null);
+  if (!isRecord(body)) return fallback;
+
+  if (isRecord(body.error)) {
+    if (typeof body.error.message === 'string' && body.error.message.trim()) {
+      return body.error.message;
+    }
+    if (Array.isArray(body.error.details)) {
+      const details = body.error.details
+        .filter(isRecord)
+        .map(detail => [detail.field, detail.message].filter(value => typeof value === 'string').join(': '))
+        .filter(Boolean);
+      if (details.length) return details.join('; ');
+    }
+  } else if (typeof body.error === 'string' && body.error.trim()) {
+    return body.error;
+  }
+
+  return typeof body.message === 'string' && body.message.trim() ? body.message : fallback;
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -280,6 +338,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   const [staffSubTab, setStaffSubTab] = useState<'directory' | 'attendance' | 'payroll'>('directory');
   const [settingsSubTab, setSettingsSubTab] = useState<'form_builder' | 'production_cost' | 'expense_categories' | 'payment_methods' | 'deduction_types' | 'advance_types' | 'payroll_rules'>('form_builder');
   
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   // Sprint 7 Reports Subtabs
   const [reportsSubTab, setReportsSubTab] = useState<'sales' | 'production' | 'inventory' | 'suppliers' | 'expenses' | 'payroll' | 'wholesale' | 'spending_pnl'>('sales');
   
@@ -289,6 +348,48 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
   const [notificationsFilter, setNotificationsFilter] = useState<'all' | 'unread'>('all');
   const [syncingAlerts, setSyncingAlerts] = useState<boolean>(false);
+  const [width, setWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 0);
+
+
+
+  // Update width on window resize
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleResize = () => setWidth(window.innerWidth);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
+  // Close sidebar when width >= 640 (switching to desktop)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && width >= 640) {
+      setIsSidebarOpen(false);
+    }
+  }, [width]);
+
+  // Prevent body scrolling when mobile drawer is open
+  useEffect(() => {
+    const showMobileDrawer = isSidebarOpen && width < 640;
+    if (showMobileDrawer && typeof window !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+    } else {
+      if (typeof window !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+    }
+  }, [isSidebarOpen, width]);
+
+  // Close mobile drawer on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidebarOpen]);
 
   // System Health State (Admin Only)
   interface ServiceHealth {
@@ -597,7 +698,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   // Attendance Enhancements
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
-  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(getLocalDateInputValue());
 
   // UX Feedback / Mutation Submitting Key
   const [submittingKey, setSubmittingKey] = useState<string | null>(null);
@@ -673,7 +774,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   });
 
   const [newExpense, setNewExpense] = useState({
-    expenseDate: new Date().toISOString().split('T')[0],
+    expenseDate: getLocalDateInputValue(),
     category: '',
     amount: 0,
     paymentMethod: 'CASH',
@@ -692,7 +793,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   const [newAttendance, setNewAttendance] = useState({
     employeeId: '',
-    attendanceDate: new Date().toISOString().split('T')[0],
+    attendanceDate: getLocalDateInputValue(),
     status: 'PRESENT' as 'PRESENT' | 'HALF_DAY' | 'ABSENT',
     overtimeHours: 0,
     notes: '',
@@ -1483,7 +1584,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         paymentStatus: retailOrderForm.paymentStatus,
         deliveryCharges: delivery,
         // Send null so backend auto-computes based on paymentStatus & paymentMethod
-        // (backend adds 5% GST to subtotal — frontend must NOT send a pre-GST amount)
+        // The backend stores the commercial item subtotal and any delivery charges separately.
         immediatePaidAmount: null,
         orderDate: retailOrderForm.orderDate ? new Date(retailOrderForm.orderDate).toISOString() : new Date().toISOString(),
         notes: retailOrderForm.notes,
@@ -1514,28 +1615,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         throw new Error(errMsg);
       }
 
-      const orderData = await res.json();
-      const orderId = orderData?.id || orderData?.orderId || `RETAIL-${Date.now()}`;
-
-      // Step 2: Deduct finished goods stock from inventory service for this EXACT product SKU
-      if (targetSku) {
-        const salePayload = {
-          sku: targetSku,
-          quantity: qty,
-          actor: 'MANAGER',
-          referenceId: String(orderId),
-        };
-        const saleRes = await fetch(`${INVENTORY_URL}/stock/sale`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify(salePayload),
-        });
-        if (!saleRes.ok) {
-          console.warn(`Stock deduction failed for SKU ${targetSku}. Manual reconciliation may be needed.`);
-        }
-      }
-
-      setSuccessMsg(`Retail order recorded ✓ — ${qty} KG of ${targetName} @ ₹${price}/KG. Stock deducted automatically.`);
+      await res.json();
+      setSuccessMsg(`Retail order recorded — ${qty} KG of ${targetName} @ ₹${price}/KG. Stock update queued.`);
       setShowAddRetailOrderModal(false);
       const firstActive = activeProds[0];
       setRetailOrderForm({
@@ -1809,28 +1890,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         throw new Error(fieldErrors || errData?.error?.message || errData?.message || 'Failed to create wholesale order.');
       }
 
-      const orderData = await res.json();
-      const orderId = orderData?.id || orderData?.orderId || `WS-${Date.now()}`;
-
-      // Step 2: Deduct finished goods stock from inventory service for exact product SKU
-      if (targetSku && qty > 0) {
-        const salePayload = {
-          sku: targetSku,
-          quantity: qty,
-          actor: 'MANAGER',
-          referenceId: String(orderId),
-        };
-        const saleRes = await fetch(`${INVENTORY_URL}/stock/sale`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify(salePayload),
-        });
-        if (!saleRes.ok) {
-          console.warn('Stock deduction failed for wholesale order. Manual reconciliation may be needed.');
-        }
-      }
-
-      setSuccessMsg(`Wholesale order recorded successfully ✓ — ${qty} KG of ${targetName} @ ₹${targetPrice}/KG. Stock updated.`);
+      await res.json();
+      setSuccessMsg(`Wholesale order recorded — ${qty} KG of ${targetName} @ ₹${targetPrice}/KG. Stock update queued.`);
       setShowAddWholesaleOrderModal(false);
       loadData(false);
     } catch (err: any) {
@@ -2159,11 +2220,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   // 8. Add Expense
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingKey === 'create-expense') return;
     if (Number(newExpense.amount) <= 0) {
       setErrorMsg('Expense amount must be greater than 0.');
       return;
     }
     setSubmittingKey('create-expense');
+    setErrorMsg(null);
     try {
       const res = await fetch(`${FINANCE_URL}/expenses`, {
         method: 'POST',
@@ -2179,14 +2242,18 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to record expense.');
+        throw new Error(await getResponseErrorMessage(res, 'Failed to record expense.'));
       }
+      const data = await res.json();
 
       // Automatically link and persist dynamic custom answers if provided
       if (data.data?.id && Object.keys(expenseCustomAnswers).length > 0) {
-        await submitSupplementalForm('EXPENSE', 'EXPENSE', data.data.id, expenseCustomAnswers, 'finance');
+        try {
+          await submitSupplementalForm('EXPENSE', 'EXPENSE', data.data.id, expenseCustomAnswers, 'finance');
+        } catch (err: any) {
+          setErrorMsg(`Expense was saved, but its additional form answers were not saved: ${err.message || 'Please contact support.'}`);
+        }
       }
 
       setSuccessMsg('Expense recorded successfully.');
@@ -2195,7 +2262,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         category: '',
         amount: 0,
         paymentMethod: 'CASH',
-        expenseDate: new Date().toISOString().split('T')[0],
+        expenseDate: getLocalDateInputValue(),
         payeeVendor: '',
         description: '',
         notes: '',
@@ -2576,23 +2643,33 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   const handleRecordAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingKey === 'record-attendance') return;
     if (!newAttendance.employeeId) {
       setErrorMsg('Please select an employee.');
+      return;
+    }
+    if (newAttendance.attendanceDate > getLocalDateInputValue()) {
+      setErrorMsg('Attendance cannot be recorded for a future date.');
       return;
     }
 
     setSubmittingKey('record-attendance');
     setErrorMsg(null);
     try {
+      const sundayOff = isSundayDate(newAttendance.attendanceDate)
+        && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType);
       const res = await fetch(`${FINANCE_URL}/attendance`, {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify(newAttendance),
+        body: JSON.stringify({
+          ...newAttendance,
+          status: sundayOff ? 'ABSENT' : newAttendance.status,
+          overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
+        }),
       });
 
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to record attendance.');
+        throw new Error(await getResponseErrorMessage(res, 'Failed to record attendance.'));
       }
       setSuccessMsg('Attendance recorded successfully.');
       setShowRecordAttendanceModal(false);
@@ -2610,6 +2687,16 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setErrorMsg('Please select an employee.');
       return;
     }
+    if (!payrollCalcResult) {
+      setErrorMsg('Calculate the payroll balance before recording a payment.');
+      return;
+    }
+    const balanceRemaining = Number(payrollCalcResult.balanceRemaining ?? 0);
+    if (balanceRemaining <= 0 || newPayroll.netAmountPaid <= 0 || newPayroll.netAmountPaid > balanceRemaining) {
+      setErrorMsg(`Enter a payment greater than zero and no more than the remaining balance of ₹${balanceRemaining.toFixed(2)}.`);
+      return;
+    }
+    setErrorMsg(null);
     setSubmittingKey('save-wage-payment');
     try {
       const res = await fetch(`${FINANCE_URL}/salary-payments`, {
@@ -2619,7 +2706,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           employeeId: newPayroll.employeeId,
           periodYear: newPayroll.periodYear,
           periodMonth: newPayroll.periodMonth,
-          paymentDate: new Date().toISOString().split('T')[0],
+          paymentDate: getLocalDateInputValue(),
           amount: newPayroll.netAmountPaid,
           daysWorked: newPayroll.daysWorked,
           overtimeHours: newPayroll.overtimeHours,
@@ -2632,7 +2719,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to record payroll payment.');
+      if (!res.ok) {
+        throw new Error(await getResponseErrorMessage(res, 'Failed to record payroll payment.'));
+      }
       setSuccessMsg('Salary/wage payment recorded.');
       setShowCreatePayrollModal(false);
       loadData(false);
@@ -2711,84 +2800,36 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       setErrorMsg('Please select an employee first.');
       return;
     }
-    const emp = employees.find(e => e.id === newPayroll.employeeId);
-    const daysInMonth = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
+    setErrorMsg(null);
     setCalculatingPayroll(true);
     try {
       const res = await fetch(
         `${FINANCE_URL}/payroll/calculate?employeeId=${newPayroll.employeeId}&year=${newPayroll.periodYear}&month=${newPayroll.periodMonth}`,
         { headers: getHeaders() }
       );
-      if (res.ok) {
-        const body = await res.json();
-        const calc = body.data || {};
-        let daysWorked = calc.daysWorked !== undefined && calc.daysWorked !== null ? calc.daysWorked : daysInMonth;
-        let baseEarned = calc.baseEarned;
-        
-        if (emp?.wageType === 'MONTHLY') {
-          const rate = emp.rateAmount || calc.rateAmount || 0;
-          if (daysWorked >= daysInMonth || (daysWorked >= 26 && (!calc.absentDays || calc.absentDays === 0))) {
-            daysWorked = daysInMonth;
-            baseEarned = rate;
-          } else if (daysWorked > 0) {
-            baseEarned = Math.round((rate / daysInMonth) * daysWorked);
-          } else {
-            baseEarned = 0;
-          }
-        } else if (emp?.wageType === 'DAILY') {
-          const rate = emp.rateAmount || calc.rateAmount || 0;
-          baseEarned = Math.round(rate * daysWorked);
-        }
-
-        const overtimeEarned = calc.overtimeEarned || 0;
-        const outstandingAdvance = calc.outstandingAdvance || 0;
-        const netPayable = Math.max(0, (baseEarned || 0) + overtimeEarned - outstandingAdvance);
-
-        const updatedCalc = {
-          ...calc,
-          wageType: emp?.wageType || calc.wageType || 'MONTHLY',
-          rateAmount: emp?.rateAmount || calc.rateAmount || 0,
-          daysWorked,
-          baseEarned: baseEarned || 0,
-          overtimeEarned,
-          outstandingAdvance,
-          netPayable,
-        };
-
-        setPayrollCalcResult(updatedCalc);
-        setNewPayroll(prev => ({
-          ...prev,
-          daysWorked,
-          overtimeHours: calc.overtimeHours || 0,
-          baseAmount: baseEarned || 0,
-          bonusAllowance: overtimeEarned,
-          deductions: outstandingAdvance,
-          netAmountPaid: netPayable,
-        }));
-        setSuccessMsg('Payroll calculated based on days in month, attendance, and advances.');
-      } else {
-        const rate = emp?.rateAmount || 0;
-        const baseEarned = emp?.wageType === 'MONTHLY' ? rate : rate * daysInMonth;
-        setPayrollCalcResult({
-          wageType: emp?.wageType || 'MONTHLY',
-          rateAmount: rate,
-          daysWorked: daysInMonth,
-          baseEarned,
-          overtimeHours: 0,
-          overtimeEarned: 0,
-          outstandingAdvance: 0,
-          netPayable: baseEarned,
-        });
-        setNewPayroll(prev => ({
-          ...prev,
-          daysWorked: daysInMonth,
-          baseAmount: baseEarned,
-          netAmountPaid: baseEarned,
-        }));
-        setSuccessMsg('Computed full monthly wage for calendar period.');
+      if (!res.ok) {
+        throw new Error(await getResponseErrorMessage(res, 'Payroll calculation failed.'));
       }
+
+      const body = await res.json();
+      const calc = body.data;
+      if (!calc) throw new Error('Payroll calculation returned no result.');
+
+      setPayrollCalcResult(calc);
+      setNewPayroll(prev => ({
+        ...prev,
+        daysWorked: Number(calc.payableDays ?? 0),
+        overtimeHours: Number(calc.overtimeHours ?? 0),
+        baseAmount: Number(calc.baseEarned ?? 0),
+        bonusAllowance: Number(calc.overtimePay ?? 0),
+        deductions: Number(calc.totalDeductions ?? 0),
+        netAmountPaid: Number(calc.balanceRemaining ?? 0),
+      }));
+      setSuccessMsg('Payroll calculated from saved attendance and current salary records.');
     } catch (err: any) {
-      setErrorMsg('Error calculating payroll.');
+      setPayrollCalcResult(null);
+      setNewPayroll(prev => ({ ...prev, netAmountPaid: 0 }));
+      setErrorMsg(err.message || 'Error calculating payroll.');
     } finally {
       setCalculatingPayroll(false);
     }
@@ -3121,7 +3162,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#f2f8f3] text-gray-900 flex flex-col md:flex-row font-sans selection:bg-emerald-500/30 selection:text-white">
+    <div className="min-h-screen bg-[#f2f8f3] text-gray-900 flex flex-col sm:flex-row font-sans selection:bg-emerald-500/30 selection:text-white">
 
       {/* Top Animated Progress Bar & Branded Loading Overlay */}
       <TopProgressBar active={loading || submittingKey !== null || syncingAlerts} />
@@ -3132,8 +3173,252 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         fullScreen={true}
       />
 
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+      {/* Mobile & Tablet Navigation Drawer */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)} />
+          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white shadow-2xl h-full overflow-y-auto z-10">
+            {/* Brand Header */}
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="/rr-logo.png" className="w-10 h-10 rounded-full object-cover shadow-sm" alt="RR Jaggery Logo" />
+                <div>
+                  <h1 className="text-base font-extrabold text-gray-900 tracking-tight font-serif">RR JAGGERY</h1>
+                  <p className="text-[11px] font-semibold text-emerald-700 tracking-wider uppercase">ERP Portal</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition"
+                aria-label="Close navigation drawer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* User Info Card */}
+            <div className="px-4 py-3 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center text-gray-900 font-bold text-xs shadow-sm">
+                  {user.fullName ? user.fullName[0].toUpperCase() : 'U'}
+                </div>
+                <div className="truncate">
+                  <p className="text-xs font-bold text-gray-900 truncate">{user.fullName || 'User'}</p>
+                  <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    {isAdmin ? 'ADMIN' : 'MANAGER'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={onLogout}
+                title="Sign Out"
+                className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-emerald-50/60 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Navigation Menu */}
+            <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+              <button
+                id="nav-overview"
+                onClick={() => {
+                  setCurrentTab("overview");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "overview"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Overview</span>
+              </button>
+
+              <button
+                id="nav-wholesale"
+                onClick={() => {
+                  setCurrentTab("wholesale");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "wholesale"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Wholesale & B2B Orders</span>
+              </button>
+
+              <button
+                id="nav-products"
+                onClick={() => {
+                  setCurrentTab("products");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "products"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <Package className="w-4 h-4" />
+                <span>Product Master</span>
+              </button>
+
+              <button
+                id="nav-production"
+                onClick={() => {
+                  setCurrentTab("production");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "production"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <Factory className="w-4 h-4" />
+                <span>Daily Production Management</span>
+              </button>
+
+              <button
+                id="nav-purchases-expenses"
+                onClick={() => {
+                  setCurrentTab("purchases_expenses");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "purchases_expenses"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <Boxes className="w-4 h-4" />
+                <span>Purchases & Operating Expenses</span>
+              </button>
+
+              <button
+                id="nav-staff"
+                onClick={() => {
+                  setCurrentTab("staff");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "staff"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Staff Attendance & Wages</span>
+              </button>
+
+              <button
+                id="nav-reports"
+                onClick={() => {
+                  setCurrentTab("reports");
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                  currentTab === "reports"
+                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Factory Reports</span>
+              </button>
+
+              {isAdmin && (
+                <div className="pt-3 mt-3 border-t border-gray-200 space-y-1">
+                  <div className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Administration
+                  </div>
+                  <button
+                    id="nav-dynamic-forms"
+                    onClick={() => {
+                      setCurrentTab("settings");
+                      setSettingsSubTab("form_builder");
+                      loadFormDefinition(formBuilderActiveForm);
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                      currentTab === "settings" && settingsSubTab === "form_builder"
+                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                    }`}
+                  >
+                    <FileText className="w-4 h-4 text-emerald-600" />
+                    <span>Dynamic Form Builder</span>
+                  </button>
+
+                  <button
+                    id="nav-settings"
+                    onClick={() => {
+                      setCurrentTab("settings");
+                      setSettingsSubTab("production_cost");
+                      loadFormDefinition(formBuilderActiveForm);
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                      currentTab === "settings" && settingsSubTab !== "form_builder"
+                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                    }`}
+                  >
+                    <Sliders className="w-4 h-4" />
+                    <span>Settings & Masters</span>
+                  </button>
+
+                  <button
+                    id="nav-users"
+                    onClick={() => {
+                      setCurrentTab("users");
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                      currentTab === "users"
+                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>User Access & Permissions</span>
+                  </button>
+
+                  <button
+                    id="nav-system-health"
+                    onClick={() => {
+                      setCurrentTab("system_health");
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
+                      currentTab === "system_health"
+                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                    }`}
+                  >
+                    <Activity className="w-4 h-4 text-emerald-600" />
+                    <span>System Health & Infrastructure</span>
+                  </button>
+                </div>
+              )}
+            </nav>
+
+            {/* Footer info */}
+            <div className="p-4 border-t border-gray-200 text-[11px] text-gray-500 flex items-center justify-between">
+              <span>RR Jaggery ERP v2.0</span>
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sidebar Navigation (Desktop / Laptop View Only) */}
+      <aside className="w-64 hidden lg:flex bg-white border-r border-gray-200 flex-col shrink-0 min-h-screen sticky top-0 h-screen">
         {/* Brand Header */}
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -3148,7 +3433,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         {/* User Info Card */}
         <div className="px-4 py-3 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center text-gray-900 font-bold text-xs shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center text-white font-bold text-xs shadow-sm">
               {user.fullName ? user.fullName[0].toUpperCase() : 'U'}
             </div>
             <div className="truncate">
@@ -3163,7 +3448,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             title="Sign Out"
             className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-emerald-50/60 transition"
           >
-            <X className="w-4 h-4" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
 
@@ -3335,24 +3620,33 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 w-full overflow-y-auto">
 
         {/* Top Header Bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sticky top-0 z-20 shadow-sm">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight capitalize font-serif">
-              {currentTab === 'overview' && 'Factory Overview'}
-              {currentTab === 'wholesale' && 'Wholesale & B2B Orders'}
-              {currentTab === 'products' && 'Product Master'}
-              {currentTab === 'production' && 'Daily Production Management'}
-              {currentTab === 'purchases_expenses' && 'Purchases & Operating Expenses'}
-              {currentTab === 'staff' && 'Staff Attendance & Wages'}
-              {currentTab === 'reports' && 'Factory Reports'}
-              {currentTab === 'users' && 'User Access & Permissions'}
-              {currentTab === 'system_health' && 'System Health & Infrastructure'}
-              {currentTab === 'settings' && (settingsSubTab === 'form_builder' ? 'Dynamic Business Forms Builder' : 'Business Configuration Masters')}
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Real-time operational records & stock status</p>
+        <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-4 sticky top-0 z-20 shadow-sm">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 -ml-1 text-gray-700 hover:text-gray-900 rounded-xl hover:bg-emerald-50 transition block lg:hidden"
+              aria-label="Toggle navigation drawer"
+            >
+              <Menu className="w-5 h-5 text-emerald-800" />
+            </button>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight capitalize font-serif leading-tight">
+                {currentTab === 'overview' && 'Factory Overview'}
+                {currentTab === 'wholesale' && 'Wholesale & B2B Orders'}
+                {currentTab === 'products' && 'Product Master'}
+                {currentTab === 'production' && 'Daily Production Management'}
+                {currentTab === 'purchases_expenses' && 'Purchases & Operating Expenses'}
+                {currentTab === 'staff' && 'Staff Attendance & Wages'}
+                {currentTab === 'reports' && 'Factory Reports'}
+                {currentTab === 'users' && 'User Access & Permissions'}
+                {currentTab === 'system_health' && 'System Health & Infrastructure'}
+                {currentTab === 'settings' && (settingsSubTab === 'form_builder' ? 'Dynamic Business Forms Builder' : 'Business Configuration Masters')}
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5 hidden xs:block">Real-time operational records & stock status</p>
+            </div>
           </div>
 
           {/* Period Toggle & Actions */}
@@ -3449,6 +3743,142 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           </div>
         </header>
 
+        {/* Quick Module Tab Bar for Mobile & Tablet (Flipkart Seller Hub Style) */}
+        <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap lg:hidden shadow-sm shrink-0">
+          <button
+            onClick={() => setCurrentTab('overview')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'overview'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Overview</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('wholesale')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'wholesale'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Wholesale & B2B</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('products')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'products'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <Package className="w-3.5 h-3.5" />
+            <span>Products</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('production')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'production'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <Factory className="w-3.5 h-3.5" />
+            <span>Production</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('purchases_expenses')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'purchases_expenses'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>Purchases & OPEX</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('staff')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'staff'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Staff & Wages</span>
+          </button>
+          <button
+            onClick={() => setCurrentTab('reports')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+              currentTab === 'reports'
+                ? 'bg-emerald-700 text-white shadow-sm'
+                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Reports</span>
+          </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => {
+                  setCurrentTab('settings');
+                  setSettingsSubTab('form_builder');
+                  loadFormDefinition(formBuilderActiveForm);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  currentTab === 'settings' && settingsSubTab === 'form_builder'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Forms</span>
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentTab('settings');
+                  setSettingsSubTab('production_cost');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  currentTab === 'settings' && settingsSubTab !== 'form_builder'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Settings</span>
+              </button>
+              <button
+                onClick={() => setCurrentTab('users')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  currentTab === 'users'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Users</span>
+              </button>
+              <button
+                onClick={() => setCurrentTab('system_health')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                  currentTab === 'system_health'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>Health</span>
+              </button>
+            </>
+          )}
+        </div>
+
         {/* Global Notifications */}
         {errorMsg && (
           <div className="mx-6 mt-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center justify-between text-rose-600 text-xs">
@@ -3475,17 +3905,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         )}
 
         {/* Dynamic Page Views */}
-        <div className="p-6 space-y-6">
+        <div className="p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
 
           {/* ══════════════════════════════════════════════════════════════════════
               TAB 1: OVERVIEW DASHBOARD
               ══════════════════════════════════════════════════════════════════════ */}
           {currentTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
 
               {/* Section 1A: Authoritative Business Operational Balance & Financial Ledger Cards */}
-              <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950 rounded-3xl p-6 text-white shadow-xl border border-emerald-700 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-700/80 pb-4">
+              <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-xl border border-emerald-700 space-y-4 sm:space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-700/80 pb-3 sm:pb-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[11px] font-bold tracking-wide uppercase">
@@ -3495,14 +3925,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         Period: {periodType === 'monthly' ? `${new Date(2026, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear}` : `Year ${selectedYear}`}
                       </span>
                     </div>
-                    <h2 className="text-2xl font-extrabold font-serif tracking-tight mt-1 text-white">
+                    <h2 className="text-xl sm:text-2xl font-extrabold font-serif tracking-tight mt-1 text-white">
                       Financial Position & Operational Balance
                     </h2>
                   </div>
                   {isAdmin && (
                     <button
                       onClick={() => setShowAddInvestmentModal(true)}
-                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 self-start"
+                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 self-start"
                     >
                       <Plus className="w-4 h-4" />
                       Add Investment
@@ -3511,14 +3941,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
 
                 {/* 5 Authoritative Running Balance Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
                   {/* Card 1: Total Business Position = Investments + Revenue - All Costs + Stock Value */}
-                  <div className="bg-emerald-950/60 border border-emerald-600/50 rounded-2xl p-4 shadow-inner">
+                  <div className="col-span-2 sm:col-span-1 bg-emerald-950/60 border border-emerald-600/50 rounded-2xl p-3 sm:p-4 shadow-inner">
                     <div className="flex items-center justify-between text-emerald-200 text-xs font-semibold">
                       <span>Business Position</span>
                       <Coins className="w-4 h-4 text-emerald-300" />
                     </div>
-                    <div className="mt-2 text-2xl font-black text-white font-mono">
+                    <div className="mt-2 text-lg sm:text-2xl font-black text-white font-mono">
                       ₹{(financialBalance?.totalBusinessPosition ?? (
                         investments.filter(i => i.status !== 'VOIDED').reduce((s, i) => s + (Number(i.amount) || 0), 0)
                         - totalOperatingCosts
@@ -3530,36 +3960,36 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   </div>
 
                   {/* Card 2: Opening Balance */}
-                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-4">
+                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-3 sm:p-4">
                     <div className="flex items-center justify-between text-emerald-200 text-xs font-semibold">
                       <span>Opening Balance</span>
                       <ArrowUpRight className="w-4 h-4 text-emerald-300" />
                     </div>
-                    <div className="mt-2 text-xl font-bold text-white font-mono">
+                    <div className="mt-2 text-base sm:text-xl font-bold text-white font-mono">
                       ₹{(financialBalance?.openingBalance ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-[10px] text-emerald-300 mt-1">At start of selected period</p>
                   </div>
 
                   {/* Card 3: Period Order Income */}
-                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-4">
+                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-3 sm:p-4">
                     <div className="flex items-center justify-between text-emerald-200 text-xs font-semibold">
                       <span>Order Income</span>
                       <ShoppingBag className="w-4 h-4 text-emerald-300" />
                     </div>
-                    <div className="mt-2 text-xl font-bold text-white font-mono">
+                    <div className="mt-2 text-base sm:text-xl font-bold text-white font-mono">
                       +₹{(financialBalance?.periodTotalOrderIncome ?? totalSalesRevenue).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-[10px] text-emerald-300 mt-1">Wholesale + Retail Sales</p>
                   </div>
 
                   {/* Card 4: Period Operating Expenses (OPEX + Payroll) */}
-                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-4">
+                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-3 sm:p-4">
                     <div className="flex items-center justify-between text-rose-300 text-xs font-semibold">
                       <span>Expenses + Salaries</span>
                       <Receipt className="w-4 h-4 text-rose-400" />
                     </div>
-                    <div className="mt-2 text-xl font-bold text-rose-200 font-mono">
+                    <div className="mt-2 text-base sm:text-xl font-bold text-rose-200 font-mono">
                       -₹{(
                         financialBalance?.periodOperatingCosts ??
                         (financialBalance?.periodExpenses != null
@@ -3574,12 +4004,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   </div>
 
                   {/* Card 5: Finished Stock Value */}
-                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-4">
+                  <div className="bg-emerald-950/40 border border-emerald-600/30 rounded-2xl p-3 sm:p-4">
                     <div className="flex items-center justify-between text-emerald-200 text-xs font-semibold">
                       <span>Finished Stock Value</span>
                       <Package className="w-4 h-4 text-emerald-300" />
                     </div>
-                    <div className="mt-2 text-xl font-bold text-white font-mono">
+                    <div className="mt-2 text-base sm:text-xl font-bold text-white font-mono">
                       ₹{(financialBalance?.finishedGoodsStockValue ?? (finishedJaggeryStockKg * 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-[10px] text-emerald-300 mt-1">{finishedJaggeryStockKg.toLocaleString()} KG in stock</p>
@@ -3588,7 +4018,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               </div>
 
               {/* Section 1B: Factory Operations & Inventory KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
 
                 {/* 1. Finished Jaggery Stock — clickable for movement drill-down */}
                 <div
@@ -4062,11 +4492,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     </button>
                                     <button
                                       onClick={() => setSelectedInvoiceOrder(order)}
-                                      title="View GST Tax Invoice"
+                                      title="View Commercial Invoice"
                                       className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-medium border border-emerald-200 transition flex items-center gap-1"
                                     >
                                       <FileText className="w-3.5 h-3.5" />
-                                      Tax Invoice
+                                      Commercial Invoice
                                     </button>
                                     <button
                                       onClick={() => handleDeleteOrder(order, 'wholesale')}
@@ -4343,7 +4773,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               </div>
 
               {/* Product Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
                 {products.length === 0 ? (
                   <div className="col-span-full py-12 text-center text-gray-400 bg-white border border-emerald-200 rounded-2xl">
                     <Package className="w-8 h-8 text-gray-600 mx-auto mb-2" />
@@ -4357,9 +4787,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     const stockQty = inv ? inv.currentQuantity : 0;
 
                     return (
-                      <div key={prod.id} className="bg-white border border-emerald-200 rounded-2xl overflow-hidden flex flex-col shadow-sm hover:border-gray-300 transition">
+                      <div key={prod.id} className="bg-white border border-emerald-200 rounded-xl sm:rounded-2xl overflow-hidden flex flex-col shadow-sm hover:border-gray-300 transition">
                         {/* Product Image */}
-                        <div className="h-44 bg-white relative overflow-hidden flex items-center justify-center">
+                        <div className="h-32 sm:h-44 bg-white relative overflow-hidden flex items-center justify-center">
                           {prod.imageUrl ? (
                             <img
                               src={prod.imageUrl}
@@ -4393,7 +4823,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           <div>
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
-                                {prod.grade.replace(/_/g, ' ')}
+                                {categories.find(c => c.id === prod.categoryId)?.name || 'Pure Jaggery'}
                               </span>
                               <span className={`w-2 h-2 rounded-full ${prod.active ? 'bg-emerald-500' : 'bg-emerald-100'}`} />
                             </div>
@@ -4719,7 +5149,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
                             <th className="p-3.5 font-medium w-28 whitespace-nowrap">Date</th>
                             <th className="p-3.5 font-medium w-48 whitespace-nowrap">Category</th>
-                            <th className="p-3.5 font-medium min-w-[200px]">Description</th>
+                            <th className="p-3.5 font-medium min-w-36">Description</th>
                             <th className="p-3.5 font-medium w-48 whitespace-nowrap">Payee / Vendor</th>
                             <th className="p-3.5 font-medium w-32 text-center whitespace-nowrap">Payment Mode</th>
                             <th className="p-3.5 font-medium w-36 text-right whitespace-nowrap">Amount (₹)</th>
@@ -5250,9 +5680,16 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         <input
                           type="date"
                           value={selectedAttendanceDate}
+                          max={getLocalDateInputValue()}
                           onChange={(e) => {
-                            setSelectedAttendanceDate(e.target.value);
-                            setNewAttendance(prev => ({ ...prev, attendanceDate: e.target.value }));
+                            const date = e.target.value;
+                            const [year, month] = date.split('-').map(Number);
+                            setSelectedAttendanceDate(date);
+                            setNewAttendance(prev => ({ ...prev, attendanceDate: date }));
+                            if (year && month) {
+                              setSelectedYear(year);
+                              setSelectedMonth(month);
+                            }
                           }}
                           className="bg-transparent text-gray-900 font-bold focus:outline-none cursor-pointer"
                         />
@@ -5260,9 +5697,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                       <button
                         onClick={() => {
-                          const today = new Date().toISOString().split('T')[0];
+                          const today = getLocalDateInputValue();
                           setSelectedAttendanceDate(today);
                           setNewAttendance(prev => ({ ...prev, attendanceDate: today }));
+                          const [year, month] = today.split('-').map(Number);
+                          setSelectedYear(year);
+                          setSelectedMonth(month);
                         }}
                         className="px-3 py-1.5 bg-emerald-50/60 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold border border-gray-300 transition"
                       >
@@ -5270,17 +5710,21 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       </button>
 
                       <button
+                        disabled={employees.length === 0}
                         onClick={() => {
+                          const defaultEmployee = employees[0];
+                          const sundayOff = isSundayDate(selectedAttendanceDate)
+                            && isSundayOffWageType(defaultEmployee?.wageType);
                           setNewAttendance({
-                            employeeId: employees[0]?.id || '',
+                            employeeId: defaultEmployee?.id || '',
                             attendanceDate: selectedAttendanceDate,
-                            status: 'PRESENT',
+                            status: sundayOff ? 'ABSENT' : 'PRESENT',
                             overtimeHours: 0,
                             notes: '',
                           });
                           setShowRecordAttendanceModal(true);
                         }}
-                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-sm transition flex items-center gap-1.5"
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-sm transition flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Plus className="w-4 h-4" />
                         Mark Attendance
@@ -5294,19 +5738,25 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <span>Roster Status for {selectedAttendanceDate}</span>
                       <span className="text-[11px] text-emerald-700 font-semibold lowercase">
                         {attendanceRecords.filter(a => a.attendanceDate === selectedAttendanceDate).length} of {employees.length} marked
+                        {isSundayDate(selectedAttendanceDate) && employees.some(emp => isSundayOffWageType(emp.wageType))
+                          ? ` · ${employees.filter(emp => isSundayOffWageType(emp.wageType)).length} Sunday off`
+                          : ''}
                       </span>
                     </h5>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                       {employees.map(emp => {
                         const rec = attendanceRecords.find(a => a.employeeId === emp.id && a.attendanceDate === selectedAttendanceDate);
-                        const isMarked = !!rec;
+                        const sundayOff = isSundayDate(selectedAttendanceDate) && isSundayOffWageType(emp.wageType);
+                        const isMarked = !!rec || sundayOff;
 
                         return (
                           <div
                             key={emp.id}
                             className={`p-4 rounded-xl border transition flex flex-col justify-between space-y-3 ${
-                              isMarked
+                              sundayOff
+                                ? 'bg-amber-50 border-amber-300'
+                                : isMarked
                                 ? rec.status === 'PRESENT'
                                   ? 'bg-white border-emerald-500/30'
                                   : rec.status === 'HALF_DAY'
@@ -5320,7 +5770,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 <p className="text-xs font-bold text-gray-900">{emp.fullName}</p>
                                 <span className="text-[10px] text-gray-500 block mt-0.5">{emp.designation} • {emp.wageType}</span>
                               </div>
-                              {isMarked ? (
+                              {sundayOff ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                  SUNDAY — OFF
+                                </span>
+                              ) : isMarked ? (
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                   rec.status === 'PRESENT'
                                     ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
@@ -5337,7 +5791,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               )}
                             </div>
 
-                            {isMarked && Number(rec.overtimeHours) > 0 && (
+                            {!sundayOff && rec && Number(rec.overtimeHours) > 0 && (
                               <div className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1 bg-emerald-700/10 px-2 py-1 rounded-lg">
                                 <Clock className="w-3 h-3 text-emerald-700" />
                                 <span>+{rec.overtimeHours} hrs Overtime</span>
@@ -5345,25 +5799,30 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             )}
 
                             <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
-                              <span className="text-[10px] font-mono text-gray-400">₹{emp.rateAmount}/{emp.wageType === 'DAILY' ? 'day' : 'month'}</span>
+                              <span className="text-[10px] font-mono text-gray-400">
+                                ₹{emp.rateAmount}/{emp.wageType === 'DAILY' ? 'day' : emp.wageType === 'WEEKLY' ? 'week' : emp.wageType === 'BATCH_BASED' ? 'batch' : 'month'}
+                              </span>
                               <button
+                                disabled={sundayOff}
                                 onClick={() => {
                                   setNewAttendance({
                                     employeeId: emp.id,
                                     attendanceDate: selectedAttendanceDate,
-                                    status: rec ? rec.status : 'PRESENT',
-                                    overtimeHours: rec ? Number(rec.overtimeHours) || 0 : 0,
+                                    status: sundayOff ? 'ABSENT' : rec ? rec.status : 'PRESENT',
+                                    overtimeHours: sundayOff ? 0 : rec ? Number(rec.overtimeHours) || 0 : 0,
                                     notes: rec?.notes || '',
                                   });
                                   setShowRecordAttendanceModal(true);
                                 }}
-                                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition ${
-                                  isMarked
+                                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                                  sundayOff
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : isMarked
                                     ? 'bg-emerald-50/60 hover:bg-gray-200 text-gray-800 border border-gray-300'
                                     : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow'
                                 }`}
                               >
-                                {isMarked ? 'Edit' : 'Mark'}
+                                {sundayOff ? 'Sunday Off' : isMarked ? 'Edit' : 'Mark'}
                               </button>
                             </div>
                           </div>
@@ -5685,7 +6144,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         <p className="text-[11px] text-gray-400">Billed revenue</p>
                       </div>
                       <div className="p-4 bg-white rounded-xl border border-gray-200 space-y-1">
-                        <span className="text-gray-500">GST / Tax Included</span>
+                        <span className="text-gray-500">GST / Tax Charged</span>
                         <p className="text-xl font-bold text-blue-600">₹{totalTaxCollected.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                         <p className="text-[11px] text-gray-400">Authoritative taxes</p>
                       </div>
@@ -6289,7 +6748,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
                               <th className="p-3.5 font-medium w-28 whitespace-nowrap">Date</th>
                               <th className="p-3.5 font-medium w-48 whitespace-nowrap">Category</th>
-                              <th className="p-3.5 font-medium min-w-[180px]">Description</th>
+                              <th className="p-3.5 font-medium min-w-36">Description</th>
                               <th className="p-3.5 font-medium w-48 whitespace-nowrap">Payee / Vendor</th>
                               <th className="p-3.5 font-medium w-32 text-center whitespace-nowrap">Payment Mode</th>
                               <th className="p-3.5 font-medium w-36 text-right whitespace-nowrap">Amount (₹)</th>
@@ -6349,6 +6808,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   }
                   return true;
                 });
+                const filteredEmployees = employees.filter(emp =>
+                  payrollFilterWageType === 'all' || emp.wageType === payrollFilterWageType
+                );
 
                 const totalNetPaid = filteredPayroll.reduce((sum, p) => sum + (Number(p.netAmountPaid) || 0), 0);
                 const totalOvertimeHours = filteredPayroll.reduce((sum, p) => sum + (Number(p.overtimeHours) || 0), 0);
@@ -6360,7 +6822,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <div className="p-4 bg-white rounded-xl border border-gray-200 space-y-1">
                         <span className="text-gray-500">Total Factory Workers</span>
                         <p className="text-xl font-bold text-gray-900">{employees.length} Employees</p>
-                        <p className="text-[11px] text-gray-400">Daily, Monthly, Per-KG, Batch rates</p>
+                        <p className="text-[11px] text-gray-400">Daily, Weekly, Monthly, Batch Wise rates</p>
                       </div>
                       <div className="p-4 bg-white rounded-xl border border-gray-200 space-y-1">
                         <span className="text-gray-500">Net Wages Disbursed</span>
@@ -6371,6 +6833,49 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         <span className="text-gray-500">Overtime Logged</span>
                         <p className="text-xl font-bold text-emerald-800">{totalOvertimeHours} Hours</p>
                         <p className="text-[11px] text-gray-400">Safe wage-type OT rule applied</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-200">
+                        <h4 className="text-xs font-bold text-gray-800">Worker Details</h4>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                              <th className="p-3 font-medium">Worker / Code</th>
+                              <th className="p-3 font-medium">Designation</th>
+                              <th className="p-3 font-medium">Wage Type</th>
+                              <th className="p-3 font-medium">Rate (₹)</th>
+                              <th className="p-3 font-medium">Phone</th>
+                              <th className="p-3 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {filteredEmployees.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="p-6 text-center text-gray-400">
+                                  No workers match this wage type.
+                                </td>
+                              </tr>
+                            ) : filteredEmployees.map(emp => (
+                              <tr key={emp.id} className="hover:bg-gray-50 transition">
+                                <td className="p-3 font-semibold text-gray-800">
+                                  {emp.fullName}
+                                  <span className="block text-[10px] text-gray-500 font-mono">{emp.employeeCode}</span>
+                                </td>
+                                <td className="p-3 text-gray-700">{emp.designation || '—'}</td>
+                                <td className="p-3 text-gray-700">{wageTypeLabels[emp.wageType] || emp.wageType}</td>
+                                <td className="p-3 text-gray-700">
+                                  ₹{Number(emp.rateAmount).toLocaleString('en-IN')}/{wageTypeUnits[emp.wageType] || 'unit'}
+                                </td>
+                                <td className="p-3 text-gray-700">{emp.phone || '—'}</td>
+                                <td className="p-3 text-emerald-700 font-medium">{emp.active ? 'Active' : 'Inactive'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
@@ -6385,9 +6890,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         >
                           <option value="all">All Wage Types</option>
                           <option value="DAILY">Daily Rate</option>
+                          <option value="WEEKLY">Weekly Rate</option>
                           <option value="MONTHLY">Monthly Salary</option>
-                          <option value="PIECE_RATE_KG">Piece Rate (Per KG)</option>
-                          <option value="PER_BATCH">Per Batch Rate</option>
+                          <option value="BATCH_BASED">Batch Wise</option>
+                          <option value="PER_KG">Piece Rate (Per KG)</option>
+                          <option value="CONTRACT">Contract Wage</option>
                         </select>
                       </div>
 
@@ -8619,37 +9126,22 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   required
                   value={productForm.name}
                   onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                  placeholder="e.g. Traditional Jaggery Block (Grade A)"
+                  placeholder="e.g. Traditional Organic Jaggery Block"
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Category</label>
-                  <select
-                    value={productForm.categoryId}
-                    onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
-                  >
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Grade</label>
-                  <select
-                    value={productForm.grade}
-                    onChange={(e) => setProductForm({ ...productForm, grade: e.target.value })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
-                  >
-                    <option value="GRADE_A_TRADITIONAL">Grade A Traditional</option>
-                    <option value="ORGANIC_POWDER">Organic Powder</option>
-                    <option value="EXPORT_CUBES">Export Cubes</option>
-                    <option value="LIQUID_JAGGERY">Liquid Jaggery</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-gray-700 font-medium mb-1">Category</label>
+                <select
+                  value={productForm.categoryId}
+                  onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                >
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Product Image Upload Section */}
@@ -8859,9 +9351,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               </div>
 
               <div className="p-3 bg-white rounded-xl border border-gray-200 flex items-center justify-between text-xs">
-                <span className="text-gray-500">Estimated Total (incl. 5% GST):</span>
+                <span className="text-gray-500">Estimated Commercial Total:</span>
                 <span className="font-bold text-emerald-700 text-sm">
-                  ₹{(newWholesaleOrder.quantityKg * newWholesaleOrder.pricePerKg * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  ₹{(newWholesaleOrder.quantityKg * newWholesaleOrder.pricePerKg).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -9060,20 +9552,15 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 />
               </div>
 
-              {/* Real-time Financial Breakdown (GST-inclusive) */}
+              {/* Real-time commercial order totals */}
               {(() => {
                 const subtotal = retailOrderForm.quantityKg * retailOrderForm.pricePerKg;
-                const gst = subtotal * 0.05;
-                const grandTotal = subtotal + gst + Number(retailOrderForm.deliveryCharges);
+                const grandTotal = subtotal + Number(retailOrderForm.deliveryCharges);
                 return (
                   <div className="p-3.5 bg-emerald-50/50 rounded-xl border border-emerald-200 space-y-1.5 text-xs">
                     <div className="flex justify-between text-gray-600">
                       <span>Product Subtotal ({retailOrderForm.quantityKg} KG × ₹{retailOrderForm.pricePerKg}/KG):</span>
                       <span className="font-semibold text-gray-900">₹{subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-500">
-                      <span>GST (5%):</span>
-                      <span className="font-medium">₹{gst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                     </div>
                     {Number(retailOrderForm.deliveryCharges) > 0 && (
                       <div className="flex justify-between text-gray-600">
@@ -9082,12 +9569,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       </div>
                     )}
                     <div className="pt-2 border-t border-emerald-200 flex justify-between items-center">
-                      <span className="font-bold text-gray-900">Invoice Total (incl. GST):</span>
+                      <span className="font-bold text-gray-900">Commercial Invoice Total:</span>
                       <span className="font-bold text-emerald-700 text-sm font-mono">
                         ₹{grandTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-400 text-right">Stock deducted on save · 5% GST applied by system</p>
+                    <p className="text-[10px] text-gray-400 text-right">GST is not included in this commercial total.</p>
                   </div>
                 );
               })()}
@@ -9617,10 +10104,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <div>
                   <label className="block text-gray-700 font-bold mb-1">Expense Category *</label>
                   <select
+                    required
                     value={newExpense.category}
                     onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none"
                   >
+                    <option value="" disabled>Select an expense category</option>
                     {expenseCategories.length > 0 ? (
                       expenseCategories
                         .filter(c => c.active !== false)
@@ -9929,10 +10418,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                   >
                     <option value="DAILY">Daily Wage (₹/day)</option>
-                    <option value="MONTHLY">Monthly Salary (₹/month)</option>
-                    <option value="BATCH_BASED">Batch-Based Wage (₹/batch)</option>
-                    <option value="PER_KG">Per KG Output Wage (₹/KG)</option>
-                    <option value="CONTRACT">Contract Wage (Fixed)</option>
+                    <option value="WEEKLY">Weekly Wage (₹/week)</option>
+                    <option value="MONTHLY">Monthly Wage (₹/month, Sundays excluded)</option>
+                    <option value="BATCH_BASED">Batch Wise Wage (₹/batch)</option>
                   </select>
                 </div>
                 <div>
@@ -10041,10 +10529,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                   >
                     <option value="DAILY">Daily Wage (₹/day)</option>
-                    <option value="MONTHLY">Monthly Salary (₹/month)</option>
-                    <option value="BATCH_BASED">Batch-Based Wage (₹/batch)</option>
-                    <option value="PER_KG">Per KG Output Wage (₹/KG)</option>
-                    <option value="CONTRACT">Contract Wage (Fixed)</option>
+                    <option value="WEEKLY">Weekly Wage (₹/week)</option>
+                    <option value="MONTHLY">Monthly Wage (₹/month, Sundays excluded)</option>
+                    <option value="BATCH_BASED">Batch Wise Wage (₹/batch)</option>
                   </select>
                 </div>
                 <div>
@@ -10123,7 +10610,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <select
                   required
                   value={newAttendance.employeeId}
-                  onChange={(e) => setNewAttendance({ ...newAttendance, employeeId: e.target.value })}
+                  onChange={(e) => {
+                    const selectedEmployee = employees.find(emp => emp.id === e.target.value);
+                    const sundayOff = isSundayDate(newAttendance.attendanceDate)
+                      && isSundayOffWageType(selectedEmployee?.wageType);
+                    setNewAttendance({
+                      ...newAttendance,
+                      employeeId: e.target.value,
+                      status: sundayOff ? 'ABSENT' : newAttendance.status,
+                      overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
+                    });
+                  }}
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                 >
                   <option value="">-- Select Worker --</option>
@@ -10140,7 +10637,24 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     type="date"
                     required
                     value={newAttendance.attendanceDate}
-                    onChange={(e) => setNewAttendance({ ...newAttendance, attendanceDate: e.target.value })}
+                    max={getLocalDateInputValue()}
+                    onChange={(e) => {
+                      const date = e.target.value;
+                      const [year, month] = date.split('-').map(Number);
+                      const sundayOff = isSundayDate(date)
+                        && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType);
+                      setNewAttendance({
+                        ...newAttendance,
+                        attendanceDate: date,
+                        status: sundayOff ? 'ABSENT' : newAttendance.status,
+                        overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
+                      });
+                      setSelectedAttendanceDate(date);
+                      if (year && month) {
+                        setSelectedYear(year);
+                        setSelectedMonth(month);
+                      }
+                    }}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
                   />
                 </div>
@@ -10148,6 +10662,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <label className="block text-gray-700 font-medium mb-1">Status *</label>
                   <select
                     value={newAttendance.status}
+                    disabled={isSundayDate(newAttendance.attendanceDate)
+                      && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType)}
                     onChange={(e) => setNewAttendance({ ...newAttendance, status: e.target.value as any })}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-semibold"
                   >
@@ -10155,6 +10671,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <option value="HALF_DAY">Half Day</option>
                     <option value="ABSENT">Absent</option>
                   </select>
+                  {isSundayDate(newAttendance.attendanceDate)
+                    && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType) && (
+                      <p className="mt-1 text-[11px] text-amber-800">
+                        Sunday is an automatic weekly rest day; monthly and weekly payroll exclude attendance and overtime for this date.
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -10164,6 +10686,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   type="number"
                   min="0"
                   step="0.5"
+                  disabled={isSundayDate(newAttendance.attendanceDate)
+                    && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType)}
                   value={newAttendance.overtimeHours}
                   onChange={(e) => setNewAttendance({ ...newAttendance, overtimeHours: Number(e.target.value) })}
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-bold text-emerald-800"
@@ -10191,9 +10715,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow"
+                  disabled={submittingKey === 'record-attendance'}
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Save Attendance
+                  {submittingKey === 'record-attendance' ? 'Saving...' : 'Save Attendance'}
                 </button>
               </div>
             </form>
@@ -10223,21 +10748,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   value={newPayroll.employeeId}
                   onChange={(e) => {
                     const empId = e.target.value;
-                    const emp = employees.find(x => x.id === empId);
-                    const daysInM = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
-                    const rate = emp?.rateAmount || 0;
-                    let base = 0;
-                    if (emp?.wageType === 'MONTHLY') {
-                      base = rate;
-                    } else if (emp?.wageType === 'DAILY') {
-                      base = rate * daysInM;
-                    }
                     setNewPayroll({
                       ...newPayroll,
                       employeeId: empId,
-                      daysWorked: daysInM,
-                      baseAmount: base,
-                      netAmountPaid: base,
+                      netAmountPaid: 0,
                     });
                     setPayrollCalcResult(null);
                   }}
@@ -10245,7 +10759,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 >
                   <option value="">-- Select Worker --</option>
                   {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.designation} — {emp.wageType} ₹{emp.rateAmount})</option>
+                    <option key={emp.id} value={emp.id}>
+                      {emp.fullName} ({emp.designation} — {wageTypeLabels[emp.wageType] || emp.wageType} ₹{emp.rateAmount}/{wageTypeUnits[emp.wageType] || 'unit'})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -10257,19 +10773,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     value={newPayroll.periodMonth}
                     onChange={(e) => {
                       const m = Number(e.target.value);
-                      const emp = employees.find(x => x.id === newPayroll.employeeId);
-                      const daysInM = new Date(newPayroll.periodYear, m, 0).getDate();
-                      const rate = emp?.rateAmount || 0;
-                      let base = rate;
-                      if (emp?.wageType === 'DAILY') {
-                        base = rate * daysInM;
-                      }
                       setNewPayroll({
                         ...newPayroll,
                         periodMonth: m,
-                        daysWorked: daysInM,
-                        baseAmount: base,
-                        netAmountPaid: base,
+                        netAmountPaid: 0,
                       });
                       setPayrollCalcResult(null);
                     }}
@@ -10277,7 +10784,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                       <option key={m} value={m}>
-                        {new Date(2026, m - 1).toLocaleString('default', { month: 'long' })}
+                        {new Date(newPayroll.periodYear, m - 1).toLocaleString('default', { month: 'long' })}
                       </option>
                     ))}
                   </select>
@@ -10289,19 +10796,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     value={newPayroll.periodYear}
                     onChange={(e) => {
                       const yr = Number(e.target.value);
-                      const emp = employees.find(x => x.id === newPayroll.employeeId);
-                      const daysInM = new Date(yr, newPayroll.periodMonth, 0).getDate();
-                      const rate = emp?.rateAmount || 0;
-                      let base = rate;
-                      if (emp?.wageType === 'DAILY') {
-                        base = rate * daysInM;
-                      }
                       setNewPayroll({
                         ...newPayroll,
                         periodYear: yr,
-                        daysWorked: daysInM,
-                        baseAmount: base,
-                        netAmountPaid: base,
+                        netAmountPaid: 0,
                       });
                       setPayrollCalcResult(null);
                     }}
@@ -10329,115 +10827,61 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <span className="font-semibold text-gray-800">{payrollCalcResult.wageType} (₹{payrollCalcResult.rateAmount})</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>Calendar Days / Days Worked:</span>
-                    <span className="font-semibold text-emerald-800">{new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate()} days in month / {payrollCalcResult.daysWorked} days worked</span>
+                    <span>Present / Half Days / Payable Days:</span>
+                    <span className="font-semibold text-emerald-800">{payrollCalcResult.presentDays} / {payrollCalcResult.halfDays} / {payrollCalcResult.payableDays}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
                     <span>Base Wages Earned:</span>
                     <span className="font-semibold text-gray-900">₹{Number(payrollCalcResult.baseEarned).toLocaleString()}</span>
                   </div>
-                  {Number(payrollCalcResult.overtimeEarned) > 0 && (
+                  {Number(payrollCalcResult.overtimePay) > 0 && (
                     <div className="flex justify-between text-gray-700">
                       <span>Overtime Earned ({payrollCalcResult.overtimeHours} hrs):</span>
-                      <span>₹{Number(payrollCalcResult.overtimeEarned).toLocaleString()}</span>
+                      <span>₹{Number(payrollCalcResult.overtimePay).toLocaleString()}</span>
                     </div>
                   )}
-                  {Number(payrollCalcResult.outstandingAdvance) > 0 && (
+                  {Number(payrollCalcResult.totalDeductions) > 0 && (
                     <div className="flex justify-between text-rose-600 font-medium">
-                      <span>Outstanding Advance Deducted:</span>
-                      <span>-₹{Number(payrollCalcResult.outstandingAdvance).toLocaleString()}</span>
+                      <span>Deductions and advances recovered:</span>
+                      <span>-₹{Number(payrollCalcResult.totalDeductions).toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-emerald-800 font-bold border-t border-emerald-200 pt-1 mt-1 text-xs">
-                    <span>Net Computed Payable:</span>
+                  <div className="flex justify-between text-gray-700">
+                    <span>Already Paid:</span>
+                    <span>₹{Number(payrollCalcResult.paidAmount).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-700">
+                    <span>Net Payable:</span>
                     <span>₹{Number(payrollCalcResult.netPayable).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-800 font-bold border-t border-emerald-200 pt-1 mt-1 text-xs">
+                    <span>Remaining Balance:</span>
+                    <span>₹{Number(payrollCalcResult.balanceRemaining).toLocaleString()}</span>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Days Worked</label>
-                  <input
-                    type="number"
-                    value={newPayroll.daysWorked}
-                    onChange={(e) => {
-                      const d = Number(e.target.value);
-                      const emp = employees.find(x => x.id === newPayroll.employeeId);
-                      const daysInM = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
-                      const rate = emp?.rateAmount || 0;
-                      let base = 0;
-                      if (emp?.wageType === 'MONTHLY') {
-                        if (d >= daysInM) {
-                          base = rate;
-                        } else if (d > 0) {
-                          base = Math.round((rate / daysInM) * d);
-                        } else {
-                          base = 0;
-                        }
-                      } else if (emp?.wageType === 'DAILY') {
-                        base = Math.round(rate * d);
-                      } else {
-                        base = Math.round(rate * d);
-                      }
-                      const net = Math.max(0, base + (newPayroll.bonusAllowance || 0) - (newPayroll.deductions || 0));
-                      setNewPayroll({
-                        ...newPayroll,
-                        daysWorked: d,
-                        baseAmount: base,
-                        netAmountPaid: net,
-                      });
-                    }}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-semibold"
-                  />
-                  {(() => {
-                    const emp = employees.find(x => x.id === newPayroll.employeeId);
-                    const daysInM = new Date(newPayroll.periodYear, newPayroll.periodMonth, 0).getDate();
-                    if (!emp) return null;
-                    if (emp.wageType === 'MONTHLY') {
-                      return (
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          Month has <strong className="text-emerald-800">{daysInM} days</strong> · Daily rate: ₹{(emp.rateAmount / daysInM).toFixed(2)}/day
-                          {newPayroll.daysWorked >= daysInM ? (
-                            <span className="block text-emerald-700 font-semibold mt-0.5">✓ Full month present ({daysInM} days) = ₹{emp.rateAmount} full pay</span>
-                          ) : (
-                            <span className="block text-amber-700 font-medium mt-0.5">Pro-rata: (₹{emp.rateAmount} ÷ {daysInM}) × {newPayroll.daysWorked} = ₹{newPayroll.baseAmount}</span>
-                          )}
-                        </p>
-                      );
-                    }
-                    if (emp.wageType === 'DAILY') {
-                      return (
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          Daily rate: ₹{emp.rateAmount}/day · Total = ₹{emp.rateAmount * newPayroll.daysWorked}
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-medium mb-1">Overtime (Hours)</label>
-                  <input
-                    type="number"
-                    value={newPayroll.overtimeHours}
-                    onChange={(e) => setNewPayroll({ ...newPayroll, overtimeHours: Number(e.target.value) })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
-                  />
-                </div>
-              </div>
+              {!payrollCalcResult && (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
+                  Calculate payroll to load the server-verified attendance, deductions, payments, and remaining balance.
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">Net Amount Paid (₹) *</label>
+                  <label className="block text-gray-700 font-medium mb-1">Payment Amount (₹) *</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0.01"
+                    step="0.01"
+                    max={payrollCalcResult ? Number(payrollCalcResult.balanceRemaining) : undefined}
                     required
+                    disabled={!payrollCalcResult || Number(payrollCalcResult.balanceRemaining) <= 0}
                     value={newPayroll.netAmountPaid}
                     onChange={(e) => setNewPayroll({ ...newPayroll, netAmountPaid: Number(e.target.value) })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-bold text-emerald-700"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none font-bold text-emerald-700 disabled:bg-gray-100"
                   />
+                  <p className="text-[10px] text-gray-500 mt-1">You can record a partial payment up to the remaining balance.</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">Payment Method</label>
@@ -10473,9 +10917,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow"
+                  disabled={submittingKey === 'save-wage-payment' || !payrollCalcResult || Number(payrollCalcResult.balanceRemaining) <= 0}
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Save Wage Payment
+                  {submittingKey === 'save-wage-payment' ? 'Saving…' : 'Save Wage Payment'}
                 </button>
               </div>
             </form>
@@ -10483,7 +10928,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         </div>
       )}
 
-      {/* 11. Modal: View GST Tax Invoice (Reuses existing tested format) */}
+      {/* 11. Modal: View Commercial Invoice */}
       {selectedInvoiceOrder && (
         <div className="fixed inset-0 bg-emerald-50/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white text-gray-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl p-6 space-y-6 text-xs animate-in fade-in zoom-in-95 duration-150">
@@ -10496,7 +10941,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               </div>
               <div className="text-right">
                 <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-900 font-bold text-xs uppercase tracking-wider">
-                  INVOICE
+                  COMMERCIAL INVOICE
                 </span>
                 <p className="text-gray-700 font-mono font-bold mt-1.5">{selectedInvoiceOrder.invoiceNumber || 'INV-OFF-2026'}</p>
                 <p className="text-gray-400 text-[11px]">{selectedInvoiceOrder.orderDate ? new Date(selectedInvoiceOrder.orderDate).toLocaleDateString() : '23 Sep 2026'}</p>
@@ -10526,7 +10971,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               </thead>
               <tbody className="divide-y divide-gray-200">
                 <tr>
-                  <td className="py-2.5 font-medium">Traditional Organic Jaggery (Grade A)</td>
+                  <td className="py-2.5 font-medium">Traditional Pure Organic Jaggery</td>
                   <td className="py-2.5">100 KG</td>
                   <td className="py-2.5">₹120.00</td>
                   <td className="py-2.5 text-right font-semibold">₹{Number(selectedInvoiceOrder.totalAmount).toFixed(2)}</td>
@@ -10592,10 +11037,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         const paymentMethod = o.paymentMethod || (isOnline ? 'ONLINE' : 'CASH');
 
         const itemsList = Array.isArray(o.items) && o.items.length > 0 ? o.items : [];
-        const subtotal = Number(o.subtotalAmount || (Number(o.totalAmount || 0) / 1.05)) || 0;
-        const tax = Number(o.taxAmount || (Number(o.totalAmount || 0) * 0.05 / 1.05)) || 0;
         const shipping = Number(o.deliveryCharges || o.shippingAmount || 0);
         const total = Number(o.totalAmount || 0);
+        const tax = Number(o.taxAmount ?? 0);
+        const subtotal = Number(o.subtotalAmount ?? (total - tax - shipping));
         const paid = Number(o.paidAmount ?? (paymentStatus === 'PAID' ? total : 0));
         const balance = Number(o.outstandingAmount ?? (paymentStatus === 'PAID' ? 0 : Math.max(0, total - paid)));
 
@@ -10765,13 +11210,15 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <div className="flex justify-end pt-2 border-t border-gray-200">
                 <div className="w-72 space-y-1.5 text-xs">
                   <div className="flex justify-between text-gray-600">
-                    <span>Taxable Subtotal:</span>
+                    <span>Subtotal:</span>
                     <span className="font-medium">₹{subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>GST (5%):</span>
-                    <span className="font-medium">₹{tax.toFixed(2)}</span>
-                  </div>
+                  {tax > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Tax recorded on order:</span>
+                      <span className="font-medium">₹{tax.toFixed(2)}</span>
+                    </div>
+                  )}
                   {shipping > 0 && (
                     <div className="flex justify-between text-gray-600">
                       <span>Shipping / Delivery:</span>
@@ -10828,7 +11275,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-semibold border border-emerald-300 transition flex items-center gap-1.5 text-xs"
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      View Tax Invoice
+                      View Commercial Invoice
                     </button>
                   )}
                 </div>
@@ -13181,5 +13628,3 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     </div>
   );
 };
-
-

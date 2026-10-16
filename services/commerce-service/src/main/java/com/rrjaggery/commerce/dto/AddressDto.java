@@ -13,6 +13,9 @@ public class AddressDto {
     @NotBlank(message = "Street address is required")
     private String streetAddress;
 
+    @NotBlank(message = "Apartment or building name is required")
+    private String apartmentName;
+
     @NotBlank(message = "City is required")
     private String city;
 
@@ -22,15 +25,25 @@ public class AddressDto {
     @NotBlank(message = "Postal code / PIN is required")
     private String postalCode;
 
+    @NotBlank(message = "Nearest landmark is required")
+    private String nearestLandmark;
+
     public AddressDto() {}
 
     public AddressDto(String recipientName, String phone, String streetAddress, String city, String state, String postalCode) {
+        this(recipientName, phone, "", streetAddress, city, state, postalCode, "");
+    }
+
+    public AddressDto(String recipientName, String phone, String apartmentName, String streetAddress,
+                      String city, String state, String postalCode, String nearestLandmark) {
         this.recipientName = recipientName;
         this.phone = phone;
+        this.apartmentName = apartmentName;
         this.streetAddress = streetAddress;
         this.city = city;
         this.state = state;
         this.postalCode = postalCode;
+        this.nearestLandmark = nearestLandmark;
     }
 
     public String getRecipientName() { return recipientName; }
@@ -38,6 +51,9 @@ public class AddressDto {
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+
+    public String getApartmentName() { return apartmentName; }
+    public void setApartmentName(String apartmentName) { this.apartmentName = apartmentName; }
 
     public String getStreetAddress() { return streetAddress; }
     public void setStreetAddress(String streetAddress) { this.streetAddress = streetAddress; }
@@ -50,4 +66,7 @@ public class AddressDto {
 
     public String getPostalCode() { return postalCode; }
     public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+
+    public String getNearestLandmark() { return nearestLandmark; }
+    public void setNearestLandmark(String nearestLandmark) { this.nearestLandmark = nearestLandmark; }
 }

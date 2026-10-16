@@ -54,6 +54,7 @@ public class SecurityConfig {
                                 "/api/v1/customers/health",
                                 "/api/v1/finance/health",
                                 "/api/v1/notifications/health",
+                                "/api/v1/contact",
                                 "/actuator/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",

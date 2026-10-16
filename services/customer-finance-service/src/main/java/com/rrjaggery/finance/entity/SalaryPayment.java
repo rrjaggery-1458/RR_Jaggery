@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Entity
@@ -28,7 +29,7 @@ public class SalaryPayment {
     private int periodMonth;
 
     @Column(name = "payment_date", nullable = false)
-    private LocalDate paymentDate = LocalDate.now();
+    private LocalDate paymentDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
 
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount = BigDecimal.ZERO;

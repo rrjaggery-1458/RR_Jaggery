@@ -16,7 +16,7 @@ public class OfflineInvoiceDto {
 
     // Seller Info (RR Jaggery — Jaggery Manufacturing)
     private String sellerName = "RR Jaggery";
-    // RR Jaggery is NOT GST registered — no GSTIN is displayed on invoices.
+    // This DTO represents commercial invoices; seller tax registration data is not supplied here.
     private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh - 521163";
     private String sellerContact = "+91 9948533315 | rrjaggery@gmail.com";
 

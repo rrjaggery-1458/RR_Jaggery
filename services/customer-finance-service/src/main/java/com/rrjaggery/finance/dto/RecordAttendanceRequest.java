@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 public class RecordAttendanceRequest {
@@ -13,7 +14,7 @@ public class RecordAttendanceRequest {
     private UUID employeeId;
 
     @NotNull(message = "Attendance date is required")
-    private LocalDate attendanceDate = LocalDate.now();
+    private LocalDate attendanceDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
 
     @NotNull(message = "Status is required")
     private AttendanceStatus status = AttendanceStatus.PRESENT;

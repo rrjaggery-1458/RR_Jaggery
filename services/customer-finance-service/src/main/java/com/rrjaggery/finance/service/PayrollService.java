@@ -10,7 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.DateTimeException;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +22,8 @@ import java.util.UUID;
 
 @Service
 public class PayrollService {
+
+    private static final ZoneId BUSINESS_TIME_ZONE = ZoneId.of("Asia/Kolkata");
 
     private static final Logger log = LoggerFactory.getLogger(PayrollService.class);
 
@@ -80,8 +86,8 @@ public class PayrollService {
         }
 
         String wageType = request.getWageType() != null ? request.getWageType().trim().toUpperCase(Locale.ROOT) : "DAILY";
-        if (!List.of("MONTHLY", "DAILY", "BATCH_BASED", "PER_KG", "CONTRACT").contains(wageType)) {
-            throw new IllegalArgumentException("Invalid wage type: " + wageType + ". Must be one of: MONTHLY, DAILY, BATCH_BASED, PER_KG, CONTRACT");
+        if (!List.of("MONTHLY", "WEEKLY", "DAILY", "BATCH_BASED", "PER_KG", "CONTRACT").contains(wageType)) {
+            throw new IllegalArgumentException("Invalid wage type: " + wageType + ". Must be one of: DAILY, WEEKLY, MONTHLY, BATCH_BASED");
         }
 
         Employee employee = new Employee();
@@ -112,7 +118,7 @@ public class PayrollService {
         }
         if (request.getWageType() != null && !request.getWageType().isBlank()) {
             String wt = request.getWageType().trim().toUpperCase(Locale.ROOT);
-            if (!List.of("MONTHLY", "DAILY", "BATCH_BASED", "PER_KG", "CONTRACT").contains(wt)) {
+            if (!List.of("MONTHLY", "WEEKLY", "DAILY", "BATCH_BASED", "PER_KG", "CONTRACT").contains(wt)) {
                 throw new IllegalArgumentException("Invalid wage type: " + wt);
             }
             employee.setWageType(wt);
@@ -166,16 +172,24 @@ public class PayrollService {
 
     @Transactional
     public Attendance recordAttendance(RecordAttendanceRequest request) {
+        LocalDate attendanceDate = request.getAttendanceDate();
+        if (attendanceDate == null) {
+            throw new IllegalArgumentException("Attendance date is required.");
+        }
+        if (attendanceDate.isAfter(LocalDate.now(BUSINESS_TIME_ZONE))) {
+            throw new IllegalArgumentException("Attendance cannot be recorded for a future date.");
+        }
+
         Employee employee = employeeRepository.findById(request.getEmployeeId())
                 .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + request.getEmployeeId()));
 
         // Find existing record for same employee+date, or create new (no duplicates)
         Attendance attendance = attendanceRepository
-                .findByEmployeeIdAndAttendanceDate(employee.getId(), request.getAttendanceDate())
+                .findByEmployeeIdAndAttendanceDate(employee.getId(), attendanceDate)
                 .orElse(new Attendance());
 
         attendance.setEmployeeId(employee.getId());
-        attendance.setAttendanceDate(request.getAttendanceDate());
+        attendance.setAttendanceDate(attendanceDate);
         attendance.setStatus(request.getStatus());
         attendance.setOvertimeHours(request.getOvertimeHours() != null ? request.getOvertimeHours() : BigDecimal.ZERO);
         attendance.setNotes(request.getNotes());
@@ -200,12 +214,19 @@ public class PayrollService {
         // Gather attendance
         List<Attendance> attendanceList = attendanceRepository.findByEmployeeIdAndAttendanceDateBetween(employeeId, startDate, endDate);
 
+        String wageType = employee.getWageType() != null
+                ? employee.getWageType().toUpperCase(Locale.ROOT)
+                : "DAILY";
+        boolean sundayOff = wageType.equals("MONTHLY") || wageType.equals("WEEKLY");
         BigDecimal presentDays = BigDecimal.ZERO;
         BigDecimal halfDays = BigDecimal.ZERO;
         BigDecimal absentDays = BigDecimal.ZERO;
         BigDecimal overtimeHoursTotal = BigDecimal.ZERO;
 
         for (Attendance a : attendanceList) {
+            if (sundayOff && a.getAttendanceDate().getDayOfWeek() == DayOfWeek.SUNDAY) {
+                continue;
+            }
             overtimeHoursTotal = overtimeHoursTotal.add(a.getOvertimeHours() != null ? a.getOvertimeHours() : BigDecimal.ZERO);
             switch (a.getStatus()) {
                 case PRESENT -> presentDays = presentDays.add(BigDecimal.ONE);
@@ -217,14 +238,12 @@ public class PayrollService {
         // Fetch configurable payroll rule for period
         LocalDate periodDate = LocalDate.of(periodYear, periodMonth, 1);
         List<PayrollRule> activeRules = payrollRuleRepository.findActiveRulesForDate(periodDate);
-        BigDecimal stdMonthlyDays = new BigDecimal("26.00");
         BigDecimal hoursPerDay = new BigDecimal("8.00");
         BigDecimal otMultiplier = new BigDecimal("1.50");
         BigDecimal halfDayFactor = new BigDecimal("0.50");
 
         if (!activeRules.isEmpty()) {
             PayrollRule rule = activeRules.get(0);
-            if (rule.getStandardWorkingDays() != null) stdMonthlyDays = rule.getStandardWorkingDays();
             if (rule.getStandardHoursPerDay() != null) hoursPerDay = rule.getStandardHoursPerDay();
             if (rule.getOvertimeMultiplier() != null) otMultiplier = rule.getOvertimeMultiplier();
             if (rule.getHalfDayFactor() != null) halfDayFactor = rule.getHalfDayFactor();
@@ -238,12 +257,20 @@ public class PayrollService {
         BigDecimal overtimePay = BigDecimal.ZERO;
 
         // Wage-Type Safe Calculation & Overtime Applicability
-        switch (employee.getWageType().toUpperCase(Locale.ROOT)) {
+        switch (wageType) {
             case "MONTHLY" -> {
-                // Base earned = (rate / stdMonthlyDays) * payable_days
-                BigDecimal dailyRate = rateAmount.divide(stdMonthlyDays, 4, RoundingMode.HALF_UP);
+                long sundayCount = startDate.datesUntil(endDate.plusDays(1))
+                        .filter(date -> date.getDayOfWeek() == DayOfWeek.SUNDAY)
+                        .count();
+                BigDecimal workingDays = BigDecimal.valueOf(ym.lengthOfMonth() - sundayCount);
+                BigDecimal dailyRate = rateAmount.divide(workingDays, 4, RoundingMode.HALF_UP);
                 baseEarned = dailyRate.multiply(payableDays).setScale(2, RoundingMode.HALF_UP);
-                // Overtime = (daily_rate / hoursPerDay) * otMultiplier * OT_hours
+                BigDecimal hourlyRate = dailyRate.divide(hoursPerDay, 4, RoundingMode.HALF_UP);
+                overtimePay = hourlyRate.multiply(otMultiplier).multiply(overtimeHoursTotal).setScale(2, RoundingMode.HALF_UP);
+            }
+            case "WEEKLY" -> {
+                BigDecimal dailyRate = rateAmount.divide(new BigDecimal("6"), 4, RoundingMode.HALF_UP);
+                baseEarned = dailyRate.multiply(payableDays).setScale(2, RoundingMode.HALF_UP);
                 BigDecimal hourlyRate = dailyRate.divide(hoursPerDay, 4, RoundingMode.HALF_UP);
                 overtimePay = hourlyRate.multiply(otMultiplier).multiply(overtimeHoursTotal).setScale(2, RoundingMode.HALF_UP);
             }
@@ -445,12 +472,29 @@ public class PayrollService {
 
     @Transactional
     public SalaryPayment recordSalaryPayment(RecordSalaryPaymentRequest request) {
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment amount must be greater than zero.");
+        }
+        try {
+            YearMonth.of(request.getPeriodYear(), request.getPeriodMonth());
+        } catch (DateTimeException ex) {
+            throw new IllegalArgumentException("Payment period must contain a valid year and month.", ex);
+        }
+        if (request.getPaymentDate() != null
+                && request.getPaymentDate().isAfter(LocalDate.now(BUSINESS_TIME_ZONE))) {
+            throw new IllegalArgumentException("Salary payment date cannot be in the future.");
+        }
+
         Employee employee = getEmployee(request.getEmployeeId());
 
         // Payment integrity guard: Validate that payment does not exceed outstanding balance / net payable
         PayrollCalculationResult calc = calculatePayroll(employee.getId(), request.getPeriodYear(), request.getPeriodMonth());
         BigDecimal maxAllowed = calc.getBalanceRemaining();
-        if (maxAllowed != null && maxAllowed.compareTo(BigDecimal.ZERO) > 0 && request.getAmount().compareTo(maxAllowed) > 0) {
+        if (maxAllowed == null || maxAllowed.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(String.format(
+                    "No salary balance remains to pay for %d/%d.", request.getPeriodYear(), request.getPeriodMonth()));
+        }
+        if (request.getAmount().compareTo(maxAllowed) > 0) {
             throw new IllegalArgumentException(String.format(
                     "Payment integrity violation: Requested payment (₹%s) exceeds the net payable balance (₹%s) for %d/%d.",
                     request.getAmount(), maxAllowed, request.getPeriodYear(), request.getPeriodMonth()));
@@ -460,7 +504,9 @@ public class PayrollService {
         payment.setEmployeeId(employee.getId());
         payment.setPeriodYear(request.getPeriodYear());
         payment.setPeriodMonth(request.getPeriodMonth());
-        payment.setPaymentDate(request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now());
+        payment.setPaymentDate(request.getPaymentDate() != null
+                ? request.getPaymentDate()
+                : LocalDate.now(BUSINESS_TIME_ZONE));
         payment.setAmount(request.getAmount());
         payment.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH");
         payment.setReferenceNumber(request.getReferenceNumber());

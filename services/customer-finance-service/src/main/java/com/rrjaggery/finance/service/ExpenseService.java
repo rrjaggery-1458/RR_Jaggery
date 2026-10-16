@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,7 +109,9 @@ public class ExpenseService {
     @Transactional
     public Expense createExpense(CreateExpenseRequest request) {
         Expense expense = new Expense();
-        expense.setExpenseDate(request.getExpenseDate() != null ? request.getExpenseDate() : LocalDate.now());
+        expense.setExpenseDate(request.getExpenseDate() != null
+                ? request.getExpenseDate()
+                : LocalDate.now(ZoneId.of("Asia/Kolkata")));
         expense.setCategory(request.getCategory().trim());
         expense.setAmount(request.getAmount());
         expense.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH");

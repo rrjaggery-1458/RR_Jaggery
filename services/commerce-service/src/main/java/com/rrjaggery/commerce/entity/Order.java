@@ -69,6 +69,9 @@ public class Order {
     @Column(name = "street_address", nullable = false, columnDefinition = "TEXT")
     private String streetAddress;
 
+    @Column(name = "apartment_name", length = 200)
+    private String apartmentName = "";
+
     @Column(nullable = false, length = 100)
     private String city;
 
@@ -77,6 +80,9 @@ public class Order {
 
     @Column(name = "postal_code", nullable = false, length = 20)
     private String postalCode;
+
+    @Column(name = "nearest_landmark", length = 300)
+    private String nearestLandmark = "";
 
     @Column(columnDefinition = "TEXT")
     private String notes;
@@ -163,6 +169,9 @@ public class Order {
     public String getStreetAddress() { return streetAddress; }
     public void setStreetAddress(String streetAddress) { this.streetAddress = streetAddress; }
 
+    public String getApartmentName() { return apartmentName; }
+    public void setApartmentName(String apartmentName) { this.apartmentName = apartmentName; }
+
     public String getCity() { return city; }
     public void setCity(String city) { this.city = city; }
 
@@ -171,6 +180,9 @@ public class Order {
 
     public String getPostalCode() { return postalCode; }
     public void setPostalCode(String postalCode) { this.postalCode = postalCode; }
+
+    public String getNearestLandmark() { return nearestLandmark; }
+    public void setNearestLandmark(String nearestLandmark) { this.nearestLandmark = nearestLandmark; }
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

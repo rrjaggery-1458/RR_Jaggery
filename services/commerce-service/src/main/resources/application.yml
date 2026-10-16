@@ -1,15 +1,29 @@
 server:
   port: ${COMMERCE_SERVICE_PORT:8082}
+  tomcat:
+    threads:
+      max: 50
+      min-spare: 5
 
 spring:
   application:
     name: commerce-service
+  main:
+    lazy-initialization: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rr_jaggery_db}?currentSchema=commerce_schema}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres_dev_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 3000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      auto-commit: false
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     properties:

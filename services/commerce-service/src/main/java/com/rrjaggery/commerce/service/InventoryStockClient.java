@@ -38,8 +38,11 @@ public class InventoryStockClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        // Internal service-to-service token: must satisfy hasAnyRole('ADMIN','MANAGER')
+        // on the inventory /stock/sale endpoint. EMPLOYEE is intentionally excluded
+        // here; this identity is never used for customer-facing requests.
         headers.setBearerAuth(jwtTokenProvider.generateToken(
-                "commerce-service", "commerce-service@internal", java.util.List.of("EMPLOYEE"), "INTERNAL"));
+                "commerce-service", "commerce-service@internal", java.util.List.of(com.rrjaggery.common.security.SecurityConstants.ROLE_MANAGER, com.rrjaggery.common.security.SecurityConstants.ROLE_ADMIN), "INTERNAL"));
         ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
                 inventoryBaseUrl + "/api/v1/inventory/stock/sale",
                 new HttpEntity<>(payload, headers),
@@ -49,6 +52,33 @@ public class InventoryStockClient {
                 || response.getBody() == null
                 || !response.getBody().isSuccess()) {
             throw new IllegalStateException("Inventory service rejected sale stock for SKU " + sku);
+        }
+    }
+
+    public void restoreSaleStock(String sku, BigDecimal quantity, String orderReference, String actor) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("sku", sku);
+        payload.put("quantity", quantity);
+        payload.put("referenceType", "ORDER");
+        payload.put("referenceId", orderReference);
+        payload.put("actor", actor == null || actor.isBlank() ? "COMMERCE" : actor);
+        payload.put("notes", "Idempotent finished-goods restoration for cancelled order.");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(jwtTokenProvider.generateToken(
+                "commerce-service", "commerce-service@internal",
+                java.util.List.of(com.rrjaggery.common.security.SecurityConstants.ROLE_MANAGER,
+                        com.rrjaggery.common.security.SecurityConstants.ROLE_ADMIN), "INTERNAL"));
+        ResponseEntity<ApiResponse> response = restTemplate.postForEntity(
+                inventoryBaseUrl + "/api/v1/inventory/stock/restore",
+                new HttpEntity<>(payload, headers),
+                ApiResponse.class
+        );
+        if (!response.getStatusCode().is2xxSuccessful()
+                || response.getBody() == null
+                || !response.getBody().isSuccess()) {
+            throw new IllegalStateException("Inventory service rejected stock restoration for SKU " + sku);
         }
     }
 }

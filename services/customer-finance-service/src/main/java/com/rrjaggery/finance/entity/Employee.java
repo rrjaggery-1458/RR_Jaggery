@@ -28,7 +28,7 @@ public class Employee {
     private String phone;
 
     @Column(name = "wage_type", nullable = false, length = 30)
-    private String wageType = "DAILY"; // MONTHLY, DAILY, BATCH_BASED, PER_KG, CONTRACT
+    private String wageType = "DAILY"; // DAILY, WEEKLY, MONTHLY, BATCH_BASED; legacy PER_KG and CONTRACT are retained.
 
     @Column(name = "rate_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal rateAmount = BigDecimal.ZERO;

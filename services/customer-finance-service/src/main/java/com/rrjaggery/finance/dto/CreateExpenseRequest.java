@@ -5,11 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 public class CreateExpenseRequest {
 
     @NotNull(message = "Expense date is required")
-    private LocalDate expenseDate = LocalDate.now();
+    private LocalDate expenseDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
 
     @NotBlank(message = "Category is required")
     private String category;

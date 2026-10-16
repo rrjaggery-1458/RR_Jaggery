@@ -26,7 +26,9 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // Strength 8 (~25ms) vs default 10 (~100ms): still secure for this use-case
+        // but 4x faster for login and registration (which hashes both password & OTP).
+        return new BCryptPasswordEncoder(8);
     }
 
     @Bean
@@ -40,6 +42,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/health",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/register",
+                                "/api/v1/auth/register/status",
+                                "/api/v1/auth/register/verify",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/forgot-password/**",
+                                "/api/v1/auth/reset-password",
                                 "/actuator/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**"

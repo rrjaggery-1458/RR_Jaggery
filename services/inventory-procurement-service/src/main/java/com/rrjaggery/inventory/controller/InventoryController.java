@@ -87,4 +87,10 @@ public class InventoryController {
     public ResponseEntity<ApiResponse<InventoryItem>> deductSaleStock(@Valid @RequestBody SaleStockRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.deductSaleStock(request), "Sale stock deducted."));
     }
+
+    @PostMapping("/stock/restore")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<ApiResponse<InventoryItem>> restoreSaleStock(@Valid @RequestBody SaleStockRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(inventoryService.restoreSaleStock(request), "Cancelled sale stock restored."));
+    }
 }

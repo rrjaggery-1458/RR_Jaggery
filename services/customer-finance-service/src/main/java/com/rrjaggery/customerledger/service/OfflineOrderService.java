@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @Service
 public class OfflineOrderService {
 
-    // RR Jaggery is NOT GST registered — no GST is charged on wholesale/offline orders.
+    // Commercial wholesale/offline orders currently store item prices without GST.
     // Tax fields are retained in DB schema for backward compatibility only.
     private static final BigDecimal GST_RATE = BigDecimal.ZERO;
     private static final BigDecimal HALF_GST_RATE = BigDecimal.ZERO;
@@ -33,15 +33,18 @@ public class OfflineOrderService {
     private final OfflineOrderRepository offlineOrderRepository;
     private final CustomerLedgerRepository ledgerRepository;
     private final CustomerPaymentRepository paymentRepository;
+    private final StockOutboxService stockOutboxService;
 
     public OfflineOrderService(CustomerRepository customerRepository,
                                OfflineOrderRepository offlineOrderRepository,
                                CustomerLedgerRepository ledgerRepository,
-                               CustomerPaymentRepository paymentRepository) {
+                               CustomerPaymentRepository paymentRepository,
+                               StockOutboxService stockOutboxService) {
         this.customerRepository = customerRepository;
         this.offlineOrderRepository = offlineOrderRepository;
         this.ledgerRepository = ledgerRepository;
         this.paymentRepository = paymentRepository;
+        this.stockOutboxService = stockOutboxService;
     }
 
     @Transactional
@@ -163,8 +166,11 @@ public class OfflineOrderService {
         order.setOutstandingAmount(creditPortion);
         order.setOrderDate(orderDate);
         order.setDueDate(dueDate);
-        order.setOrderType(req.getOrderType() != null ? req.getOrderType() : "WHOLESALE");
-        order.setStatus(req.getOrderStatus() != null ? req.getOrderStatus() : "CONFIRMED");
+        order.setOrderType(req.getOrderType() != null ? req.getOrderType().trim().toUpperCase() : "WHOLESALE");
+        String initialStatus = req.getOrderStatus() != null && !req.getOrderStatus().isBlank()
+                ? req.getOrderStatus().trim().toUpperCase() : "CONFIRMED";
+        validateOrderStatus(initialStatus);
+        order.setStatus(initialStatus);
         order.setPaymentMethod(req.getPaymentMethod());
         order.setNotes(req.getNotes());
 
@@ -179,6 +185,9 @@ public class OfflineOrderService {
         }
 
         OfflineOrder savedOrder = offlineOrderRepository.save(order);
+        if (isStockConsumingStatus(savedOrder.getStatus())) {
+            stockOutboxService.enqueueSale(savedOrder);
+        }
 
         // 1. Post Debit Sale to Customer Ledger
         BigDecimal runningBalance = customer.getCurrentOutstanding().add(totalAmount);
@@ -280,7 +289,7 @@ public class OfflineOrderService {
         invoice.setItems(order.getItems().stream().map(OfflineOrderItemDto::fromEntity).collect(Collectors.toList()));
         invoice.setSubtotal(order.getSubtotalAmount());
 
-        // RR Jaggery is NOT GST registered — CGST/SGST are zero.
+        // Commercial invoice tax values come from the stored order; do not infer tax in this projection.
         BigDecimal cgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         BigDecimal sgst = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
@@ -303,8 +312,19 @@ public class OfflineOrderService {
 
         Customer customer = order.getCustomer();
 
+        String previousStatus = normalizeStatus(order.getStatus());
+        String requestedStatus = null;
         if (req.getOrderStatus() != null && !req.getOrderStatus().isBlank()) {
-            order.setStatus(req.getOrderStatus().trim());
+            requestedStatus = req.getOrderStatus().trim().toUpperCase();
+            validateOrderStatus(requestedStatus);
+            if ("CANCELLED".equals(previousStatus) && !"CANCELLED".equals(requestedStatus)) {
+                throw new IllegalStateException("Cancelled orders cannot return to fulfillment.");
+            }
+            if ("CANCELLED".equals(requestedStatus)
+                    && !List.of("PENDING", "CONFIRMED").contains(previousStatus)) {
+                throw new IllegalStateException("Orders already in processing or dispatch cannot be cancelled automatically.");
+            }
+            order.setStatus(requestedStatus);
         }
 
         if (req.getPaymentMethod() != null && !req.getPaymentMethod().isBlank()) {
@@ -341,6 +361,13 @@ public class OfflineOrderService {
         }
 
         OfflineOrder saved = offlineOrderRepository.save(order);
+        if (requestedStatus != null) {
+            if (!isStockConsumingStatus(previousStatus) && isStockConsumingStatus(requestedStatus)) {
+                stockOutboxService.enqueueSale(saved);
+            } else if (!"CANCELLED".equals(previousStatus) && "CANCELLED".equals(requestedStatus)) {
+                stockOutboxService.enqueueRestoration(saved);
+            }
+        }
         return OfflineOrderDto.fromEntity(saved);
     }
 
@@ -349,6 +376,9 @@ public class OfflineOrderService {
         OfflineOrder order = offlineOrderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Offline order not found with ID: " + orderId));
 
+        if (isStockConsumingStatus(normalizeStatus(order.getStatus()))) {
+            throw new IllegalStateException("Fulfilled orders cannot be deleted; cancel an eligible order to restore stock first.");
+        }
         Customer customer = order.getCustomer();
         if (customer != null && order.getOutstandingAmount().compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal updatedCustBal = customer.getCurrentOutstanding().subtract(order.getOutstandingAmount());
@@ -358,5 +388,21 @@ public class OfflineOrderService {
         }
 
         offlineOrderRepository.delete(order);
+    }
+
+    private boolean isStockConsumingStatus(String status) {
+        String normalized = normalizeStatus(status);
+        return "CONFIRMED".equals(normalized) || "PROCESSING".equals(normalized)
+                || "DISPATCHED".equals(normalized) || "DELIVERED".equals(normalized);
+    }
+
+    private String normalizeStatus(String status) {
+        return status == null ? "" : status.trim().toUpperCase();
+    }
+
+    private void validateOrderStatus(String status) {
+        if (!List.of("PENDING", "CONFIRMED", "PROCESSING", "DISPATCHED", "DELIVERED", "CANCELLED").contains(status)) {
+            throw new IllegalArgumentException("Unsupported order status: " + status);
+        }
     }
 }

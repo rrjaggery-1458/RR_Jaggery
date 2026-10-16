@@ -17,7 +17,7 @@ public class CreateEmployeeRequest {
     private String designation;
 
     private String phone;
-    private String wageType = "DAILY"; // MONTHLY, DAILY, BATCH_BASED, PER_KG, CONTRACT
+    private String wageType = "DAILY"; // DAILY, WEEKLY, MONTHLY, BATCH_BASED; legacy PER_KG and CONTRACT are retained.
 
     @NotNull(message = "Rate amount is required")
     @DecimalMin(value = "0.00", message = "Rate amount cannot be negative")

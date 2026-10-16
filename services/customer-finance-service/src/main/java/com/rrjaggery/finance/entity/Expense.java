@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Entity
@@ -19,7 +20,7 @@ public class Expense {
     private UUID id;
 
     @Column(name = "expense_date", nullable = false)
-    private LocalDate expenseDate = LocalDate.now();
+    private LocalDate expenseDate = LocalDate.now(ZoneId.of("Asia/Kolkata"));
 
     @Column(name = "category", nullable = false, length = 60)
     private String category;

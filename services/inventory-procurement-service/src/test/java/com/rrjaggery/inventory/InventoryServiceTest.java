@@ -10,6 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -77,7 +82,7 @@ class InventoryServiceTest {
     }
 
     @Test
-    void saleStock_isIdempotentAndPreventsNegativeStock() {
+    void duplicateOutboxDispatch_doesNotCreateDuplicateStockMovement() {
         CreateInventoryItemRequest request = new CreateInventoryItemRequest();
         request.setSku("FIN-001");
         request.setItemName("Finished Jaggery");
@@ -101,5 +106,79 @@ class InventoryServiceTest {
         sale.setReferenceId("ORD-TEST:LINE-2");
         sale.setQuantity(new BigDecimal("4"));
         assertThrows(IllegalStateException.class, () -> inventoryService.deductSaleStock(sale));
+    }
+
+    @Test
+    void cancelledSaleRestoration_isIdempotent() {
+        CreateInventoryItemRequest request = new CreateInventoryItemRequest();
+        request.setSku("FIN-RESTORE-001");
+        request.setItemName("Finished Jaggery for restoration test");
+        request.setItemType("FINISHED_GOOD");
+        request.setInitialQuantity(new BigDecimal("5"));
+        InventoryItem item = inventoryService.createItem(request);
+
+        SaleStockRequest sale = new SaleStockRequest();
+        sale.setSku(item.getSku());
+        sale.setQuantity(new BigDecimal("2"));
+        sale.setReferenceType("ORDER");
+        sale.setReferenceId("ORD-CANCEL-TEST:LINE-1");
+        sale.setActor("commerce-service");
+        inventoryService.deductSaleStock(sale);
+
+        InventoryItem afterFirstRestore = inventoryService.restoreSaleStock(sale);
+        InventoryItem afterRepeatedRestore = inventoryService.restoreSaleStock(sale);
+
+        assertEquals(new BigDecimal("5.000"), afterFirstRestore.getCurrentQuantity());
+        assertEquals(new BigDecimal("5.000"), afterRepeatedRestore.getCurrentQuantity());
+        assertEquals(3, inventoryService.getMovements(item.getId()).size());
+    }
+
+    @Test
+    void concurrentDuplicateSaleCommand_deductsAndRecordsMovementOnce() throws Exception {
+        CreateInventoryItemRequest request = new CreateInventoryItemRequest();
+        request.setSku("FIN-CONCURRENT-001");
+        request.setItemName("Finished Jaggery for concurrency test");
+        request.setItemType("FINISHED_GOOD");
+        request.setInitialQuantity(new BigDecimal("5"));
+        InventoryItem item = inventoryService.createItem(request);
+
+        SaleStockRequest sale = new SaleStockRequest();
+        sale.setSku(item.getSku());
+        sale.setQuantity(new BigDecimal("2"));
+        sale.setReferenceType("ORDER");
+        sale.setReferenceId("ORD-CONCURRENT-TEST:LINE-1");
+        sale.setActor("commerce-service");
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<InventoryItem> first = executor.submit(() -> {
+                ready.countDown();
+                if (!start.await(5, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Timed out waiting to start concurrent sale request.");
+                }
+                return inventoryService.deductSaleStock(sale);
+            });
+            Future<InventoryItem> second = executor.submit(() -> {
+                ready.countDown();
+                if (!start.await(5, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Timed out waiting to start concurrent sale request.");
+                }
+                return inventoryService.deductSaleStock(sale);
+            });
+
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+
+        InventoryItem finalItem = inventoryService.getItem(item.getId());
+        assertEquals(new BigDecimal("3.000"), finalItem.getCurrentQuantity());
+        assertEquals(2, inventoryService.getMovements(item.getId()).size());
     }
 }

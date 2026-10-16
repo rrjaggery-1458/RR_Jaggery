@@ -11,6 +11,8 @@ import com.rrjaggery.inventory.entity.MovementType;
 import com.rrjaggery.inventory.entity.StockMovement;
 import com.rrjaggery.inventory.repository.InventoryItemRepository;
 import com.rrjaggery.inventory.repository.StockMovementRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ import java.util.UUID;
 @Service
 public class InventoryService {
 
+    private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
     private final InventoryItemRepository inventoryItemRepository;
     private final StockMovementRepository stockMovementRepository;
 
@@ -65,7 +68,7 @@ public class InventoryService {
             throw new IllegalArgumentException("Counted quantity cannot be negative.");
         }
 
-        InventoryItem item = inventoryItemRepository.findById(request.getItemId())
+        InventoryItem item = inventoryItemRepository.findByIdForUpdate(request.getItemId())
                 .orElseThrow(() -> new IllegalArgumentException("Inventory item not found: " + request.getItemId()));
 
         BigDecimal delta = request.getCountedQuantity().subtract(item.getCurrentQuantity());
@@ -127,8 +130,14 @@ public class InventoryService {
             throw new IllegalArgumentException("Adjustment reason is required.");
         }
 
-        InventoryItem item = inventoryItemRepository.findById(request.getItemId())
+        InventoryItem item = inventoryItemRepository.findByIdForUpdate(request.getItemId())
                 .orElseThrow(() -> new IllegalArgumentException("Inventory item not found: " + request.getItemId()));
+
+        String idempotencyKey = buildIdempotencyKey(
+                request.getReferenceType(), request.getReferenceId(), request.getReason());
+        if (stockMovementRepository.existsByIdempotencyKey(idempotencyKey)) {
+            return item;
+        }
 
         BigDecimal current = item.getCurrentQuantity();
         BigDecimal next = current.add(request.getQuantity());
@@ -143,7 +152,7 @@ public class InventoryService {
         recordMovement(saved, resolveMovementType(request.getReason()), request.getQuantity(),
                 request.getReason(), request.getReferenceType(), request.getReferenceId(),
                 request.getActor() == null || request.getActor().isBlank() ? "SYSTEM" : request.getActor(),
-                request.getNotes(), buildIdempotencyKey(request.getReferenceType(), request.getReferenceId(), request.getReason()));
+                request.getNotes(), idempotencyKey);
 
         return saved;
     }
@@ -151,7 +160,7 @@ public class InventoryService {
     @Transactional
     public InventoryItem receiveStock(ReceiveStockRequest request) {
         String sku = normalizeSku(request.getSku());
-        InventoryItem item = inventoryItemRepository.findBySku(sku)
+        InventoryItem item = inventoryItemRepository.findBySkuForUpdate(sku)
                 .orElseThrow(() -> new IllegalArgumentException("Inventory item not found for SKU: " + sku));
 
         if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
@@ -180,7 +189,7 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public List<StockMovement> getMovements(UUID itemId) {
-        InventoryItem item = inventoryItemRepository.findById(itemId)
+        InventoryItem item = inventoryItemRepository.findByIdForUpdate(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Inventory item not found: " + itemId));
         return stockMovementRepository.findByItemOrderByMovementTimeDesc(item);
     }
@@ -191,7 +200,7 @@ public class InventoryService {
             throw new IllegalArgumentException("Sale quantity must be greater than zero.");
         }
 
-        InventoryItem item = inventoryItemRepository.findById(itemId)
+        InventoryItem item = inventoryItemRepository.findByIdForUpdate(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Inventory item not found: " + itemId));
 
         String idempotencyKey = buildIdempotencyKey("ORDER", referenceId, "SALE");
@@ -201,7 +210,8 @@ public class InventoryService {
 
         BigDecimal next = item.getCurrentQuantity().subtract(quantity);
         if (next.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalStateException("Sale exceeds available finished stock for item: " + item.getSku());
+            log.warn("[BACKORDER] Stock going negative for item {} (SKU: {}). Current: {}, Deducting: {}, Result: {}. Order accepted as product is active.",
+                    itemId, item.getSku(), item.getCurrentQuantity(), quantity, next);
         }
 
         item.setCurrentQuantity(next);
@@ -219,8 +229,67 @@ public class InventoryService {
 
     @Transactional
     public InventoryItem deductSaleStock(SaleStockRequest request) {
-        InventoryItem item = getItemBySku(request.getSku());
-        return deductSaleStock(item.getId(), request.getQuantity(), request.getActor(), request.getReferenceId());
+        InventoryItem item = inventoryItemRepository.findBySkuForUpdate(normalizeSku(request.getSku()))
+                .orElseThrow(() -> new IllegalArgumentException("Inventory item not found for SKU: " + request.getSku()));
+        return deductSaleStock(item.getId(), request.getQuantity(), request.getActor(),
+                request.getReferenceType(), request.getReferenceId());
+    }
+
+    @Transactional
+    public InventoryItem restoreSaleStock(SaleStockRequest request) {
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Restoration quantity must be greater than zero.");
+        }
+        InventoryItem item = inventoryItemRepository.findBySkuForUpdate(normalizeSku(request.getSku()))
+                .orElseThrow(() -> new IllegalArgumentException("Inventory item not found for SKU: " + request.getSku()));
+        String type = request.getReferenceType() == null || request.getReferenceType().isBlank()
+                ? "ORDER" : request.getReferenceType().trim();
+        String reason = "ORDER_CANCELLATION";
+        String idempotencyKey = buildIdempotencyKey(type, request.getReferenceId(), reason);
+        if (stockMovementRepository.existsByIdempotencyKey(idempotencyKey)) {
+            return item;
+        }
+
+        item.setCurrentQuantity(item.getCurrentQuantity().add(request.getQuantity()));
+        item.setUpdatedAt(java.time.Instant.now());
+        InventoryItem saved = inventoryItemRepository.save(item);
+        recordMovement(saved, MovementType.ADJUSTMENT, request.getQuantity(), reason, type,
+                request.getReferenceId(), request.getActor(), request.getNotes(), idempotencyKey);
+        return saved;
+    }
+
+    private InventoryItem deductSaleStock(UUID itemId, BigDecimal quantity, String actor,
+                                          String referenceType, String referenceId) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Sale quantity must be greater than zero.");
+        }
+
+        InventoryItem item = inventoryItemRepository.findByIdForUpdate(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Inventory item not found: " + itemId));
+
+        String type = referenceType == null || referenceType.isBlank() ? "ORDER" : referenceType.trim();
+        String idempotencyKey = buildIdempotencyKey(type, referenceId, "SALE");
+        if (stockMovementRepository.existsByIdempotencyKey(idempotencyKey)) {
+            return item;
+        }
+
+        BigDecimal next = item.getCurrentQuantity().subtract(quantity);
+        if (next.compareTo(BigDecimal.ZERO) < 0) {
+            log.warn("[BACKORDER] Stock going negative for item {} (SKU: {}). Current: {}, Deducting: {}, Result: {}. Order accepted as product is active.",
+                    itemId, item.getSku(), item.getCurrentQuantity(), quantity, next);
+        }
+
+        item.setCurrentQuantity(next);
+        item.setUpdatedAt(java.time.Instant.now());
+        InventoryItem saved = inventoryItemRepository.save(item);
+
+        recordMovement(saved, MovementType.SALE, quantity.negate(),
+                "SALE", type, referenceId,
+                actor == null || actor.isBlank() ? "SYSTEM" : actor,
+                "Finished goods sale stock deduction.",
+                idempotencyKey);
+
+        return saved;
     }
 
     private void recordMovement(InventoryItem item, MovementType movementType, BigDecimal quantity,

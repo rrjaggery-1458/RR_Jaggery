@@ -49,6 +49,8 @@ coverage/
 test-results/
 e2e_screenshots/
 **/e2e_screenshots/
+**/screenshots/
+**/report/
 playwright-report/
 .playwright/
 hs_err_pid*.log

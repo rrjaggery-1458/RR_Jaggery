@@ -20,7 +20,7 @@ import java.util.UUID;
 @Transactional
 public class CartService {
 
-    // RR Jaggery is NOT GST registered — no GST is charged on customer carts/orders.
+    // Customer cart totals are commercial prices; statutory tax handling remains separate.
     // Tax fields are retained in DTO/schema for backward compatibility.
     private static final BigDecimal GST_RATE = BigDecimal.ZERO;
     private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("500.00");

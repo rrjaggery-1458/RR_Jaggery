@@ -60,6 +60,7 @@ public class SystemHealthControllerTest {
                     CustomerType.INTERNAL
             );
             user.setRoles(Set.of(role));
+            user.setEmailVerified(role == Role.CUSTOMER);
             userRepository.save(user);
         }
     }

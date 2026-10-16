@@ -43,10 +43,18 @@ services:
     restart: unless-stopped
     environment:
       AUTH_SERVICE_PORT: 8081
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx512m -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
       DB_HOST: postgres
       DB_PORT: 5432
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
+      CONTACT_EMAIL_FROM: "${CONTACT_EMAIL_FROM:-${SMTP_USERNAME:-}}"
     ports:
       - "8081:8081"
     depends_on:
@@ -54,6 +62,12 @@ services:
         condition: service_healthy
     networks:
       - rr-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
 
   commerce-service:
     build:
@@ -66,6 +80,7 @@ services:
     restart: unless-stopped
     environment:
       COMMERCE_SERVICE_PORT: 8082
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx512m -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
       DB_HOST: postgres
       DB_PORT: 5432
       # Points to consolidated inventory-procurement-service (port 8084)
@@ -80,6 +95,12 @@ services:
         condition: service_healthy
     networks:
       - rr-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
 
   # Consolidated: customer-ledger-service + finance-service + notification-service
   customer-finance-service:
@@ -92,10 +113,19 @@ services:
     restart: unless-stopped
     environment:
       CUSTOMER_FINANCE_SERVICE_PORT: 8083
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx384m -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
       DB_HOST: postgres
       DB_PORT: 5432
       COMMERCE_SERVICE_URL: http://commerce-service:8082
       INVENTORY_SERVICE_URL: http://inventory-procurement-service:8084
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
+      CONTACT_EMAIL_FROM: "${CONTACT_EMAIL_FROM:-${SMTP_USERNAME:-}}"
+      CONTACT_EMAIL_RECIPIENT: ${CONTACT_EMAIL_RECIPIENT:-rrjaggery@gmail.com}
     ports:
       - "8083:8083"
     depends_on:
@@ -103,6 +133,12 @@ services:
         condition: service_healthy
     networks:
       - rr-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
 
   # Consolidated: inventory-service + procurement-service
   inventory-procurement-service:
@@ -115,6 +151,7 @@ services:
     restart: unless-stopped
     environment:
       INVENTORY_PROCUREMENT_SERVICE_PORT: 8084
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx384m -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
       DB_HOST: postgres
       DB_PORT: 5432
     ports:
@@ -124,6 +161,12 @@ services:
         condition: service_healthy
     networks:
       - rr-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
 
   production-service:
     build:
@@ -135,6 +178,7 @@ services:
     restart: unless-stopped
     environment:
       PRODUCTION_SERVICE_PORT: 8086
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx384m -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
       DB_HOST: postgres
       DB_PORT: 5432
       # Points to consolidated inventory-procurement-service (port 8084)
@@ -146,6 +190,12 @@ services:
         condition: service_healthy
     networks:
       - rr-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
 
   gateway:
     image: nginx:alpine
@@ -158,10 +208,15 @@ services:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - uploads_data:/var/www/uploads:ro
     depends_on:
-      - auth-service
-      - commerce-service
-      - customer-finance-service
-      - inventory-procurement-service
-      - production-service
+      auth-service:
+        condition: service_healthy
+      commerce-service:
+        condition: service_healthy
+      customer-finance-service:
+        condition: service_healthy
+      inventory-procurement-service:
+        condition: service_healthy
+      production-service:
+        condition: service_healthy
     networks:
       - rr-network
