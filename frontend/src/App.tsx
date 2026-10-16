@@ -8,7 +8,7 @@ import {
   Sparkles, ShoppingCart, Trash2, CreditCard,
   FileText, Truck, Printer, Receipt, ArrowLeft, Users, Factory,
   Shield, BarChart3, AlertTriangle, Star, MapPin, Phone, Mail,
-  MessageSquare, Send, Leaf, Award, Clock, Info, User
+  MessageSquare, Send, Leaf, Award, Clock, Info, User, Upload
 } from 'lucide-react';
 import {
   CustomerDirectoryPage,
@@ -3249,10 +3249,43 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
   const [productForm, setProductForm] = useState({
     name: '', sku: '', slug: '', description: '',
     categoryId: '', grade: 'GRADE_A_TRADITIONAL', packageType: 'BOX',
-    unitWeightKg: 1.0, retailPrice: 100, wholesalePrice: 80, wholesaleMoq: 20,
-    featured: false, active: true
+    unitWeightKg: 1.0, retailPrice: 150, wholesalePrice: 110, wholesaleMoq: 20,
+    imageUrl: '', featured: false, active: true
   });
+  const [imageUploading, setImageUploading] = useState(false);
   const [catForm, setCatForm] = useState({ name: '', slug: '', description: '', active: true, displayOrder: 1 });
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !auth.token) return;
+
+    setImageUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(`${COMMERCE_BASE}/admin/products/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload failed with status: ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data.data?.imageUrl) {
+        setProductForm(prev => ({ ...prev, imageUrl: data.data.imageUrl }));
+      }
+    } catch {
+      alert('Failed to upload image. Please ensure it is a valid JPG, PNG, or WEBP file.');
+    } finally {
+      setImageUploading(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     if (!auth.token) return;
@@ -3383,7 +3416,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                   name: '', sku: '', slug: '', description: '',
                   categoryId: categories[0]?.id ?? '', grade: 'GRADE_A_TRADITIONAL',
                   packageType: 'BOX', unitWeightKg: 1.0, retailPrice: 150,
-                  wholesalePrice: 110, wholesaleMoq: 20, featured: false, active: true
+                  wholesalePrice: 110, wholesaleMoq: 20, imageUrl: '', featured: false, active: true
                 });
                 setShowCreateModal(true);
               }}
@@ -3451,7 +3484,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                             categoryId: p.categoryId, grade: p.grade, packageType: p.packageType,
                             unitWeightKg: p.unitWeightKg, retailPrice: p.retailPrice,
                             wholesalePrice: p.wholesalePrice, wholesaleMoq: p.wholesaleMoq,
-                            featured: p.featured, active: p.active
+                            imageUrl: p.imageUrl ?? '', featured: p.featured, active: p.active
                           });
                           setShowCreateModal(true);
                         }}
@@ -3499,7 +3532,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
       {/* Create/Edit Product Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-50/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               id="close-create-product-modal"
               onClick={() => setShowCreateModal(false)}
@@ -3507,64 +3540,111 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
             >
               <X className="h-4 w-4" />
             </button>
-            <h2 className="text-lg font-bold text-gray-900 mb-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 font-serif">
+              <Package className="w-5 h-5 text-emerald-700" />
               {editingProduct ? 'Edit Product' : 'Create New Jaggery Product'}
             </h2>
-            <form onSubmit={handleSaveProduct} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveProduct} className="space-y-3.5 text-xs">
               <div>
-                <label className="text-gray-500 font-semibold">Product Name</label>
+                <label className="text-gray-700 font-semibold mb-1 block">Product Name *</label>
                 <input
                   id="form-prod-name"
                   type="text"
                   required
+                  placeholder="e.g. Traditional Organic Jaggery Block"
                   value={productForm.name}
-                  onChange={e => setProductForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                  onChange={e => {
+                    const val = e.target.value;
+                    setProductForm(f => ({
+                      ...f,
+                      name: val,
+                      slug: editingProduct ? f.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+                      sku: editingProduct ? f.sku : (val ? 'RR-' + val.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + (f.packageType ? f.packageType.substring(0, 3) : 'PKG') : f.sku)
+                    }));
+                  }}
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-gray-500 font-semibold">SKU</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">SKU *</label>
                   <input
                     id="form-prod-sku"
                     type="text"
                     required
+                    placeholder="e.g. RR-BLK-10KG"
                     value={productForm.sku}
                     onChange={e => setProductForm(f => ({ ...f, sku: e.target.value }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600 font-mono text-xs"
                   />
                 </div>
                 <div>
-                  <label className="text-gray-500 font-semibold">Slug</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Slug *</label>
                   <input
                     id="form-prod-slug"
                     type="text"
                     required
+                    placeholder="e.g. traditional-farm-block-10kg"
                     value={productForm.slug}
                     onChange={e => setProductForm(f => ({ ...f, slug: e.target.value }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600 font-mono text-xs"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="text-gray-500 font-semibold">Category</label>
+                <label className="text-gray-700 font-semibold mb-1 block">Category *</label>
                 <select
                   id="form-prod-category"
                   value={productForm.categoryId}
                   onChange={e => setProductForm(f => ({ ...f, categoryId: e.target.value }))}
-                  className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 >
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+
+              {/* Product Image Upload Section */}
+              <div className="p-3 bg-emerald-50/60 rounded-xl border border-gray-200 space-y-2">
+                <label className="block text-gray-700 font-semibold">Product Image</label>
+                <div className="flex items-center gap-3">
+                  {productForm.imageUrl ? (
+                    <img
+                      src={productForm.imageUrl}
+                      alt="Preview"
+                      className="w-14 h-14 rounded-lg object-cover border border-gray-300 shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-400">
+                      <Upload className="w-5 h-5 text-emerald-700" />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-lg cursor-pointer transition text-xs shadow-sm">
+                      <Upload className="w-3.5 h-3.5" />
+                      {imageUploading ? 'Uploading...' : 'Choose Image'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleImageFileChange}
+                        disabled={imageUploading}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[10px] text-gray-500">Uploads to persistent storage (JPG, PNG, WEBP)</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-gray-500 font-semibold">Packaging</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Packaging</label>
                   <select
                     id="form-prod-pkg"
                     value={productForm.packageType}
                     onChange={e => setProductForm(f => ({ ...f, packageType: e.target.value }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   >
                     <option value="BOX">Box</option>
                     <option value="POUCH">Pouch</option>
@@ -3575,72 +3655,102 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-gray-500 font-semibold">Unit Wt (kg)</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Unit Wt (kg) *</label>
                   <input
                     id="form-prod-weight"
                     type="number"
-                    step="0.1"
+                    step="0.01"
+                    min="0.01"
                     required
                     value={productForm.unitWeightKg}
                     onChange={e => setProductForm(f => ({ ...f, unitWeightKg: parseFloat(e.target.value) || 0 }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-gray-500 font-semibold">Wholesale MOQ</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Wholesale MOQ *</label>
                   <input
                     id="form-prod-moq"
                     type="number"
+                    min="1"
                     required
                     value={productForm.wholesaleMoq}
                     onChange={e => setProductForm(f => ({ ...f, wholesaleMoq: parseInt(e.target.value) || 1 }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-gray-500 font-semibold">Retail Price (₹)</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Retail Price (₹) *</label>
                   <input
                     id="form-prod-retailprice"
                     type="number"
                     step="0.01"
+                    min="0"
                     required
                     value={productForm.retailPrice}
                     onChange={e => setProductForm(f => ({ ...f, retailPrice: parseFloat(e.target.value) || 0 }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
                 <div>
-                  <label className="text-gray-500 font-semibold">Wholesale Price (₹)</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Wholesale Price (₹) *</label>
                   <input
                     id="form-prod-wholesaleprice"
                     type="number"
                     step="0.01"
+                    min="0"
                     required
                     value={productForm.wholesalePrice}
                     onChange={e => setProductForm(f => ({ ...f, wholesalePrice: parseFloat(e.target.value) || 0 }))}
-                    className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="text-gray-500 font-semibold">Description</label>
+                <label className="text-gray-700 font-semibold mb-1 block">Description</label>
                 <textarea
                   id="form-prod-desc"
                   rows={2}
+                  placeholder="Short description of taste, packing, and quality..."
                   value={productForm.description}
                   onChange={e => setProductForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
               </div>
-              <button
-                id="submit-save-product"
-                type="submit"
-                className="w-full mt-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-amber-600/20 hover:brightness-105 transition"
-              >
-                {editingProduct ? 'Save Product Changes' : 'Create Jaggery Product'}
-              </button>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="form-prod-active"
+                  checked={productForm.active}
+                  onChange={e => setProductForm(f => ({ ...f, active: e.target.checked }))}
+                  className="w-4 h-4 rounded text-emerald-700 focus:ring-emerald-700"
+                />
+                <label htmlFor="form-prod-active" className="text-gray-700 font-medium cursor-pointer">
+                  Active for sale
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="submit-save-product"
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-md transition"
+                >
+                  {editingProduct ? 'Save Product Changes' : 'Create Jaggery Product'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
