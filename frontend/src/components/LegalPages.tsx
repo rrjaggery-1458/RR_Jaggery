@@ -70,7 +70,7 @@ export const TermsPage: React.FC<LegalPageProps> = ({ onBackToStore }) => {
               </p>
               <ul className="list-disc pl-5 space-y-1 text-xs">
                 <li>All prices listed are final. GST is not charged or included in the commercial order totals shown on this website.</li>
-                <li>Product weights and specifications are measured at the time of packing. Minor natural variations in color, moisture, or texture may occur due to traditional natural boiling processes.</li>
+                <li>Product weights and specifications are measured at the time of packing. Minor natural variations in color, moisture, or texture may occur due to authentic, chemical-free processing methods.</li>
                 <li>Wholesale tier pricing and minimum order quantities (MOQ) apply strictly to wholesale orders as configured by our management.</li>
               </ul>
             </section>

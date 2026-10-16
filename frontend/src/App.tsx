@@ -2047,7 +2047,7 @@ function Storefront({
               100% Naturally Made,<span className="text-emerald-700"> Organic</span> Jaggery
             </h1>
             <p className="text-xs sm:text-base lg:text-lg text-gray-600 max-w-2xl leading-relaxed">
-              With over 20+ years of experience, we craft 100% chemical-free jaggery using traditional sugarcane boiling techniques passed down through generations.
+              With over 20+ years of hands-on experience, we craft 100% chemical-free, hygienic jaggery made with authentic heritage care and uncompromising purity passed down through generations.
             </p>
 
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1 sm:pt-2">
