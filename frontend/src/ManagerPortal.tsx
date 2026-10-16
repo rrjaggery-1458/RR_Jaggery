@@ -728,6 +728,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   const [productForm, setProductForm] = useState({
     name: '',
+    sku: '',
+    slug: '',
     categoryId: '',
     description: '',
     grade: 'GRADE_A_TRADITIONAL',
@@ -1650,13 +1652,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     }
 
     const catId = productForm.categoryId || (categories[0]?.id || '00000000-0000-0000-0000-000000000001');
-    const autoSku = 'PRD-' + productForm.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8) + '-' + Math.floor(100 + Math.random() * 900);
 
     const payload = {
       categoryId: catId,
       name: productForm.name.trim(),
-      sku: editingProduct ? editingProduct.sku : autoSku,
-      slug: productForm.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      sku: productForm.sku.trim() || ('RR-' + productForm.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + Math.floor(100 + Math.random() * 900)),
+      slug: productForm.slug.trim() || productForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       description: productForm.description,
       grade: productForm.grade,
       packageType: productForm.packageType,
@@ -4752,6 +4753,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     setEditingProduct(null);
                     setProductForm({
                       name: '',
+                      sku: '',
+                      slug: '',
                       categoryId: categories[0]?.id || '',
                       description: '',
                       grade: 'GRADE_A_TRADITIONAL',
@@ -4862,6 +4865,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   setEditingProduct(prod);
                                   setProductForm({
                                     name: prod.name,
+                                    sku: prod.sku,
+                                    slug: prod.slug,
                                     categoryId: prod.categoryId,
                                     description: prod.description || '',
                                     grade: prod.grade,
@@ -9125,10 +9130,43 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   type="text"
                   required
                   value={productForm.name}
-                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setProductForm(f => ({
+                      ...f,
+                      name: val,
+                      slug: editingProduct ? f.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+                      sku: editingProduct ? f.sku : (val ? 'RR-' + val.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + (f.packageType ? f.packageType.substring(0, 3) : 'PKG') : f.sku)
+                    }));
+                  }}
                   placeholder="e.g. Traditional Organic Jaggery Block"
-                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">SKU *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. RR-BLK-10KG"
+                    value={productForm.sku}
+                    onChange={(e) => setProductForm(f => ({ ...f, sku: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Slug *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. traditional-farm-block-10kg"
+                    value={productForm.slug}
+                    onChange={(e) => setProductForm(f => ({ ...f, slug: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none font-mono text-xs"
+                  />
+                </div>
               </div>
 
               <div>
@@ -9136,7 +9174,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <select
                   value={productForm.categoryId}
                   onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                 >
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -9176,9 +9214,50 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
               </div>
 
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Packaging</label>
+                  <select
+                    value={productForm.packageType}
+                    onChange={(e) => setProductForm(f => ({ ...f, packageType: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
+                  >
+                    <option value="BOX">Box</option>
+                    <option value="POUCH">Pouch</option>
+                    <option value="JAR">Jar</option>
+                    <option value="BAG">Bag</option>
+                    <option value="BUCKET">Bucket</option>
+                    <option value="TIN">Tin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Unit Wt (kg) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={productForm.unitWeightKg}
+                    onChange={(e) => setProductForm(f => ({ ...f, unitWeightKg: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Wholesale MOQ *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={productForm.wholesaleMoq}
+                    onChange={(e) => setProductForm(f => ({ ...f, wholesaleMoq: parseInt(e.target.value) || 1 }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">Retail Price (₹/KG) *</label>
+                  <label className="block text-gray-700 font-medium mb-1">Retail Price (₹) *</label>
                   <input
                     type="number"
                     min="1"
@@ -9186,11 +9265,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     required
                     value={productForm.retailPrice}
                     onChange={(e) => setProductForm({ ...productForm, retailPrice: Number(e.target.value) })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">Wholesale Price (₹/KG) *</label>
+                  <label className="block text-gray-700 font-medium mb-1">Wholesale Price (₹) *</label>
                   <input
                     type="number"
                     min="1"
@@ -9198,7 +9277,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     required
                     value={productForm.wholesalePrice}
                     onChange={(e) => setProductForm({ ...productForm, wholesalePrice: Number(e.target.value) })}
-                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                   />
                 </div>
               </div>
@@ -9210,7 +9289,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   value={productForm.description}
                   onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
                   placeholder="Short description of taste, packing, and quality..."
-                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                 />
               </div>
 
