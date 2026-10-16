@@ -34,6 +34,8 @@ public class CreateProductRequest {
     @DecimalMin(value = "0.01", message = "Weight must be positive")
     private BigDecimal unitWeightKg = BigDecimal.ONE;
 
+    private String unit = "kg";
+
     @NotNull(message = "Retail price is required")
     @DecimalMin(value = "0.01", message = "Retail price must be positive")
     private BigDecimal retailPrice;
@@ -74,6 +76,9 @@ public class CreateProductRequest {
 
     public BigDecimal getUnitWeightKg() { return unitWeightKg; }
     public void setUnitWeightKg(BigDecimal unitWeightKg) { this.unitWeightKg = unitWeightKg; }
+
+    public String getUnit() { return unit != null ? unit : "kg"; }
+    public void setUnit(String unit) { this.unit = unit != null ? unit : "kg"; }
 
     public BigDecimal getRetailPrice() { return retailPrice; }
     public void setRetailPrice(BigDecimal retailPrice) { this.retailPrice = retailPrice; }

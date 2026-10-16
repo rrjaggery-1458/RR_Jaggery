@@ -19,6 +19,7 @@ public class ProductDto {
     private ProductGrade grade;
     private PackageType packageType;
     private BigDecimal unitWeightKg;
+    private String unit = "kg";
     private BigDecimal retailPrice;
     private BigDecimal wholesalePrice;
     private int wholesaleMoq;
@@ -40,6 +41,7 @@ public class ProductDto {
         dto.grade = product.getGrade();
         dto.packageType = product.getPackageType();
         dto.unitWeightKg = product.getUnitWeightKg();
+        dto.unit = product.getUnit() != null ? product.getUnit() : "kg";
         dto.retailPrice = product.getRetailPrice();
         dto.wholesalePrice = product.getWholesalePrice();
         dto.wholesaleMoq = product.getWholesaleMoq();
@@ -59,6 +61,8 @@ public class ProductDto {
     public ProductGrade getGrade() { return grade; }
     public PackageType getPackageType() { return packageType; }
     public BigDecimal getUnitWeightKg() { return unitWeightKg; }
+    public String getUnit() { return unit != null ? unit : "kg"; }
+    public void setUnit(String unit) { this.unit = unit != null ? unit : "kg"; }
     public BigDecimal getRetailPrice() { return retailPrice; }
     public BigDecimal getWholesalePrice() { return wholesalePrice; }
     public int getWholesaleMoq() { return wholesaleMoq; }

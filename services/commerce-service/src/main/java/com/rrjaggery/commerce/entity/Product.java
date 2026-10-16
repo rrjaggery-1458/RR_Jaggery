@@ -39,6 +39,9 @@ public class Product {
     @Column(name = "unit_weight_kg", nullable = false, precision = 10, scale = 3)
     private BigDecimal unitWeightKg = BigDecimal.ONE;
 
+    @Column(name = "unit", length = 20)
+    private String unit = "kg";
+
     @Column(name = "retail_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal retailPrice;
 
@@ -97,6 +100,9 @@ public class Product {
 
     public BigDecimal getUnitWeightKg() { return unitWeightKg; }
     public void setUnitWeightKg(BigDecimal unitWeightKg) { this.unitWeightKg = unitWeightKg; }
+
+    public String getUnit() { return unit != null ? unit : "kg"; }
+    public void setUnit(String unit) { this.unit = unit != null ? unit : "kg"; }
 
     public BigDecimal getRetailPrice() { return retailPrice; }
     public void setRetailPrice(BigDecimal retailPrice) { this.retailPrice = retailPrice; }

@@ -109,6 +109,7 @@ public class ProductService {
         product.setGrade(request.getGrade());
         product.setPackageType(request.getPackageType());
         product.setUnitWeightKg(request.getUnitWeightKg());
+        product.setUnit(request.getUnit() != null ? request.getUnit() : "kg");
         product.setRetailPrice(request.getRetailPrice());
         product.setWholesalePrice(request.getWholesalePrice());
         product.setWholesaleMoq(request.getWholesaleMoq());
@@ -132,6 +133,7 @@ public class ProductService {
         product.setGrade(request.getGrade());
         product.setPackageType(request.getPackageType());
         product.setUnitWeightKg(request.getUnitWeightKg());
+        product.setUnit(request.getUnit() != null ? request.getUnit() : "kg");
         product.setRetailPrice(request.getRetailPrice());
         product.setWholesalePrice(request.getWholesalePrice());
         product.setWholesaleMoq(request.getWholesaleMoq());

@@ -138,6 +138,7 @@ export interface Product {
   grade: string;
   packageType: string;
   unitWeightKg: number;
+  unit?: string;
   retailPrice: number;
   wholesalePrice: number;
   wholesaleMoq: number;
@@ -735,6 +736,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     grade: 'GRADE_A_TRADITIONAL',
     packageType: 'BOX',
     unitWeightKg: 1,
+    unit: 'kg',
     retailPrice: 120,
     wholesalePrice: 95,
     wholesaleMoq: 10,
@@ -1662,6 +1664,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       grade: productForm.grade,
       packageType: productForm.packageType,
       unitWeightKg: Number(productForm.unitWeightKg),
+      unit: productForm.unit || 'kg',
       retailPrice: Number(productForm.retailPrice),
       wholesalePrice: Number(productForm.wholesalePrice),
       wholesaleMoq: Number(productForm.wholesaleMoq),
@@ -4760,6 +4763,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       grade: 'GRADE_A_TRADITIONAL',
                       packageType: 'BOX',
                       unitWeightKg: 1,
+                      unit: 'kg',
                       retailPrice: 120,
                       wholesalePrice: 95,
                       wholesaleMoq: 10,
@@ -4872,6 +4876,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     grade: prod.grade,
                                     packageType: prod.packageType,
                                     unitWeightKg: prod.unitWeightKg,
+                                    unit: prod.unit ?? 'kg',
                                     retailPrice: prod.retailPrice,
                                     wholesalePrice: prod.wholesalePrice,
                                     wholesaleMoq: prod.wholesaleMoq,
@@ -9214,7 +9219,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">Packaging</label>
                   <select
@@ -9225,13 +9230,15 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <option value="BOX">Box</option>
                     <option value="POUCH">Pouch</option>
                     <option value="JAR">Jar</option>
+                    <option value="BOTTLE">Bottle</option>
+                    <option value="CAN">Can</option>
                     <option value="BAG">Bag</option>
                     <option value="BUCKET">Bucket</option>
                     <option value="TIN">Tin</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">Unit Wt (kg) *</label>
+                  <label className="block text-gray-700 font-medium mb-1">Quantity *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -9241,6 +9248,19 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     onChange={(e) => setProductForm(f => ({ ...f, unitWeightKg: parseFloat(e.target.value) || 0 }))}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
                   />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Unit *</label>
+                  <select
+                    value={productForm.unit || 'kg'}
+                    onChange={(e) => setProductForm(f => ({ ...f, unit: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none font-medium"
+                  >
+                    <option value="kg">kg (Kilogram)</option>
+                    <option value="L">L (Liter)</option>
+                    <option value="g">g (Gram)</option>
+                    <option value="ml">ml (Milliliter)</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">Wholesale MOQ *</label>

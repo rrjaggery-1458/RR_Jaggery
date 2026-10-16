@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS commerce_schema.products (
     grade VARCHAR(50) NOT NULL,
     package_type VARCHAR(50) NOT NULL,
     unit_weight_kg NUMERIC(10, 3) NOT NULL,
+    unit VARCHAR(20) NOT NULL DEFAULT 'kg',
     retail_price NUMERIC(12, 2) NOT NULL,
     wholesale_price NUMERIC(12, 2) NOT NULL,
     wholesale_moq INT NOT NULL DEFAULT 1,

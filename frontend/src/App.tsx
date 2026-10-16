@@ -53,6 +53,7 @@ interface Product {
   grade: string;
   packageType: string;
   unitWeightKg: number;
+  unit?: string;
   retailPrice: number;
   wholesalePrice: number;
   wholesaleMoq: number;
@@ -2347,7 +2348,7 @@ function Storefront({
                       <div className="text-[9px] sm:text-[10px] text-gray-500 flex items-center gap-1">
                         <span className="bg-gray-100 px-1 py-0.5 rounded font-medium text-gray-700 truncate">{product.packageType || '1 kg Block'}</span>
                         <span>•</span>
-                        <span>{product.unitWeightKg} kg</span>
+                        <span>{product.unitWeightKg} {product.unit || 'kg'}</span>
                       </div>
                     </div>
                   </div>
@@ -2439,7 +2440,7 @@ function Storefront({
                     </p>
                   )}
                   <p className="text-xs text-slate-300">
-                    Specifications: <strong className="text-white">{activeModalProduct.packageType}</strong> • <strong className="text-white">{activeModalProduct.unitWeightKg} kg</strong>
+                    Specifications: <strong className="text-white">{activeModalProduct.packageType}</strong> • <strong className="text-white">{activeModalProduct.unitWeightKg} {activeModalProduct.unit || 'kg'}</strong>
                   </p>
                 </div>
 
@@ -3251,7 +3252,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
   const [productForm, setProductForm] = useState({
     name: '', sku: '', slug: '', description: '',
     categoryId: '', grade: 'GRADE_A_TRADITIONAL', packageType: 'BOX',
-    unitWeightKg: 1.0, retailPrice: 150, wholesalePrice: 110, wholesaleMoq: 20,
+    unitWeightKg: 1.0, unit: 'kg', retailPrice: 150, wholesalePrice: 110, wholesaleMoq: 20,
     imageUrl: '', featured: false, active: true
   });
   const [imageUploading, setImageUploading] = useState(false);
@@ -3337,6 +3338,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
         ...productForm,
         categoryId: productForm.categoryId || categories[0]?.id,
         unitWeightKg: Number(productForm.unitWeightKg),
+        unit: productForm.unit || 'kg',
         retailPrice: Number(productForm.retailPrice),
         wholesalePrice: Number(productForm.wholesalePrice),
         wholesaleMoq: Number(productForm.wholesaleMoq),
@@ -3417,7 +3419,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                 setProductForm({
                   name: '', sku: '', slug: '', description: '',
                   categoryId: categories[0]?.id ?? '', grade: 'GRADE_A_TRADITIONAL',
-                  packageType: 'BOX', unitWeightKg: 1.0, retailPrice: 150,
+                  packageType: 'BOX', unitWeightKg: 1.0, unit: 'kg', retailPrice: 150,
                   wholesalePrice: 110, wholesaleMoq: 20, imageUrl: '', featured: false, active: true
                 });
                 setShowCreateModal(true);
@@ -3484,7 +3486,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                           setProductForm({
                             name: p.name, sku: p.sku, slug: p.slug, description: p.description ?? '',
                             categoryId: p.categoryId, grade: p.grade, packageType: p.packageType,
-                            unitWeightKg: p.unitWeightKg, retailPrice: p.retailPrice,
+                            unitWeightKg: p.unitWeightKg, unit: p.unit ?? 'kg', retailPrice: p.retailPrice,
                             wholesalePrice: p.wholesalePrice, wholesaleMoq: p.wholesaleMoq,
                             imageUrl: p.imageUrl ?? '', featured: p.featured, active: p.active
                           });
@@ -3639,7 +3641,7 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="text-gray-700 font-semibold mb-1 block">Packaging</label>
                   <select
@@ -3651,13 +3653,15 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                     <option value="BOX">Box</option>
                     <option value="POUCH">Pouch</option>
                     <option value="JAR">Jar</option>
+                    <option value="BOTTLE">Bottle</option>
+                    <option value="CAN">Can</option>
                     <option value="BAG">Bag</option>
                     <option value="BUCKET">Bucket</option>
                     <option value="TIN">Tin</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-gray-700 font-semibold mb-1 block">Unit Wt (kg) *</label>
+                  <label className="text-gray-700 font-semibold mb-1 block">Quantity *</label>
                   <input
                     id="form-prod-weight"
                     type="number"
@@ -3668,6 +3672,20 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                     onChange={e => setProductForm(f => ({ ...f, unitWeightKg: parseFloat(e.target.value) || 0 }))}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
+                </div>
+                <div>
+                  <label className="text-gray-700 font-semibold mb-1 block">Unit *</label>
+                  <select
+                    id="form-prod-unit"
+                    value={productForm.unit || 'kg'}
+                    onChange={e => setProductForm(f => ({ ...f, unit: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600 font-medium"
+                  >
+                    <option value="kg">kg (Kilogram)</option>
+                    <option value="L">L (Liter)</option>
+                    <option value="g">g (Gram)</option>
+                    <option value="ml">ml (Milliliter)</option>
+                  </select>
                 </div>
                 <div>
                   <label className="text-gray-700 font-semibold mb-1 block">Wholesale MOQ *</label>
