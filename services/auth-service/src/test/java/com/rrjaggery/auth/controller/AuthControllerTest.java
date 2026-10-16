@@ -12,6 +12,8 @@ import com.rrjaggery.common.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -22,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,6 +69,8 @@ public class AuthControllerTest {
 
     @BeforeEach
     void ensureTestAccounts() {
+        Session session = Session.getInstance(new Properties());
+        when(mailSender.createMimeMessage()).thenAnswer(invocation -> new MimeMessage(session));
         ensureTestAccount("admin@rrjaggery.com", ADMIN_TEST_PASSWORD, Role.ADMIN);
         ensureTestAccount("manager@rrjaggery.com", MANAGER_TEST_PASSWORD, Role.MANAGER);
     }
@@ -146,10 +151,10 @@ public class AuthControllerTest {
         String challengeId = objectMapper.readTree(registrationStart).path("data").path("challengeId").asText();
         awaitRegistrationEmailStatus(challengeId, "SENT");
 
-        ArgumentCaptor<SimpleMailMessage> emailMessage = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> emailMessage = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(emailMessage.capture());
         Matcher codeMatcher = Pattern.compile("(?<!\\d)\\d{6}(?!\\d)")
-                .matcher(emailMessage.getValue().getText());
+                .matcher(emailMessage.getValue().getSubject());
         assertTrue(codeMatcher.find(), "Email should contain the six-digit verification code");
         String verifyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("email", email, "challengeId", challengeId, "otp", codeMatcher.group()));
@@ -177,10 +182,10 @@ public class AuthControllerTest {
                 .andReturn().getResponse().getContentAsString();
         String challengeId = objectMapper.readTree(registrationStart).path("data").path("challengeId").asText();
         awaitRegistrationEmailStatus(challengeId, "SENT");
-        ArgumentCaptor<SimpleMailMessage> emailMessage = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> emailMessage = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(emailMessage.capture());
         Matcher codeMatcher = Pattern.compile("(?<!\\d)\\d{6}(?!\\d)")
-                .matcher(emailMessage.getValue().getText());
+                .matcher(emailMessage.getValue().getSubject());
         assertTrue(codeMatcher.find());
         String invalidCode = "000000".equals(codeMatcher.group()) ? "000001" : "000000";
         mockMvc.perform(post("/api/v1/auth/register/verify")
@@ -207,6 +212,7 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.error.message").value(
                         "An account with this email already exists. Please sign in."));
 
+        verify(mailSender, never()).send(any(MimeMessage.class));
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 
@@ -214,7 +220,7 @@ public class AuthControllerTest {
     void testRegistrationEmailDeliveryFailureIsReportedByStatusEndpoint() throws Exception {
         String email = "mailfailure" + System.currentTimeMillis() + "@example.com";
         doThrow(new MailSendException("SMTP unavailable"))
-                .when(mailSender).send(any(SimpleMailMessage.class));
+                .when(mailSender).send(any(MimeMessage.class));
 
         String response = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
