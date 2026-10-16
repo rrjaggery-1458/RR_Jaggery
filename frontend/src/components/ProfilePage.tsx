@@ -331,7 +331,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
             <div>
               <span className="text-[10px] text-gray-500 font-medium block">Email Support</span>
-              <span className="font-bold text-gray-900 block">support@rrjaggery.com</span>
+              <a href="mailto:rrjaggery@gmail.com" className="font-bold text-gray-900 block hover:text-emerald-700 transition">rrjaggery@gmail.com</a>
             </div>
           </div>
 
