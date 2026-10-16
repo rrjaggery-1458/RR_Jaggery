@@ -1,102 +1,166 @@
 # RR Jaggery Traders
 
-> **Unified Business Platform:** E-Commerce, Cane-to-Jaggery Manufacturing, Inventory, Multi-Tier Wholesale & Financial Ledger Management.
+> **Unified Enterprise Business Platform:** Direct-to-Consumer E-Commerce, Multi-Tier B2B Wholesale, Cane-to-Jaggery Batch Manufacturing, Dynamic Forms, Inventory Outbox & Financial Accounting.
 
 ---
 
 ## 1. Project Overview
 
-**RR Jaggery Traders** is an end-to-end enterprise solution engineered to replace fragmented spreadsheets and disconnected point-of-sale systems with a unified digital backbone. The platform powers:
-- **Retail & Wholesale E-Commerce:** Modern storefront with tiered wholesale pricing and minimum order quantities.
-- **Offline Wholesale Operations:** Unregistered B2B buyer management, manual invoice generation, credit cycles, and partial payment reconciliation without customer login requirements.
+**RR Jaggery Traders** is an enterprise-grade ERP and e-commerce platform built for high-throughput, low-resource deployment (single 4GB/8GB VPS). It replaces disconnected spreadsheets and legacy systems with an integrated digital ecosystem:
+
+- **Retail Storefront:** Chemical-free, 100% natural jaggery catalog, shopping cart, customer checkout, profile management, and direct contact inquiries.
+- **B2B Wholesale Portal:** Unregistered and registered wholesale buyers, custom pricing, bulk credit terms (NET 15 / NET 30), and manual offline order generation.
+- **Consolidated ERP Manager Portal:** Unified interface for orders, inventory adjustments, farmer cane procurement, production batches, shift attendance, wage payouts, and financial ledgers.
 - **Batch-Based Manufacturing:** Cane procurement, chemical-free processing stages (crushing, boiling, clarifying, setting), material consumption tracking, yield calculation, and batch costing.
-- **Auditable Stock Movements:** Immutable stock movements for both raw materials (cane, lime, fuel) and finished goods (blocks, powder, cubes).
-- **Financial Accounting:** Customer ledgers, supplier ledgers, operating expenses, and employee piece-rate/monthly payroll.
+- **Transactional Stock Outbox:** Asynchronous, self-healing stock deduction ensuring zero inventory drift between commerce/offline orders and warehouse stock.
+- **Financial Ledger & Payroll:** Double-entry customer and supplier ledgers, operating expenses, daily wage worker tracking, and automated pro-rata monthly payroll calculation.
 
 ---
 
-## 2. Technology Stack
+## 2. Architecture & Service Topology
 
-| Tier | Technologies |
+In Sprint 9, the architecture was consolidated from 8 independent JVMs down to **5 optimized Spring Boot microservices** behind an **Nginx Gateway Reverse Proxy**. This reduces JVM cold-start overhead and memory footprint to run smoothly within a 4GB VPS:
+
+```
+                      ┌──────────────────────────────────────────────┐
+                      │            Nginx Gateway (:80)               │
+                      │  - Single Entrypoint / Reverse Proxy         │
+                      │  - Serves React Frontend SPA                 │
+                      │  - Routes /api/v1/* to Domain Services       │
+                      └──────────────────────┬───────────────────────┘
+                                             │
+      ┌──────────────────┬───────────────────┼───────────────────┬──────────────────┐
+      ▼                  ▼                   ▼                   ▼                  ▼
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│ auth-service │   │   commerce   │   │  customer-   │   │  inventory-  │   │  production  │
+│    (:8081)   │   │    service   │   │   finance    │   │ procurement  │   │   service    │
+│              │   │    (:8082)   │   │   service    │   │   service    │   │   (:8086)    │
+│ - Identity   │   │ - Products   │   │   (:8083)    │   │   (:8084)    │   │ - Recipes    │
+│ - JWT & RBAC │   │ - Cart       │   │ - Wholesale  │   │ - Raw & FG   │   │ - Batches    │
+│ - Email OTP  │   │ - Orders     │   │ - Expenses   │   │ - Suppliers  │   │ - Yield      │
+│ - Pass Reset │   │ - Outbox     │   │ - Attendance │   │ - Cane POs   │   │ - Costing    │
+└──────┬───────┘   └──────┬───────┘   │ - Payroll    │   └──────┬───────┘   └──────┬───────┘
+       │                  │           │ - Contact    │          │                  │
+       │                  │           └──────┬───────┘          │                  │
+       └──────────────────┴──────────────────┼──────────────────┴──────────────────┘
+                                             ▼
+                      ┌──────────────────────────────────────────────┐
+                      │          PostgreSQL 16 (:5432)               │
+                      │  - auth_schema         - commerce_schema     │
+                      │  - customer_schema     - finance_schema      │
+                      │  - inventory_schema    - procurement_schema  │
+                      │  - production_schema                         │
+                      └──────────────────────────────────────────────┘
+```
+
+| Service | Port | Responsibilities | Key Features |
+| :--- | :--- | :--- | :--- |
+| **`gateway`** | `:80` | Reverse Proxy & Web Server | Nginx routing, SSL termination, static SPA hosting |
+| **`auth-service`** | `:8081` | Security & Identity | JWT issuance, RBAC, Async Email OTP, First-Admin bootstrap |
+| **`commerce-service`** | `:8082` | E-Commerce Engine | Product catalog, cart, checkout, transactional stock outbox |
+| **`customer-finance-service`** | `:8083` | B2B & Accounting | Wholesale orders, customer ledgers, attendance, payroll, expenses |
+| **`inventory-procurement-service`** | `:8084` | Supply Chain | Stock ledger, FIFO stock movements, cane procurement & farmer ledger |
+| **`production-service`** | `:8086` | Manufacturing | Recipe BOMs, production batch stages, material consumption, yield |
+| **`postgres`** | `:5432` | Relational Storage | Multi-schema logical separation, full auditability |
+
+---
+
+## 3. Technology Stack
+
+| Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons |
-| **Backend** | Java 21 LTS, Spring Boot 3.3+, Spring Security, Spring Data JPA |
-| **Persistence** | PostgreSQL 16 (Logical schema isolation per domain service) |
-| **Caching** | Redis 7 (Token revocation, rate limits, session store) |
-| **Orchestration** | Docker, Docker Compose, Nginx Reverse Proxy |
-| **CI / CD** | GitHub Actions |
+| **Frontend** | React 18, TypeScript, Vite, Vanilla CSS + Tailwind CSS, Lucide Icons |
+| **Backend** | Java 21 LTS, Spring Boot 3.3.4, Spring Security, Spring Data JPA |
+| **Database** | PostgreSQL 16 (Logical schema isolation per domain service) |
+| **Optimization** | JVM TieredStopAtLevel=1, Spring lazy-initialization, Docker healthchecks |
+| **Orchestration** | Docker Compose, Nginx Reverse Proxy |
+| **CI / CD & VPS** | GitHub Actions, Systemd / Docker daemon, OVHcloud / VPS ready |
 
 ---
 
-## 3. Architecture & Service Topology
+## 4. Documentation Sitemap
 
-The platform consists of 8 logical microservices designed to run cooperatively in a low-cost single-host environment while maintaining strict domain autonomy:
+All project documentation is structured inside [`docs/`](docs/):
 
-1. **`auth-service`** (`:8081`): Identity, JWT issuance, and Role-Based Access Control.
-2. **`commerce-service`** (`:8082`): Product catalog, shopping cart, online order lifecycle, and invoices.
-3. **`customer-ledger-service`** (`:8083`): Retail, B2B wholesale, and offline wholesale management with auditable ledgers.
-4. **`inventory-service`** (`:8084`): Raw materials, finished goods, and immutable stock movement tracking.
-5. **`procurement-service`** (`:8085`): Cane farmer suppliers, purchase orders, goods receipts, and supplier ledgers.
-6. **`production-service`** (`:8086`): Recipes/BOMs, batch execution, material consumption, and yield analysis.
-7. **`finance-service`** (`:8087`): Direct & operating expenses, employee attendance, and payroll ledgers.
-8. **`notification-service`** (`:8088`): In-app alerts, transactional emails, and event dispatch.
-
-Comprehensive architectural specifications are located in the [`docs/`](file:///e:/RR%20Jaggery/docs) directory:
-- [Architecture & Topology](file:///e:/RR%20Jaggery/docs/architecture.md)
-- [Service Boundaries & Dependencies](file:///e:/RR%20Jaggery/docs/service-boundaries.md)
-- [Domain Model & ERD](file:///e:/RR%20Jaggery/docs/domain-model.md)
-- [Database Ownership & Segregation](file:///e:/RR%20Jaggery/docs/database-ownership.md)
-- [API Boundaries & REST Catalog](file:///e:/RR%20Jaggery/docs/api-boundaries.md)
-- [Core Business Data Flows](file:///e:/RR%20Jaggery/docs/data-flows.md)
-- [Security Model](file:///e:/RR%20Jaggery/docs/security-model.md)
-- [Technical Decisions & ADRs](file:///e:/RR%20Jaggery/docs/technical-decisions.md)
-- [Ambiguities & Risks](file:///e:/RR%20Jaggery/docs/ambiguities-and-risks.md)
-- [Deployment Architecture](file:///e:/RR%20Jaggery/docs/deployment-architecture.md)
-- [Testing Strategy](file:///e:/RR%20Jaggery/docs/testing-strategy.md)
-
----
-
-## 4. Local Development Quickstart
-
-### Prerequisites
-- Java 21 LTS
-- Node.js 20+ & npm
-- Docker & Docker Compose
-- Git
-
-### Quick Setup
-```bash
-# 1. Clone repository
-git clone <repo-url>
-cd "RR Jaggery"
-
-# 2. Configure environment
-cp .env.example .env
-
-# 3. Start PostgreSQL and Redis infrastructure
-docker-compose up -d postgres redis
-
-# 4. Start frontend shell
-cd frontend
-npm install
-npm run dev
-
-# 5. Build and run backend services (e.g., auth-service)
-cd ../services/auth-service
-./mvnw clean spring-boot:run
+```
+docs/
+├── architecture/
+│   ├── ARCHITECTURE_DECISIONS.md        # Core architectural decisions
+│   ├── DECISIONS.md                     # Technical tradeoffs and rationales
+│   └── DEPLOYMENT.md                    # Single-host and production deployment guide
+├── developer-guides/
+│   ├── CLAUDE_ANTIGRAVITY_DEVELOPMENT_GUIDE.md  # Engineering workflows & protocols
+│   └── MASTER_PROMPT.md                 # System prompts and domain constraints
+├── reports/
+│   ├── PRE_PRODUCTION_READINESS_REPORT.md
+│   ├── REPOSITORY_CLEANUP_REPORT.md
+│   ├── RESPONSIVE_UI_UX_AUDIT_AND_VERIFICATION_REPORT.md
+│   ├── SPRINT_0_TO_8_SERVICE_CONSOLIDATION_FEASIBILITY_REPORT.md
+│   ├── SPRINT_9_SERVICE_CONSOLIDATION_IMPLEMENTATION_AND_VERIFICATION_REPORT.md
+│   └── SPRINT_10_OVHCLOUD_PRODUCTION_DEPLOYMENT_AND_VERIFICATION_REPORT.md
+├── requirements/
+│   ├── RR_Jaggery_Traders_Product_Requirements_and_Agile_Sprint_Plan.docx
+│   └── Update_RR_Jaggery_Traders_Product_Requirements_Access_Model_v1.1.docx
+└── status/
+    ├── IMPLEMENTATION_STATUS.md         # Sprint completion milestones
+    └── TODO-BACKLOG.md                  # Backlog and enhancement tracking
 ```
 
 ---
 
-## 5. Agile Sprint Roadmap
+## 5. Quickstart & Local Deployment
 
-- **Sprint 0:** Foundation, Architecture & DevOps Skeleton `[ACCEPTED]`
-- **Sprint 1:** Authentication & Product Catalogue `[ACCEPTED]`
-- **Sprint 2:** Cart, Checkout & Orders `[ACCEPTED]`
-- **Sprint 3:** Customer, Wholesale & Ledger (Offline Wholesaler Focus) `[ACCEPTED]`
-- **Sprint 4:** Inventory & Procurement `[ACCEPTED]`
-- **Sprint 5:** Production Management `[ACCEPTED]`
-- **Sprint 6:** Costing, Expenses & Payroll *(Next)*
-- **Sprint 7:** Dashboard, Reports & Notifications
-- **Sprint 8:** Hardening, Security & Production Readiness
-- **Sprint 9:** Production Deployment & Stabilization
+### Prerequisites
+- [Docker](https://www.docker.com/) & Docker Compose (v2+)
+- [Node.js](https://nodejs.org/) 20+ & npm (for local frontend dev)
+- [Java 21 LTS](https://adoptium.net/) (for local Maven service runs)
+
+### Run Entire Stack with Docker (Recommended)
+```bash
+# 1. Clone repository
+git clone https://github.com/rrjaggery-1458/RR_Jaggery.git
+cd RR_Jaggery
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your SMTP and bootstrap credentials
+
+# 3. Start all services, database & gateway
+docker compose up -d --build
+
+# 4. Open in browser
+# Storefront & ERP: http://localhost
+# Backend APIs:     http://localhost/api/v1/...
+```
+
+### Run Frontend in Development Mode
+```bash
+cd frontend
+npm install
+npm run dev
+# Accessible at http://localhost:5173
+```
+
+---
+
+## 6. Project Status & Sprint Roadmap
+
+| Sprint | Milestone | Status | Key Deliverables |
+| :---: | :--- | :---: | :--- |
+| **Sprint 0** | Architecture & Foundation | ✅ Complete | Multi-schema DB, Docker compose, security skeleton |
+| **Sprint 1** | Auth & Product Catalogue | ✅ Complete | JWT auth, RBAC, public catalog, image uploads |
+| **Sprint 2** | Cart, Checkout & Orders | ✅ Complete | Dynamic cart, order placement, order history |
+| **Sprint 3** | Customer & Wholesale Ledger | ✅ Complete | Unregistered wholesale B2B, credit terms, customer ledger |
+| **Sprint 4** | Inventory & Procurement | ✅ Complete | Cane farmer suppliers, POs, weighment receipts, stock movements |
+| **Sprint 5** | Production Management | ✅ Complete | Recipes/BOMs, batch stages, material consumption, yield |
+| **Sprint 6** | Costing, Expenses & Payroll | ✅ Complete | Daily/monthly attendance, piece-rate payroll, operating expenses |
+| **Sprint 7** | Dashboards & Reports | ✅ Complete | Financial balances, summary analytics, consolidated reports |
+| **Sprint 8** | Dynamic Form Engine | ✅ Complete | Configurable dynamic forms with schema revisions & submissions |
+| **Sprint 9** | Architecture Consolidation | ✅ Complete | 8→5 JVM service consolidation, cold start & memory tuning |
+| **Sprint 10** | Production Deployment & Audit | ✅ Complete | CI/CD pipeline, backup/restore scripts, responsive UI/UX audit |
+
+---
+
+## 7. License
+
+Proprietary — All rights reserved by **RR Jaggery Traders**.
