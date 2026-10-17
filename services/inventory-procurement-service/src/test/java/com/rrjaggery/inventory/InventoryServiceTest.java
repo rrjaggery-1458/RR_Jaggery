@@ -105,7 +105,9 @@ class InventoryServiceTest {
 
         sale.setReferenceId("ORD-TEST:LINE-2");
         sale.setQuantity(new BigDecimal("4"));
-        assertThrows(IllegalStateException.class, () -> inventoryService.deductSaleStock(sale));
+        InventoryItem afterBackorderSale = inventoryService.deductSaleStock(sale);
+        assertEquals(new BigDecimal("-1.000"), afterBackorderSale.getCurrentQuantity());
+        assertEquals(3, inventoryService.getMovements(item.getId()).size());
     }
 
     @Test
