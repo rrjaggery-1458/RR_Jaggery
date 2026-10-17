@@ -685,22 +685,50 @@ public class FormRegistryService {
 
     private void ensureInvestmentTypeField() {
         FormDefinition definition = definitionRepository.findByFormKey("INVESTMENT").orElseThrow();
-        if (fieldRepository.findByFormDefinitionIdAndFieldKey(definition.getId(), "investmentType").isPresent()) {
-            return;
+        FormField field = fieldRepository.findByFormDefinitionIdAndFieldKey(definition.getId(), "investmentType")
+                .orElseGet(() -> {
+                    FormField created = new FormField();
+                    created.setFormDefinitionId(definition.getId());
+                    created.setFieldKey("investmentType");
+                    created.setLabel("Investment Type");
+                    created.setFieldType(FieldType.SINGLE_SELECT);
+                    created.setRequired(true);
+                    created.setActive(true);
+                    created.setSystemManaged(false);
+                    created.setDisplayOrder(0);
+                    created.setCreatedBy("system");
+                    created.setUpdatedBy("system");
+                    FormField saved = fieldRepository.save(created);
+                    bumpVersion(definition, "system");
+                    return saved;
+                });
+
+        if (optionRepository.findByFieldIdOrderByDisplayOrderAsc(field.getId()).isEmpty()) {
+            List<String[]> defaultOptions = List.of(
+                    new String[]{"OWNER_CAPITAL", "Owner Capital / Equity"},
+                    new String[]{"PARTNER_CAPITAL", "Partner Capital"},
+                    new String[]{"FAMILY_LOAN", "Family / Personal Loan"},
+                    new String[]{"BANK_TERM_LOAN", "Bank Term Loan"},
+                    new String[]{"WORKING_CAPITAL_LOAN", "Working Capital Loan"},
+                    new String[]{"GOVT_SCHEME", "Government Subsidy / Scheme"},
+                    new String[]{"RETAINED_EARNINGS", "Retained Earnings"},
+                    new String[]{"MACHINERY_FINANCE", "Machinery / Equipment Finance"},
+                    new String[]{"OTHER", "Other Capital Inflow"}
+            );
+            int order = 0;
+            for (String[] opt : defaultOptions) {
+                FormFieldOption option = new FormFieldOption();
+                option.setFieldId(field.getId());
+                option.setValue(opt[0]);
+                option.setLabel(opt[1]);
+                option.setDisplayOrder(order++);
+                option.setActive(true);
+                option.setCreatedBy("system");
+                option.setUpdatedBy("system");
+                optionRepository.save(option);
+            }
+            bumpVersion(definition, "system");
         }
-        FormField created = new FormField();
-        created.setFormDefinitionId(definition.getId());
-        created.setFieldKey("investmentType");
-        created.setLabel("Investment Type");
-        created.setFieldType(FieldType.SINGLE_SELECT);
-        created.setRequired(true);
-        created.setActive(true);
-        created.setSystemManaged(false);
-        created.setDisplayOrder(0);
-        created.setCreatedBy("system");
-        created.setUpdatedBy("system");
-        fieldRepository.save(created);
-        bumpVersion(definition, "system");
     }
 
     private void validateFormKey(String key) {

@@ -2308,7 +2308,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to record investment.');
+        throw new Error(data.error?.message || data.message || 'Failed to record investment.');
       }
 
       // Link dynamic custom answers if provided
@@ -2326,6 +2326,25 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         details: '',
       });
       setInvestmentCustomAnswers({});
+
+      // Fast-refresh investments & balance immediately for snappy UI
+      try {
+        const financeParams = periodType === 'monthly' ? `year=${selectedYear}&month=${selectedMonth}` : `year=${selectedYear}`;
+        const [invRes, balRes] = await Promise.all([
+          fetch(`${FINANCE_URL}/investments`, { headers: getHeaders() }),
+          fetch(`${FINANCE_URL}/balance?${financeParams}`, { headers: getHeaders() })
+        ]);
+        if (invRes.ok) {
+          const invD = await invRes.json();
+          setInvestments(invD.data || []);
+        }
+        if (balRes.ok) {
+          const balD = await balRes.json();
+          setFinancialBalance(balD.data || null);
+        }
+      } catch (errFast) {
+        console.warn('Fast refresh error:', errFast);
+      }
       loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording investment.');
@@ -2345,9 +2364,26 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.message || 'Failed to void investment.');
+        throw new Error(d.error?.message || d.message || 'Failed to void investment.');
       }
       setSuccessMsg('Investment voided successfully.');
+      try {
+        const financeParams = periodType === 'monthly' ? `year=${selectedYear}&month=${selectedMonth}` : `year=${selectedYear}`;
+        const [invRes, balRes] = await Promise.all([
+          fetch(`${FINANCE_URL}/investments`, { headers: getHeaders() }),
+          fetch(`${FINANCE_URL}/balance?${financeParams}`, { headers: getHeaders() })
+        ]);
+        if (invRes.ok) {
+          const invD = await invRes.json();
+          setInvestments(invD.data || []);
+        }
+        if (balRes.ok) {
+          const balD = await balRes.json();
+          setFinancialBalance(balD.data || null);
+        }
+      } catch (e) {
+        console.warn('Fast refresh void failed:', e);
+      }
       loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error voiding investment.');
