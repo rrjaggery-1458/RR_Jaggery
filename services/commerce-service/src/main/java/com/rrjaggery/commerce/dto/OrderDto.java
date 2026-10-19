@@ -22,6 +22,7 @@ public class OrderDto {
     private BigDecimal subtotalAmount;
     private BigDecimal taxAmount;
     private BigDecimal shippingAmount;
+    private BigDecimal packagingFee = new BigDecimal("10.00");
     private BigDecimal discountAmount;
     private BigDecimal totalAmount;
     private OrderStatus status;
@@ -47,6 +48,7 @@ public class OrderDto {
         dto.subtotalAmount = order.getSubtotalAmount();
         dto.taxAmount = order.getTaxAmount();
         dto.shippingAmount = order.getShippingAmount();
+        dto.packagingFee = order.getPackagingFee() != null ? order.getPackagingFee() : new BigDecimal("10.00");
         dto.discountAmount = order.getDiscountAmount();
         dto.totalAmount = order.getTotalAmount();
         dto.status = order.getStatus();
@@ -79,6 +81,7 @@ public class OrderDto {
     public BigDecimal getSubtotalAmount() { return subtotalAmount; }
     public BigDecimal getTaxAmount() { return taxAmount; }
     public BigDecimal getShippingAmount() { return shippingAmount; }
+    public BigDecimal getPackagingFee() { return packagingFee; }
     public BigDecimal getDiscountAmount() { return discountAmount; }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public OrderStatus getStatus() { return status; }

@@ -120,8 +120,13 @@ public class OfflineOrderService {
         BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryCharges);
         BigDecimal immediatePaid = req.getImmediatePaidAmount() != null ? req.getImmediatePaidAmount() : BigDecimal.ZERO;
 
-        // If payment status is marked PAID or cash/upi, default immediatePaid to totalAmount if not set
-        if ("PAID".equalsIgnoreCase(req.getPaymentStatus()) || "CASH".equalsIgnoreCase(req.getPaymentMethod()) || "UPI".equalsIgnoreCase(req.getPaymentMethod()) || "BANK_TRANSFER".equalsIgnoreCase(req.getPaymentMethod())) {
+        // If payment status is explicitly PENDING/UNPAID/CREDIT, do NOT auto-settle the invoice even if cash/upi was selected as the intended tender
+        boolean isPendingPayment = "PENDING".equalsIgnoreCase(req.getPaymentStatus())
+                || "UNPAID".equalsIgnoreCase(req.getPaymentStatus())
+                || "CREDIT".equalsIgnoreCase(req.getPaymentStatus());
+
+        // If payment status is marked PAID or cash/upi and not explicitly pending, default immediatePaid to totalAmount if not set
+        if (!isPendingPayment && ("PAID".equalsIgnoreCase(req.getPaymentStatus()) || "CASH".equalsIgnoreCase(req.getPaymentMethod()) || "UPI".equalsIgnoreCase(req.getPaymentMethod()) || "BANK_TRANSFER".equalsIgnoreCase(req.getPaymentMethod()))) {
             if (immediatePaid.compareTo(BigDecimal.ZERO) == 0 && req.getImmediatePaidAmount() == null) {
                 immediatePaid = totalAmount;
             }
@@ -168,10 +173,10 @@ public class OfflineOrderService {
         order.setPaymentMethod(req.getPaymentMethod());
         order.setNotes(req.getNotes());
 
-        if (req.getPaymentStatus() != null && !req.getPaymentStatus().isBlank()) {
-            order.setPaymentStatus(req.getPaymentStatus());
-        } else if (creditPortion.compareTo(BigDecimal.ZERO) == 0) {
+        if (creditPortion.compareTo(BigDecimal.ZERO) == 0) {
             order.setPaymentStatus("PAID");
+        } else if (req.getPaymentStatus() != null && !req.getPaymentStatus().isBlank()) {
+            order.setPaymentStatus(req.getPaymentStatus());
         } else if (immediatePaid.compareTo(BigDecimal.ZERO) > 0) {
             order.setPaymentStatus("PARTIALLY_PAID");
         } else {

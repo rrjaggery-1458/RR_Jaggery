@@ -16,7 +16,7 @@ A comprehensive audit and end-to-end verification of the entire RR Jaggery platf
 3. **Product Creation Failure:** Resolved missing standard category references and DTO field alignment in `commerce-service`. Product creation persists in PostgreSQL and is immediately available in the catalog.
 4. **Wage Payments Table Empty:** Unified the payroll view in `ManagerPortal.tsx` to read both `/finance/salary-payments` and `/payroll`, correctly displaying all recorded wage settlements.
 5. **Missing Manual Retail Order Action:** Added "Manual Retail Orders" workflow and modal in the dashboard with automated financial reconciliation (`Product Income = KG × Price/KG + Delivery`).
-6. **Storefront & Contact Details Cleanup:** Completely purged all unrelated/fabricated Mandya and test claims across storefront, invoice headers, and DTOs. Embedded the authoritative factory address (`Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163`) and contact details.
+6. **Storefront & Contact Details Cleanup:** Completely purged all unrelated/fabricated Mandya and test claims across storefront, invoice headers, and DTOs. Embedded the authoritative factory address (`Vallurupallem, Thotlavalluru, Andhra Pradesh 5221163`) and contact details.
 7. **UI Text Visibility & Modal Responsiveness:** Fixed all transparent/low-contrast text styles and resized oversized modals with responsive 2-column layouts and internal scrolling.
 8. **Admin System Health & Dynamic Form Builder:** Verified operational health across all 8 microservices and database schemas with strict RBAC enforcement (ADMIN only).
 
@@ -164,7 +164,7 @@ ALL VERIFICATION FLOWS COMPLETED WITH 100% SUCCESS!
    - Unified Wage Payments table to display records from `/finance/salary-payments`.
    - Fixed text contrast and responsive 2-column modal forms.
 2. **`frontend/src/App.tsx`**:
-   - Replaced all Mandya / test references with authoritative Vollurupallem, Thotlavalluru, AP contact information.
+   - Replaced all Mandya / test references with authoritative Vallurupallem, Thotlavalluru, AP contact information.
    - Fixed low-contrast text elements on Contact, About, and storefront sections.
 3. **`frontend/src/CustomerLedger.tsx`**:
    - Cleaned up invoice seller headers to remove Mandya references and ensure high contrast.

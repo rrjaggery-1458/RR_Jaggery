@@ -174,7 +174,8 @@ public class OrderControllerTest {
                 .andExpect(jsonPath("$.data.subtotalAmount").value(320.0))
                 .andExpect(jsonPath("$.data.taxAmount").value(0.0))
                 .andExpect(jsonPath("$.data.shippingAmount").value(50.0))
-                .andExpect(jsonPath("$.data.totalAmount").value(370.0))
+                .andExpect(jsonPath("$.data.packagingFee").value(10.0))
+                .andExpect(jsonPath("$.data.totalAmount").value(380.0))
                 .andReturn();
         String orderId = objectMapper.readTree(checkout.getResponse().getContentAsString())
                 .path("data").path("id").asText();

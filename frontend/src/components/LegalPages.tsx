@@ -9,7 +9,7 @@ interface LegalPageProps {
 // ============================================================
 const BIZ_NAME = 'RR Jaggery';
 const BIZ_TYPE = 'Jaggery Manufacturing';
-const BIZ_ADDRESS = 'Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163';
+const BIZ_ADDRESS = 'Vallurupallem, Thotlavalluru, Andhra Pradesh – 521163';
 const BIZ_EMAIL = 'rrjaggery@gmail.com';
 const BIZ_PHONE = '+91 9948533315';
 const BIZ_HOURS = '10:00 AM – 6:00 PM (Mon–Sat)';

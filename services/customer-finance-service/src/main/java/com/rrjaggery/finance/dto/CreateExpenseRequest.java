@@ -26,6 +26,7 @@ public class CreateExpenseRequest {
     private String receiptUrl;
     private String notes;
     private String createdBy;
+    private String paymentStatus = "PAID"; // PAID or UNPAID
 
     public LocalDate getExpenseDate() { return expenseDate; }
     public void setExpenseDate(LocalDate expenseDate) { this.expenseDate = expenseDate; }
@@ -56,4 +57,7 @@ public class CreateExpenseRequest {
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
 }

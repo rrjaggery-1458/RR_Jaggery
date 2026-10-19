@@ -227,9 +227,24 @@ CREATE TABLE IF NOT EXISTS finance_schema.operating_expenses (
     payment_method VARCHAR(50) NOT NULL DEFAULT 'CASH',
     payee_vendor VARCHAR(150),
     description VARCHAR(500),
+    reference_number VARCHAR(100),
+    receipt_url VARCHAR(1000),
     notes TEXT,
+    payment_status VARCHAR(20) NOT NULL DEFAULT 'PAID',
+    created_by VARCHAR(100),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Add payment_status to existing deployments (safe ALTER, ignored if column exists)
+DO $$ BEGIN
+    ALTER TABLE finance_schema.operating_expenses ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) NOT NULL DEFAULT 'PAID';
+    ALTER TABLE finance_schema.operating_expenses ADD COLUMN IF NOT EXISTS reference_number VARCHAR(100);
+    ALTER TABLE finance_schema.operating_expenses ADD COLUMN IF NOT EXISTS receipt_url VARCHAR(1000);
+    ALTER TABLE finance_schema.operating_expenses ADD COLUMN IF NOT EXISTS created_by VARCHAR(100);
+    ALTER TABLE finance_schema.operating_expenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
+EXCEPTION WHEN others THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS finance_schema.employees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

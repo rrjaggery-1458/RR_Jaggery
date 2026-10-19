@@ -121,6 +121,7 @@ public class ExpenseService {
         expense.setReceiptUrl(request.getReceiptUrl());
         expense.setNotes(request.getNotes());
         expense.setCreatedBy(request.getCreatedBy() != null ? request.getCreatedBy() : "MANAGER");
+        expense.setPaymentStatus(request.getPaymentStatus() != null ? request.getPaymentStatus() : "PAID");
         return expenseRepository.save(expense);
     }
 
@@ -153,6 +154,9 @@ public class ExpenseService {
         }
         if (request.getNotes() != null) {
             expense.setNotes(request.getNotes());
+        }
+        if (request.getPaymentStatus() != null) {
+            expense.setPaymentStatus(request.getPaymentStatus());
         }
         return expenseRepository.save(expense);
     }

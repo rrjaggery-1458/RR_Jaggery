@@ -50,11 +50,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // Get user initials for avatar
   const initials = user?.fullName
     ? user.fullName
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
     : 'U';
 
   return (
@@ -93,23 +93,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               {isLoggedIn && (
                 <div className="flex items-center gap-2 mt-2">
                   <span
-                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${
-                      isAdmin
+                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${isAdmin
                         ? 'bg-purple-50 text-purple-800 border-purple-200'
                         : isManager
-                        ? 'bg-blue-50 text-blue-800 border-blue-200'
-                        : isWholesale
-                        ? 'bg-amber-50 text-amber-800 border-amber-200'
-                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    }`}
+                          ? 'bg-blue-50 text-blue-800 border-blue-200'
+                          : isWholesale
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}
                   >
                     {isAdmin
                       ? 'Administrator'
                       : isManager
-                      ? 'Operations Manager'
-                      : isWholesale
-                      ? '⭐ Wholesale Partner'
-                      : 'Retail Customer'}
+                        ? 'Operations Manager'
+                        : isWholesale
+                          ? '⭐ Wholesale Partner'
+                          : 'Retail Customer'}
                   </span>
                 </div>
               )}
@@ -288,7 +287,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <div>
                     <span className="font-bold text-gray-900 block">Default Delivery Region</span>
                     <span className="text-[11px] text-gray-600 block mt-0.5">
-                      Direct Mill dispatch from Vollurupallem, Andhra Pradesh across all Indian pincodes via express logistics.
+                      Direct Mill dispatch from Vallurupallem, Andhra Pradesh across all Indian pincodes via express logistics.
                     </span>
                   </div>
                 </div>
@@ -341,7 +340,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
             <div>
               <span className="text-[10px] text-gray-500 font-medium block">Mill Location</span>
-              <span className="font-bold text-gray-900 block">Vollurupallem, AP</span>
+              <span className="font-bold text-gray-900 block">Vallurupallem, AP</span>
             </div>
           </div>
         </div>

@@ -23,8 +23,8 @@ public class CartService {
     // Customer cart totals are commercial prices; statutory tax handling remains separate.
     // Tax fields are retained in DTO/schema for backward compatibility.
     private static final BigDecimal GST_RATE = BigDecimal.ZERO;
-    private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("500.00");
     private static final BigDecimal STANDARD_SHIPPING_FEE = new BigDecimal("50.00");
+    private static final BigDecimal STANDARD_PACKAGING_FEE = new BigDecimal("10.00");
 
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
@@ -53,13 +53,11 @@ public class CartService {
 
         subtotal = subtotal.setScale(2, RoundingMode.HALF_UP);
         BigDecimal taxAmount = subtotal.multiply(GST_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal shippingAmount = BigDecimal.ZERO;
-        if (totalItems > 0 && subtotal.compareTo(FREE_SHIPPING_THRESHOLD) < 0) {
-            shippingAmount = STANDARD_SHIPPING_FEE;
-        }
-        BigDecimal totalAmount = subtotal.add(taxAmount).add(shippingAmount).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal shippingAmount = totalItems > 0 ? STANDARD_SHIPPING_FEE : BigDecimal.ZERO;
+        BigDecimal packagingFee = totalItems > 0 ? STANDARD_PACKAGING_FEE : BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(shippingAmount).add(packagingFee).setScale(2, RoundingMode.HALF_UP);
 
-        return new CartDto(itemDtos, totalItems, subtotal, taxAmount, shippingAmount, totalAmount);
+        return new CartDto(itemDtos, totalItems, subtotal, taxAmount, shippingAmount, packagingFee, totalAmount);
     }
 
     public CartItemDto addToCart(UUID userId, AddToCartRequest request, String customerType) {

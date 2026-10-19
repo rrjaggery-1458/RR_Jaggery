@@ -11,16 +11,18 @@ public class CartDto {
     private BigDecimal subtotal = BigDecimal.ZERO;
     private BigDecimal taxAmount = BigDecimal.ZERO;
     private BigDecimal shippingAmount = BigDecimal.ZERO;
+    private BigDecimal packagingFee = BigDecimal.ZERO;
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     public CartDto() {}
 
-    public CartDto(List<CartItemDto> items, int totalItems, BigDecimal subtotal, BigDecimal taxAmount, BigDecimal shippingAmount, BigDecimal totalAmount) {
+    public CartDto(List<CartItemDto> items, int totalItems, BigDecimal subtotal, BigDecimal taxAmount, BigDecimal shippingAmount, BigDecimal packagingFee, BigDecimal totalAmount) {
         this.items = items;
         this.totalItems = totalItems;
         this.subtotal = subtotal;
         this.taxAmount = taxAmount;
         this.shippingAmount = shippingAmount;
+        this.packagingFee = packagingFee;
         this.totalAmount = totalAmount;
     }
 
@@ -38,6 +40,9 @@ public class CartDto {
 
     public BigDecimal getShippingAmount() { return shippingAmount; }
     public void setShippingAmount(BigDecimal shippingAmount) { this.shippingAmount = shippingAmount; }
+
+    public BigDecimal getPackagingFee() { return packagingFee; }
+    public void setPackagingFee(BigDecimal packagingFee) { this.packagingFee = packagingFee; }
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }

@@ -24,6 +24,7 @@ public class UpdateExpenseRequest {
     private String referenceNumber;
     private String receiptUrl;
     private String notes;
+    private String paymentStatus; // PAID or UNPAID
 
     public LocalDate getExpenseDate() { return expenseDate; }
     public void setExpenseDate(LocalDate expenseDate) { this.expenseDate = expenseDate; }
@@ -51,4 +52,7 @@ public class UpdateExpenseRequest {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
 }

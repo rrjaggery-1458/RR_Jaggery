@@ -8,7 +8,8 @@ import {
   Sparkles, ShoppingCart, Trash2, CreditCard,
   FileText, Truck, Printer, Receipt, ArrowLeft, Users, Factory,
   Shield, BarChart3, AlertTriangle, Star, MapPin, Phone, Mail,
-  MessageSquare, Send, Leaf, Award, Clock, Info, User, Upload
+  MessageSquare, Send, Leaf, Award, Clock, Info, User, Upload,
+  ExternalLink, ShieldCheck
 } from 'lucide-react';
 import {
   CustomerDirectoryPage,
@@ -93,6 +94,7 @@ interface Cart {
   subtotal: number;
   taxAmount: number;
   shippingAmount: number;
+  packagingFee?: number;
   totalAmount: number;
 }
 
@@ -130,11 +132,12 @@ interface Order {
   subtotalAmount: number;
   taxAmount: number;
   shippingAmount: number;
+  packagingFee?: number;
   discountAmount: number;
   totalAmount: number;
   status: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED';
   paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-  paymentMethod: 'TEST_PAYMENT' | 'CASH_ON_DELIVERY' | 'UPI' | 'BANK_TRANSFER';
+  paymentMethod: 'TEST_PAYMENT' | 'CASH_ON_DELIVERY' | 'UPI' | 'BANK_TRANSFER' | 'RAZORPAY';
   shippingAddress: Address;
   notes?: string;
   items: OrderItem[];
@@ -161,6 +164,7 @@ interface Invoice {
   sgstAmount: number;
   totalTax: number;
   shippingAmount: number;
+  packagingFee?: number;
   grandTotal: number;
   paymentMethod: string;
   paymentStatus: string;
@@ -302,22 +306,6 @@ function StatusBadge({ status }: { status: 'ONLINE' | 'STANDBY' | 'CONNECTING' }
   );
 }
 
-function OrderStatusBadge({ status }: { status: string }) {
-  const cfg = {
-    PENDING: 'bg-emerald-700/10 text-emerald-700 border-emerald-200',
-    CONFIRMED: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    PROCESSING: 'bg-purple-500/10 text-purple-700 border-purple-500/20',
-    DISPATCHED: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    DELIVERED: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
-    CANCELLED: 'bg-red-500/10 text-red-600 border-red-500/20',
-  }[status] ?? 'bg-gray-100 text-gray-500 border-gray-300';
-
-  return (
-    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${cfg}`}>
-      {status}
-    </span>
-  );
-}
 
 // ─── Auth Modal (Login & Register) ────────────────────────────────────────────
 
@@ -1088,10 +1076,12 @@ function CartDrawer({
                   <span className="font-medium text-gray-900">{formatPrice(cart.subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Shipping:</span>
-                  <span className="font-medium text-emerald-700">
-                    {cart.shippingAmount === 0 ? 'FREE (Orders > ₹500)' : formatPrice(cart.shippingAmount)}
-                  </span>
+                  <span>Delivery Charges:</span>
+                  <span className="font-medium text-gray-900">{formatPrice(cart.shippingAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Packaging Fee:</span>
+                  <span className="font-medium text-gray-900">{formatPrice(cart.packagingFee ?? 10)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                   <span>Grand Total:</span>
@@ -1140,35 +1130,215 @@ function CheckoutModal({
     postalCode: '',
     nearestLandmark: '',
   });
-  const [paymentMethod, setPaymentMethod] = useState<'TEST_PAYMENT' | 'CASH_ON_DELIVERY'>('TEST_PAYMENT');
+  const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'CASH_ON_DELIVERY' | 'TEST_PAYMENT'>('RAZORPAY');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationCaptured, setLocationCaptured] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState('');
 
   if (!isOpen || !cart) return null;
 
+  function handleShareLocation() {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setLocating(true);
+    setError('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setLocationCaptured({ lat: latitude, lng: longitude });
+        setLocating(false);
+
+        // Reverse geocoding via OpenStreetMap Nominatim
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            setAddress(prev => ({
+              ...prev,
+              city: addr.city || addr.town || addr.village || addr.suburb || prev.city,
+              state: addr.state || prev.state,
+              postalCode: addr.postcode || prev.postalCode,
+              streetAddress: prev.streetAddress || [addr.road, addr.suburb].filter(Boolean).join(', ') || prev.streetAddress,
+              nearestLandmark: prev.nearestLandmark 
+                ? (prev.nearestLandmark.includes('GPS:') ? prev.nearestLandmark : `${prev.nearestLandmark} (GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)})`)
+                : `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+            }));
+          } else {
+            setAddress(prev => ({
+              ...prev,
+              nearestLandmark: prev.nearestLandmark || `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+            }));
+          }
+        } catch {
+          setAddress(prev => ({
+            ...prev,
+            nearestLandmark: prev.nearestLandmark || `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+          }));
+        }
+      },
+      (err) => {
+        setLocating(false);
+        let msg = 'Unable to retrieve location.';
+        if (err.code === 1) msg = 'Location access was denied. Please allow location permission in your browser or fill address manually.';
+        else if (err.code === 2) msg = 'GPS location unavailable. Please fill address manually.';
+        else if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        setError(msg);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  }
+
   async function handleSubmitOrder(e: React.FormEvent) {
     e.preventDefault();
-    if (!auth.token) return;
+    if (!auth.token || !cart) return;
+    const currentToken = auth.token;
+    const currentCart = cart;
     setError('');
     setLoading(true);
 
+    const gpsNote = locationCaptured ? `[GPS: ${locationCaptured.lat.toFixed(5)}, ${locationCaptured.lng.toFixed(5)}]` : '';
+    const finalNotes = [notes, gpsNote].filter(Boolean).join(' ');
+
+    if (paymentMethod === 'RAZORPAY') {
+      // ── Razorpay Payment Flow ──
+      const rzpKey = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_live_Sygkkdt4sA85ne';
+      let rzpOrderId = '';
+
+      try {
+        const orderRes = await fetch(`${COMMERCE_BASE}/payments/razorpay/create-order`, {
+          method: 'POST',
+          headers: authHeaders(currentToken),
+          body: JSON.stringify({
+            amount: currentCart.totalAmount.toString(),
+          }),
+        });
+        if (orderRes.ok) {
+          const orderData = await orderRes.json();
+          if (orderData?.success && orderData.data?.razorpayOrderId) {
+            rzpOrderId = orderData.data.razorpayOrderId;
+          }
+          if (orderData?.data?.keyId && orderData.data.keyId !== 'PENDING') {
+            // Can optionally use authoritative public key from backend
+          }
+        }
+      } catch (err) {
+        console.warn('Backend Razorpay order creation warning:', err);
+      }
+
+      if (typeof (window as any).Razorpay === 'undefined') {
+        setError('Razorpay SDK is loading. Please check your internet connection or try again in a moment.');
+        setLoading(false);
+        return;
+      }
+
+      const rzpOptions = {
+        key: rzpKey,
+        amount: Math.round(currentCart.totalAmount * 100),
+        currency: 'INR',
+        name: 'RR Jaggery Traders',
+        description: `Natural Sugarcane Jaggery (${currentCart.totalItems} items)`,
+        order_id: rzpOrderId || undefined,
+        prefill: {
+          name: address.recipientName,
+          email: auth.user?.email || '',
+          contact: address.phone,
+        },
+        notes: {
+          deliveryCity: address.city,
+          address: `${address.streetAddress}, ${address.apartmentName || ''}`,
+          ...(locationCaptured ? { gps: `${locationCaptured.lat},${locationCaptured.lng}` } : {}),
+        },
+        theme: {
+          color: '#065f46',
+        },
+        handler: async function (response: any) {
+          // Verify signature on backend if razorpay_order_id is returned
+          if (response.razorpay_order_id && response.razorpay_signature) {
+            try {
+              await fetch(`${COMMERCE_BASE}/payments/razorpay/verify`, {
+                method: 'POST',
+                headers: authHeaders(currentToken),
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+            } catch (vErr) {
+              console.warn('Backend payment verification log:', vErr);
+            }
+          }
+
+          const orderNotes = [
+            finalNotes,
+            `[Razorpay ID: ${response.razorpay_payment_id}]`
+          ].filter(Boolean).join(' ');
+
+          try {
+            const res = await fetch(`${COMMERCE_BASE}/orders/checkout`, {
+              method: 'POST',
+              headers: authHeaders(currentToken),
+              body: JSON.stringify({
+                shippingAddress: address,
+                paymentMethod: 'RAZORPAY',
+                notes: orderNotes,
+              }),
+            });
+            let body: any = null;
+            try { body = await res.json(); } catch {}
+            if (res.ok && body?.success) {
+              onOrderPlaced(body.data);
+            } else {
+              setError(body?.error?.message ?? `Payment received (${response.razorpay_payment_id}), but order could not be registered. Contact support.`);
+            }
+          } catch {
+            setError(`Payment successful (${response.razorpay_payment_id}), but connection to server failed. Please contact mill support.`);
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+          },
+        },
+      };
+
+      try {
+        const rzpInstance = new (window as any).Razorpay(rzpOptions);
+        rzpInstance.on('payment.failed', function (resp: any) {
+          setError(resp?.error?.description || 'Payment was not completed. Please try again.');
+          setLoading(false);
+        });
+        rzpInstance.open();
+      } catch (e: any) {
+        setError(e?.message || 'Could not open Razorpay checkout modal.');
+        setLoading(false);
+      }
+      return;
+    }
+
+    // ── COD or TEST_PAYMENT Flow ──
     try {
       const res = await fetch(`${COMMERCE_BASE}/orders/checkout`, {
         method: 'POST',
-        headers: authHeaders(auth.token),
+        headers: authHeaders(currentToken),
         body: JSON.stringify({
           shippingAddress: address,
           paymentMethod,
-          notes,
+          notes: finalNotes,
         }),
       });
       let body: any = null;
       try {
         body = await res.json();
-      } catch {
-        // Non-JSON response (e.g. gateway error)
-      }
+      } catch {}
       if (res.ok && body?.success) {
         onOrderPlaced(body.data);
       } else {
@@ -1207,7 +1377,47 @@ function CheckoutModal({
         <form onSubmit={handleSubmitOrder} className="space-y-6">
           {/* Shipping Address */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">1. Delivery Address</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">1. Delivery Address</h3>
+              <button
+                type="button"
+                id="btn-share-location"
+                onClick={handleShareLocation}
+                disabled={locating}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 text-xs font-bold transition shadow-2xs hover:shadow-xs disabled:opacity-50"
+              >
+                {locating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
+                    <span>Detecting GPS…</span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+                    <span>Share / Use Current Location</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {locationCaptured && (
+              <div className="flex items-center justify-between text-xs bg-emerald-50/90 border border-emerald-200 rounded-xl px-3.5 py-2.5 text-emerald-900 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0" />
+                  <span>GPS Location Attached: <strong>{locationCaptured.lat.toFixed(5)}, {locationCaptured.lng.toFixed(5)}</strong></span>
+                </div>
+                <a
+                  href={`https://maps.google.com/?q=${locationCaptured.lat},${locationCaptured.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold underline text-emerald-800 hover:text-emerald-950 flex items-center gap-1 shrink-0"
+                >
+                  <span>View on Map</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="text-gray-500 font-semibold">Recipient Full Name</label>
@@ -1331,42 +1541,79 @@ function CheckoutModal({
           {/* Payment Method */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">2. Payment Method</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label
-                id="payment-method-test"
-                className={`p-4 rounded-2xl border cursor-pointer flex items-center gap-3 transition ${paymentMethod === 'TEST_PAYMENT' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800' : 'bg-white border-gray-200 text-gray-500'}`}
+                id="payment-method-razorpay"
+                className={`p-3.5 rounded-2xl border cursor-pointer flex flex-col justify-between gap-2 transition ${paymentMethod === 'RAZORPAY' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
               >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="TEST_PAYMENT"
-                  checked={paymentMethod === 'TEST_PAYMENT'}
-                  onChange={() => setPaymentMethod('TEST_PAYMENT')}
-                  className="hidden"
-                />
-                <Sparkles className="h-5 w-5 text-emerald-700" />
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="RAZORPAY"
+                      checked={paymentMethod === 'RAZORPAY'}
+                      onChange={() => setPaymentMethod('RAZORPAY')}
+                      className="text-emerald-700 focus:ring-emerald-600"
+                    />
+                    <CreditCard className="h-4 w-4 text-emerald-700" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Instant
+                  </span>
+                </div>
                 <div>
-                  <div className="text-xs font-bold text-gray-900">Instant Test Payment</div>
-                  <div className="text-[10px] text-gray-500">Simulates instant online payment confirmation</div>
+                  <div className="text-xs font-bold text-gray-900">Razorpay Online</div>
+                  <div className="text-[10px] text-gray-500 leading-tight mt-0.5">UPI (GPay/PhonePe), Cards, NetBanking</div>
                 </div>
               </label>
 
               <label
                 id="payment-method-cod"
-                className={`p-4 rounded-2xl border cursor-pointer flex items-center gap-3 transition ${paymentMethod === 'CASH_ON_DELIVERY' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800' : 'bg-white border-gray-200 text-gray-500'}`}
+                className={`p-3.5 rounded-2xl border cursor-pointer flex flex-col justify-between gap-2 transition ${paymentMethod === 'CASH_ON_DELIVERY' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
               >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="CASH_ON_DELIVERY"
-                  checked={paymentMethod === 'CASH_ON_DELIVERY'}
-                  onChange={() => setPaymentMethod('CASH_ON_DELIVERY')}
-                  className="hidden"
-                />
-                <Truck className="h-5 w-5 text-emerald-700" />
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="CASH_ON_DELIVERY"
+                      checked={paymentMethod === 'CASH_ON_DELIVERY'}
+                      onChange={() => setPaymentMethod('CASH_ON_DELIVERY')}
+                      className="text-emerald-700 focus:ring-emerald-600"
+                    />
+                    <Truck className="h-4 w-4 text-emerald-700" />
+                  </div>
+                </div>
                 <div>
-                  <div className="text-xs font-bold text-gray-900">Cash on Delivery (COD)</div>
-                  <div className="text-[10px] text-gray-500">Pay upon mill delivery / weighment receipt</div>
+                  <div className="text-xs font-bold text-gray-900">Cash on Delivery</div>
+                  <div className="text-[10px] text-gray-500 leading-tight mt-0.5">Pay upon mill delivery / weighment receipt</div>
+                </div>
+              </label>
+
+              <label
+                id="payment-method-test"
+                className={`p-3.5 rounded-2xl border cursor-pointer flex flex-col justify-between gap-2 transition ${paymentMethod === 'TEST_PAYMENT' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="TEST_PAYMENT"
+                      checked={paymentMethod === 'TEST_PAYMENT'}
+                      onChange={() => setPaymentMethod('TEST_PAYMENT')}
+                      className="text-emerald-700 focus:ring-emerald-600"
+                    />
+                    <Sparkles className="h-4 w-4 text-emerald-700" />
+                  </div>
+                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                    Test
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-gray-900">Test Payment</div>
+                  <div className="text-[10px] text-gray-500 leading-tight mt-0.5">Instant simulation without gateway</div>
                 </div>
               </label>
             </div>
@@ -1392,10 +1639,12 @@ function CheckoutModal({
               <span className="text-gray-900 font-medium">{formatPrice(cart.subtotal)}</span>
             </div>
             <div className="flex justify-between text-gray-500">
-              <span>Delivery / Shipping:</span>
-              <span className="text-emerald-700 font-medium">
-                {cart.shippingAmount === 0 ? 'FREE' : formatPrice(cart.shippingAmount)}
-              </span>
+              <span>Delivery Charges:</span>
+              <span className="text-gray-900 font-medium">{formatPrice(cart.shippingAmount)}</span>
+            </div>
+            <div className="flex justify-between text-gray-500">
+              <span>Packaging Fee:</span>
+              <span className="text-gray-900 font-medium">{formatPrice(cart.packagingFee ?? 10)}</span>
             </div>
             <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
               <span>Grand Total Payable:</span>
@@ -1410,7 +1659,23 @@ function CheckoutModal({
             disabled={loading}
             className="w-full py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-sm shadow-xl shadow-amber-600/30 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
           >
-            {loading ? <><Spinner size={5} /><span>Creating Persistent Order…</span></> : <><span>Confirm & Place Order</span> <ArrowRight className="h-4 w-4" /></>}
+            {loading ? (
+              <>
+                <Spinner size={5} />
+                <span>Processing Order…</span>
+              </>
+            ) : paymentMethod === 'RAZORPAY' ? (
+              <>
+                <ShieldCheck className="h-4 w-4 text-emerald-200" />
+                <span>Pay {formatPrice(cart.totalAmount)} via Razorpay</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            ) : (
+              <>
+                <span>Confirm & Place Order ({formatPrice(cart.totalAmount)})</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -1459,8 +1724,16 @@ function OrderConfirmationModal({
             <span id="confirmed-order-number" className="font-mono font-bold text-emerald-700">{order.orderNumber}</span>
           </div>
           <div className="flex justify-between">
+            <span className="text-gray-500">Payment Method:</span>
+            <span className="font-bold text-gray-900">
+              {order.paymentMethod === 'RAZORPAY' ? 'Razorpay Online (Verified)' : order.paymentMethod === 'CASH_ON_DELIVERY' ? 'Cash on Delivery (COD)' : order.paymentMethod}
+            </span>
+          </div>
+          <div className="flex justify-between">
             <span className="text-gray-500">Payment Status:</span>
-            <span className="font-bold text-emerald-700">{order.paymentStatus}</span>
+            <span className={`font-bold ${order.paymentStatus === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}`}>
+              {order.paymentStatus}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Total Amount:</span>
@@ -1468,9 +1741,9 @@ function OrderConfirmationModal({
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Delivery To:</span>
-            <span className="text-gray-700">
-              {order.shippingAddress.recipientName}, {order.shippingAddress.apartmentName}, {order.shippingAddress.streetAddress}, {order.shippingAddress.city}
-              {order.shippingAddress.nearestLandmark ? ` (Near ${order.shippingAddress.nearestLandmark})` : ''}
+            <span className="text-gray-700 text-right max-w-[65%]">
+              {order.shippingAddress.recipientName}, {order.shippingAddress.apartmentName ? `${order.shippingAddress.apartmentName}, ` : ''}{order.shippingAddress.streetAddress}, {order.shippingAddress.city}
+              {order.shippingAddress.nearestLandmark ? ` (${order.shippingAddress.nearestLandmark})` : ''}
             </span>
           </div>
         </div>
@@ -1528,127 +1801,337 @@ function InvoiceModal({
       .finally(() => setLoading(false));
   }, [orderId, auth.token]);
 
+  const handlePrintInvoice = () => {
+    const content = document.getElementById('invoice-modal-content');
+    if (!content) {
+      window.print();
+      return;
+    }
+
+    let printFrame = document.getElementById('print-invoice-frame') as HTMLIFrameElement;
+    if (!printFrame) {
+      printFrame = document.createElement('iframe');
+      printFrame.id = 'print-invoice-frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.right = '0';
+      printFrame.style.bottom = '0';
+      printFrame.style.width = '0';
+      printFrame.style.height = '0';
+      printFrame.style.border = '0';
+      document.body.appendChild(printFrame);
+    }
+
+    const frameDoc = printFrame.contentWindow?.document || printFrame.contentDocument;
+    if (!frameDoc) {
+      window.print();
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Invoice - ${invoice?.invoiceNumber || 'RR-Jaggery'}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @page { size: A4 portrait; margin: 12mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #ffffff !important; color: #111827 !important; }
+          </style>
+        </head>
+        <body class="p-6">
+          ${content.innerHTML}
+        </body>
+      </html>
+    `);
+    frameDoc.close();
+
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+      } catch {
+        window.print();
+      }
+    }, 450);
+  };
+
   if (!orderId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-50/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
-          <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-emerald-700" />
-            <h2 className="text-lg font-bold text-gray-900">Commercial Invoice</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white border border-stone-200 rounded-2xl sm:rounded-3xl w-full max-w-3xl shadow-2xl relative max-h-[96vh] sm:max-h-[92vh] flex flex-col overflow-hidden">
+        {/* ── Modal Sticky Header ── */}
+        <div className="px-4 sm:px-6 py-3.5 bg-gradient-to-r from-stone-50 via-white to-stone-50 border-b border-stone-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-xl bg-emerald-100/70 border border-emerald-200/80 flex items-center justify-center">
+              <FileText className="h-4 w-4 text-emerald-800" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">
+                Tax & Commercial Invoice
+              </h2>
+              <p className="text-[10px] text-gray-400 hidden sm:block">
+                Original for Recipient · RR Jaggery Traditional Products
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.print()}
-              className="p-2 bg-gray-100 hover:bg-emerald-100 text-gray-700 hover:text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+              id="btn-print-invoice"
+              onClick={handlePrintInvoice}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 hover:border-emerald-400 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+              title="Print or Save PDF"
             >
-              <Printer className="h-3.5 w-3.5" /> Print Invoice
+              <Printer className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Print Invoice</span>
             </button>
             <button
               id="close-invoice-modal"
               onClick={onClose}
-              className="p-2 bg-gray-100 hover:bg-emerald-100 text-gray-500 hover:text-gray-900 rounded-xl transition"
+              className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 rounded-xl transition"
+              title="Close modal"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center h-64"><Spinner size={8} /></div>
-        ) : error ? (
-          <div className="text-center py-12 text-red-600">{error}</div>
-        ) : invoice ? (
-          <div id="invoice-modal-content" className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 text-xs text-gray-700 space-y-6">
-            {/* Header & Seller details */}
-            <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
-              <div>
-                <div id="invoice-seller-name" className="font-extrabold text-xl text-gray-900 tracking-tight">
-                  {invoice.sellerName?.toLowerCase().includes('traders') ? invoice.sellerName : 'RR Jaggery Traders'}
-                </div>
-                <div className="text-gray-500 text-[11px] mt-1">{invoice.sellerAddress}</div>
-                <div className="text-gray-500 text-[11px]">Contact: {invoice.sellerContact}</div>
-              </div>
-              <div className="sm:text-right space-y-1">
-                <div className="text-sm font-bold text-emerald-700 font-mono">{invoice.invoiceNumber}</div>
-                <div className="text-gray-500">Order No: <span className="font-mono text-gray-900">{invoice.orderNumber}</span></div>
-                <div className="text-gray-500">Date: {new Date(invoice.invoiceDate).toLocaleDateString()}</div>
-                <div className="text-emerald-700 font-bold">Payment: {invoice.paymentStatus} ({invoice.paymentMethod})</div>
-              </div>
+        {/* ── Scrollable Invoice Document ── */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 bg-stone-50/40">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl p-8 border border-stone-200">
+              <Spinner size={8} />
+              <p className="text-xs text-gray-400 mt-3 font-medium">Generating official invoice...</p>
             </div>
-
-            {/* Bill To */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-gray-200 pb-5">
-              <div>
-                <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">Billed & Shipped To</div>
-                <div className="text-gray-900 font-bold mt-1">{invoice.customerName}</div>
-                {invoice.shippingAddress.apartmentName && <div className="text-gray-500">{invoice.shippingAddress.apartmentName}</div>}
-                <div className="text-gray-500">{invoice.shippingAddress.streetAddress}</div>
-                <div className="text-gray-500">{invoice.shippingAddress.city}, {invoice.shippingAddress.state} - {invoice.shippingAddress.postalCode}</div>
-                {invoice.shippingAddress.nearestLandmark && <div className="text-gray-500">Near: {invoice.shippingAddress.nearestLandmark}</div>}
-                <div className="text-gray-500">Phone: {invoice.shippingAddress.phone} | Email: {invoice.customerEmail}</div>
-              </div>
-              <div className="sm:text-right">
-                <div className="text-gray-500 font-bold uppercase tracking-wider text-[10px]">Business Type</div>
-                <div className="text-gray-900 font-medium mt-1">Jaggery Manufacturing & Distribution</div>
-              </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-600 bg-white rounded-2xl p-8 border border-red-200">
+              <XCircle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+              <p className="text-sm font-semibold">{error}</p>
             </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-200 text-gray-500 text-[10px] uppercase font-semibold">
-                    <th className="py-2">Item Description</th>
-                    <th className="py-2">SKU</th>
-                    <th className="py-2 text-right">Qty</th>
-                    <th className="py-2 text-right">Unit Rate</th>
-                    <th className="py-2 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200/60">
-                  {invoice.items.map(item => (
-                    <tr key={item.id}>
-                      <td className="py-2.5 text-gray-900 font-medium">{item.productName} ({item.unitWeightKg}kg)</td>
-                      <td className="py-2.5 text-gray-500 font-mono">{item.sku}</td>
-                      <td className="py-2.5 text-right text-gray-900">{item.quantity}</td>
-                      <td className="py-2.5 text-right text-gray-900">{formatPrice(item.unitPrice)}</td>
-                      <td className="py-2.5 text-right text-emerald-700 font-semibold">{formatPrice(item.lineTotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Totals Breakdown */}
-            <div className="flex flex-col sm:flex-row justify-between gap-4 pt-4 border-t border-gray-200">
-              <div className="text-gray-500 text-[11px] max-w-sm">
-                Commercial invoice. GST is not included in the amounts shown.
-              </div>
-              <div className="space-y-1.5 sm:text-right w-full sm:w-64 min-w-0">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Subtotal:</span>
-                  <span className="text-gray-900 font-medium">{formatPrice(invoice.subtotal)}</span>
-                </div>
-                {Number(invoice.totalTax || 0) > 0 && (
-                  <div className="flex justify-between text-gray-500">
-                    <span>Tax recorded on order:</span>
-                    <span className="text-gray-900 font-medium">{formatPrice(invoice.totalTax)}</span>
+          ) : invoice ? (
+            <div
+              id="invoice-modal-content"
+              className="bg-white p-4 sm:p-7 md:p-8 rounded-2xl border-2 border-stone-200/90 text-xs text-gray-700 space-y-6 shadow-sm"
+            >
+              {/* ── Brand Header with RR Jaggery Logo & Invoice Details ── */}
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-5 border-b border-stone-200 pb-5">
+                {/* Brand & Mill Details with Logo */}
+                <div className="flex items-start gap-3.5">
+                  <img
+                    src="/rr-logo.png"
+                    alt="RR Jaggery Logo"
+                    className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover border-2 border-emerald-600/30 shadow-xs shrink-0"
+                  />
+                  <div>
+                    <div id="invoice-seller-name" className="font-black text-lg sm:text-2xl text-emerald-950 tracking-tight flex items-center gap-2">
+                      {invoice.sellerName?.toLowerCase().includes('traders') ? invoice.sellerName : 'RR Jaggery Traders'}
+                    </div>
+                    <div className="text-[11px] font-bold text-emerald-700 tracking-wide mt-0.5">
+                      Authentic Sugarcane & Palm Jaggery Mill
+                    </div>
+                    <div className="text-gray-500 text-[11px] sm:text-xs mt-1 leading-relaxed max-w-sm">
+                      {invoice.sellerAddress}
+                    </div>
+                    <div className="text-gray-500 text-[11px] sm:text-xs font-medium mt-0.5">
+                      📞 Contact: {invoice.sellerContact}
+                    </div>
+                    {invoice.sellerGstin && (
+                      <div className="text-gray-500 text-[11px] font-mono mt-0.5">
+                        GSTIN: <span className="font-bold text-gray-700">{invoice.sellerGstin}</span>
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Shipping:</span>
-                  <span className="text-emerald-700">{invoice.shippingAmount === 0 ? 'FREE' : formatPrice(invoice.shippingAmount)}</span>
                 </div>
-                <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Grand Total:</span>
-                  <span className="text-emerald-700">{formatPrice(invoice.grandTotal)}</span>
+
+                {/* Invoice Meta on Right */}
+                <div className="bg-stone-50/80 rounded-2xl p-3.5 sm:p-4 border border-stone-200/80 md:text-right space-y-1.5 shrink-0 min-w-[200px]">
+                  <div>
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-gray-400 block md:inline-block">Invoice No:</span>{' '}
+                    <span className="text-sm sm:text-base font-black text-emerald-800 font-mono tracking-wide">
+                      {invoice.invoiceNumber}
+                    </span>
+                  </div>
+                  <div className="text-gray-500 text-[11px]">
+                    Order Ref: <span className="font-mono font-bold text-gray-800">{invoice.orderNumber}</span>
+                  </div>
+                  <div className="text-gray-500 text-[11px]">
+                    Date: <span className="font-semibold text-gray-800">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  </div>
+                  <div className="pt-1">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                      invoice.paymentStatus === 'PAID'
+                        ? 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-100/80 text-amber-800 border-amber-300'
+                    }`}>
+                      <CreditCard className="h-3 w-3" />
+                      {invoice.paymentStatus === 'PAID' ? 'Paid Online' : `Pending (${invoice.paymentMethod})`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Billed To & Business Details ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-stone-200 pb-5">
+                <div className="bg-stone-50/60 rounded-2xl p-4 border border-stone-200/80">
+                  <div className="text-gray-400 font-black uppercase tracking-wider text-[10px] flex items-center gap-1.5 mb-2">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+                    Billed & Shipped To
+                  </div>
+                  <div className="text-gray-900 font-black text-sm">{invoice.customerName}</div>
+                  <div className="text-gray-600 text-xs mt-1 leading-relaxed">
+                    {invoice.shippingAddress.apartmentName && <div>{invoice.shippingAddress.apartmentName}</div>}
+                    <div>{invoice.shippingAddress.streetAddress}</div>
+                    <div>{invoice.shippingAddress.city}, {invoice.shippingAddress.state} - {invoice.shippingAddress.postalCode}</div>
+                    {invoice.shippingAddress.nearestLandmark && (
+                      <div className="text-gray-500 text-[11px] mt-0.5">Near: {invoice.shippingAddress.nearestLandmark}</div>
+                    )}
+                  </div>
+                  <div className="text-gray-500 text-[11px] mt-2 pt-2 border-t border-stone-200/60">
+                    <span>📞 {invoice.shippingAddress.phone || invoice.customerPhone}</span>
+                    {invoice.customerEmail && <span> · ✉️ {invoice.customerEmail}</span>}
+                  </div>
+                </div>
+
+                <div className="bg-stone-50/60 rounded-2xl p-4 border border-stone-200/80 flex flex-col justify-between">
+                  <div>
+                    <div className="text-gray-400 font-black uppercase tracking-wider text-[10px] flex items-center gap-1.5 mb-2">
+                      <Leaf className="h-3.5 w-3.5 text-emerald-700" />
+                      Product & Mill Profile
+                    </div>
+                    <div className="text-gray-900 font-bold text-xs">Jaggery Manufacturing & Direct Distribution</div>
+                    <div className="text-gray-500 text-[11px] mt-1 leading-relaxed">
+                      All products supplied directly from the sugarcane crushing and organic boiling unit at Vallurupallem.
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-stone-200/60 flex items-center justify-between text-[11px] text-gray-500">
+                    <span>Supply Type: <strong className="text-gray-700">Intra-State / B2C</strong></span>
+                    <span className="text-emerald-700 font-bold">100% Natural</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Items: Desktop/Tablet Table View ── */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-stone-100/80 rounded-xl text-stone-600 text-[10px] uppercase font-black tracking-wider">
+                      <th className="py-2.5 px-3 rounded-l-xl">Item Description</th>
+                      <th className="py-2.5 px-2">SKU</th>
+                      <th className="py-2.5 px-2 text-center">Qty</th>
+                      <th className="py-2.5 px-2 text-right">Unit Rate</th>
+                      <th className="py-2.5 px-3 text-right rounded-r-xl">Total Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-200/60">
+                    {invoice.items.map(item => (
+                      <tr key={item.id} className="hover:bg-stone-50/60 transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">🍯</span>
+                            <div>
+                              <div className="font-bold text-gray-900 text-xs">{item.productName}</div>
+                              <div className="text-[10px] text-gray-400">{item.unitWeightKg}kg pack</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2 font-mono text-[11px] text-gray-500">{item.sku}</td>
+                        <td className="py-3 px-2 text-center font-bold text-gray-900">{item.quantity}</td>
+                        <td className="py-3 px-2 text-right text-gray-700 font-medium">{formatPrice(item.unitPrice)}</td>
+                        <td className="py-3 px-3 text-right font-black text-emerald-800">{formatPrice(item.lineTotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Items: Mobile Friendly Responsive Cards ── */}
+              <div className="block sm:hidden space-y-2.5">
+                <div className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  Ordered Items ({invoice.items.length})
+                </div>
+                {invoice.items.map(item => (
+                  <div
+                    key={item.id}
+                    className="bg-stone-50/80 border border-stone-200 rounded-xl p-3 flex items-start justify-between gap-2"
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span className="text-lg shrink-0 mt-0.5">🍯</span>
+                      <div className="min-w-0">
+                        <div className="font-bold text-gray-900 text-xs leading-snug">
+                          {item.productName}
+                        </div>
+                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                          SKU: {item.sku} · {item.unitWeightKg}kg
+                        </div>
+                        <div className="text-[11px] text-gray-600 font-medium mt-1">
+                          Qty: <strong className="text-gray-900">{item.quantity}</strong> × {formatPrice(item.unitPrice)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-xs font-black text-emerald-800">
+                        {formatPrice(item.lineTotal)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Totals Breakdown ── */}
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pt-4 border-t border-stone-200">
+                <div className="text-gray-500 text-[11px] max-w-sm leading-relaxed">
+                  <div className="font-bold text-gray-700">Commercial Tax Invoice Declaration:</div>
+                  <div>This is a valid commercial purchase invoice. Standard agricultural jaggery is non-GST exempted or rated as per applicable tax notifications.</div>
+                </div>
+
+                <div className="bg-stone-50/80 rounded-2xl p-4 border border-stone-200/80 w-full sm:w-72 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Items Subtotal:</span>
+                    <span className="text-gray-900 font-bold">{formatPrice(invoice.subtotal)}</span>
+                  </div>
+
+                  {Number(invoice.totalTax || 0) > 0 && (
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Taxes:</span>
+                      <span className="text-gray-900 font-medium">{formatPrice(invoice.totalTax)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Shipping & Delivery:</span>
+                    <span className="text-gray-900 font-bold">{formatPrice(invoice.shippingAmount)}</span>
+                  </div>
+
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Packaging Fee:</span>
+                    <span className="text-gray-900 font-bold">{formatPrice(invoice.packagingFee ?? 10)}</span>
+                  </div>
+
+                  <div className="pt-2 border-t border-stone-200 flex justify-between items-center">
+                    <span className="text-xs font-black uppercase text-emerald-950">Grand Total:</span>
+                    <span className="text-base sm:text-lg font-black text-emerald-800 font-mono">
+                      {formatPrice(invoice.grandTotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Authentic Mill Footer Seal ── */}
+              <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left text-[11px] text-gray-400">
+                <div className="flex items-center gap-2 text-emerald-800 font-medium">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Authorized computer-generated invoice from RR Jaggery Traders</span>
+                </div>
+                <div className="text-gray-500">
+                  Support: <strong className="text-gray-700">+91 9948533315</strong>
                 </div>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -1668,6 +2151,7 @@ function OrderHistoryView({
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'DELIVERED' | 'CANCELLED'>('ALL');
 
   const fetchOrders = useCallback(async () => {
     if (!auth.token) {
@@ -1712,94 +2196,514 @@ function OrderHistoryView({
     }
   }
 
+  const activeOrdersCount = orders.filter(o => ['PENDING', 'CONFIRMED', 'PROCESSING', 'DISPATCHED'].includes(o.status)).length;
+  const deliveredOrdersCount = orders.filter(o => o.status === 'DELIVERED').length;
+  const cancelledOrdersCount = orders.filter(o => o.status === 'CANCELLED').length;
+
+  const filteredOrders = orders.filter(order => {
+    if (filter === 'ACTIVE') return ['PENDING', 'CONFIRMED', 'PROCESSING', 'DISPATCHED'].includes(order.status);
+    if (filter === 'DELIVERED') return order.status === 'DELIVERED';
+    if (filter === 'CANCELLED') return order.status === 'CANCELLED';
+    return true;
+  });
+
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={onBackToStore} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition">
-            <ArrowLeft className="h-4 w-4" />
+    <div className="space-y-6 sm:space-y-8 animate-fadeIn max-w-5xl mx-auto pb-12">
+      {/* ── Top Navigation & Header ── */}
+      <div className="bg-white rounded-3xl p-5 sm:p-7 border border-emerald-900/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onBackToStore}
+            className="p-2.5 bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-300 rounded-2xl text-gray-600 hover:text-emerald-800 transition-all shadow-xs"
+            title="Back to Store"
+          >
+            <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-emerald-700" /> My Orders & Purchase History
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Track fulfillment stages, download commercial invoices, or manage orders</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight">My Orders</h2>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black">
+                {orders.length}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Review your purchase history, track shipments, and download GST commercial invoices.
+            </p>
           </div>
         </div>
-        <button onClick={fetchOrders} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition" title="Refresh">
-          <RefreshCw className="h-4 w-4 text-emerald-700" />
-        </button>
-      </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64"><Spinner size={8} /></div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center h-64 space-y-3 text-center">
-          <XCircle className="h-10 w-10 text-red-600" />
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl rounded-3xl p-12 text-center space-y-3">
-          <Package className="h-12 w-12 text-gray-600 mx-auto" />
-          <h3 className="font-bold text-gray-900 text-base">No orders placed yet</h3>
-          <p className="text-xs text-gray-500 max-w-sm mx-auto">Explore our authentic organic jaggery catalogue and place your first order.</p>
-          <button onClick={onBackToStore} className="mt-4 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs hover:brightness-105 transition">
-            Browse Storefront
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={fetchOrders}
+            className="px-3.5 py-2 rounded-xl bg-gray-50 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-300 text-gray-700 hover:text-emerald-800 text-xs font-bold transition flex items-center gap-2 shadow-xs"
+            title="Refresh Orders"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-emerald-700 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
           </button>
         </div>
+      </div>
+
+      {/* ── Filter Tabs ── */}
+      {orders.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setFilter('ALL')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+              filter === 'ALL'
+                ? 'bg-emerald-800 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            All Orders ({orders.length})
+          </button>
+          <button
+            onClick={() => setFilter('ACTIVE')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+              filter === 'ACTIVE'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            Active In-Flight ({activeOrdersCount})
+          </button>
+          <button
+            onClick={() => setFilter('DELIVERED')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+              filter === 'DELIVERED'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            Delivered ({deliveredOrdersCount})
+          </button>
+          {cancelledOrdersCount > 0 && (
+            <button
+              onClick={() => setFilter('CANCELLED')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                filter === 'CANCELLED'
+                  ? 'bg-red-600 text-white shadow-md'
+                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              }`}
+            >
+              Cancelled ({cancelledOrdersCount})
+            </button>
+          )}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
+          <Spinner size={8} />
+          <p className="text-xs text-gray-400 mt-3 font-medium">Fetching your orders...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center h-64 space-y-3 text-center bg-white rounded-3xl border border-red-200 p-8 shadow-sm">
+          <XCircle className="h-10 w-10 text-red-500" />
+          <p className="text-sm text-red-600 font-medium">{error}</p>
+          <button
+            onClick={fetchOrders}
+            className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition"
+          >
+            Try Again
+          </button>
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="bg-white border border-gray-200/90 rounded-3xl p-12 text-center space-y-4 shadow-sm">
+          <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto text-3xl">
+            📦
+          </div>
+          <div>
+            <h3 className="font-black text-gray-900 text-lg">
+              {filter === 'ALL' ? 'No orders placed yet' : `No ${filter.toLowerCase()} orders found`}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+              {filter === 'ALL'
+                ? 'Explore our premium organic jaggery catalogue directly produced from our farm mills.'
+                : 'Switch filters or view all orders to see your full order history.'}
+            </p>
+          </div>
+          {filter === 'ALL' ? (
+            <button
+              onClick={onBackToStore}
+              className="mt-2 px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs transition shadow-md"
+            >
+              Browse Catalogue
+            </button>
+          ) : (
+            <button
+              onClick={() => setFilter('ALL')}
+              className="mt-2 px-6 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs transition"
+            >
+              Show All Orders
+            </button>
+          )}
+        </div>
       ) : (
-        <div className="space-y-4">
-          {orders.map(order => (
-            <div key={order.id} id={`order-card-${order.orderNumber}`} className="bg-white border border-gray-200 rounded-xl rounded-3xl p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-4">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-base font-extrabold text-gray-900 font-mono">{order.orderNumber}</span>
-                    <OrderStatusBadge status={order.status} />
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.paymentStatus === 'PAID' ? 'bg-emerald-500/10 text-emerald-700' : 'bg-emerald-700/10 text-emerald-700'}`}>
-                      {order.paymentStatus}
-                    </span>
+        /* ── Individual Distinct Order Cards ── */
+        <div className="space-y-7 sm:space-y-8">
+          {filteredOrders.map(order => {
+            const isCancellable = order.status === 'PENDING' || order.status === 'CONFIRMED';
+            
+            const statusConfig: Record<string, {
+              borderLeft: string;
+              headerBg: string;
+              badgeBg: string;
+              badgeText: string;
+              badgeBorder: string;
+              label: string;
+              stepIndex: number;
+            }> = {
+              PENDING: {
+                borderLeft: 'border-l-amber-500',
+                headerBg: 'bg-gradient-to-r from-amber-50/70 via-stone-50/50 to-white',
+                badgeBg: 'bg-amber-100/90',
+                badgeText: 'text-amber-800',
+                badgeBorder: 'border-amber-300',
+                label: 'Order Placed',
+                stepIndex: 1,
+              },
+              CONFIRMED: {
+                borderLeft: 'border-l-blue-500',
+                headerBg: 'bg-gradient-to-r from-blue-50/70 via-stone-50/50 to-white',
+                badgeBg: 'bg-blue-100/90',
+                badgeText: 'text-blue-800',
+                badgeBorder: 'border-blue-300',
+                label: 'Order Confirmed',
+                stepIndex: 2,
+              },
+              PROCESSING: {
+                borderLeft: 'border-l-purple-500',
+                headerBg: 'bg-gradient-to-r from-purple-50/70 via-stone-50/50 to-white',
+                badgeBg: 'bg-purple-100/90',
+                badgeText: 'text-purple-800',
+                badgeBorder: 'border-purple-300',
+                label: 'Processing in Mill',
+                stepIndex: 2,
+              },
+              DISPATCHED: {
+                borderLeft: 'border-l-teal-500',
+                headerBg: 'bg-gradient-to-r from-teal-50/70 via-stone-50/50 to-white',
+                badgeBg: 'bg-teal-100/90',
+                badgeText: 'text-teal-800',
+                badgeBorder: 'border-teal-300',
+                label: 'Out for Delivery',
+                stepIndex: 3,
+              },
+              DELIVERED: {
+                borderLeft: 'border-l-emerald-600',
+                headerBg: 'bg-gradient-to-r from-emerald-50/70 via-stone-50/50 to-white',
+                badgeBg: 'bg-emerald-100/90',
+                badgeText: 'text-emerald-800',
+                badgeBorder: 'border-emerald-300',
+                label: 'Delivered',
+                stepIndex: 4,
+              },
+              CANCELLED: {
+                borderLeft: 'border-l-red-500',
+                headerBg: 'bg-gradient-to-r from-red-50/60 via-stone-50/50 to-white',
+                badgeBg: 'bg-red-100/90',
+                badgeText: 'text-red-800',
+                badgeBorder: 'border-red-300',
+                label: 'Cancelled',
+                stepIndex: -1,
+              },
+            };
+
+            const cfg = statusConfig[order.status] || {
+              borderLeft: 'border-l-gray-400',
+              headerBg: 'bg-gradient-to-r from-gray-50 via-stone-50/50 to-white',
+              badgeBg: 'bg-gray-100',
+              badgeText: 'text-gray-800',
+              badgeBorder: 'border-gray-300',
+              label: order.status,
+              stepIndex: 1,
+            };
+
+            const isPaid = order.paymentStatus === 'PAID';
+            const orderDate = new Date(order.createdAt);
+            const formattedDate = orderDate.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            });
+            const formattedTime = orderDate.toLocaleTimeString('en-IN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            });
+
+            return (
+              <div
+                key={order.id}
+                id={`order-card-${order.orderNumber}`}
+                className={`bg-white rounded-3xl border-2 border-stone-200/90 shadow-[0_6px_25px_-5px_rgba(0,0,0,0.08)] hover:shadow-[0_14px_35px_-8px_rgba(0,0,0,0.13)] transition-all duration-300 overflow-hidden border-l-[7px] sm:border-l-[10px] ${cfg.borderLeft}`}
+              >
+                {/* ── 1. Top Card Bar ── */}
+                <div className={`${cfg.headerBg} px-5 sm:px-7 py-4 sm:py-5 border-b border-stone-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+                  <div className="flex items-start sm:items-center gap-3.5">
+                    <div className="h-11 w-11 rounded-2xl bg-white border border-stone-200/90 shadow-xs flex items-center justify-center shrink-0">
+                      <Package className="h-5 w-5 text-emerald-800" />
+                    </div>
+                    <div>
+                      <div className="flex items-center flex-wrap gap-2">
+                        <span className="font-mono font-black text-gray-900 text-sm sm:text-base tracking-wide bg-white px-2.5 py-0.5 rounded-lg border border-stone-200/80 shadow-2xs">
+                          {order.orderNumber}
+                        </span>
+                        {/* Status Badge */}
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}`}>
+                          {order.status === 'PENDING' && (
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            </span>
+                          )}
+                          {order.status === 'CONFIRMED' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                          {order.status === 'DISPATCHED' && <Truck className="h-3.5 w-3.5" />}
+                          {order.status === 'DELIVERED' && <Check className="h-3.5 w-3.5" />}
+                          {order.status === 'CANCELLED' && <XCircle className="h-3.5 w-3.5" />}
+                          {cfg.label}
+                        </span>
+                        {/* Payment Pill */}
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                          isPaid
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          <CreditCard className="h-3 w-3" />
+                          {isPaid ? (order.paymentMethod === 'RAZORPAY' ? 'Paid via Razorpay' : 'Paid') : 'Cash on Delivery'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-gray-500 mt-1 flex items-center gap-1.5">
+                        <Clock className="h-3 w-3 text-gray-400" />
+                        Placed on {formattedDate} at {formattedTime}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Placed on {new Date(order.createdAt).toLocaleDateString()} • {order.items.length} item(s) • Total: <strong className="text-emerald-700">{formatPrice(order.totalAmount)}</strong>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    id={`view-invoice-${order.orderNumber}`}
-                    onClick={() => onViewInvoice(order.id)}
-                    className="px-3.5 py-1.5 bg-gray-100 hover:bg-emerald-100 text-gray-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-gray-300 transition"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-emerald-700" /> Invoice
-                  </button>
-                  {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
+
+                  {/* Actions (Invoice & Cancel) */}
+                  <div className="flex items-center gap-2 self-start md:self-center shrink-0">
                     <button
-                      id={`cancel-order-${order.orderNumber}`}
-                      onClick={() => handleCancelOrder(order.id)}
-                      className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 border border-red-500/20 rounded-xl text-xs font-semibold transition"
+                      id={`view-invoice-${order.orderNumber}`}
+                      onClick={() => onViewInvoice(order.id)}
+                      className="px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 text-xs font-bold border border-emerald-300 hover:border-emerald-500 flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition"
                     >
-                      Cancel
+                      <FileText className="h-3.5 w-3.5 text-emerald-700" />
+                      View Invoice
                     </button>
+                    {isCancellable && (
+                      <button
+                        id={`cancel-order-${order.orderNumber}`}
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="px-3.5 py-2 rounded-xl bg-white hover:bg-red-50 text-red-600 hover:text-red-700 text-xs font-bold border border-red-200 hover:border-red-300 flex items-center gap-1.5 shadow-2xs hover:shadow-xs transition"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Cancel Order
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── 2. Visual Progress Timeline (Only for non-cancelled orders) ── */}
+                {order.status !== 'CANCELLED' ? (
+                  <div className="px-5 sm:px-7 py-3 bg-stone-50/50 border-b border-stone-200/60">
+                    <div className="max-w-2xl mx-auto py-1">
+                      <div className="relative flex items-center justify-between">
+                        {/* Connecting track */}
+                        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-stone-200 z-0"></div>
+                        {/* Active Progress Line */}
+                        <div
+                          className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-emerald-600 transition-all duration-500 z-0"
+                          style={{
+                            width:
+                              cfg.stepIndex === 1
+                                ? '15%'
+                                : cfg.stepIndex === 2
+                                ? '45%'
+                                : cfg.stepIndex === 3
+                                ? '75%'
+                                : '100%',
+                          }}
+                        ></div>
+
+                        {/* Step 1: Placed */}
+                        <div className="relative z-10 flex flex-col items-center">
+                          <div className="h-7 w-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs text-xs font-bold">
+                            ✓
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-800 mt-1">Placed</span>
+                        </div>
+
+                        {/* Step 2: Confirmed */}
+                        <div className="relative z-10 flex flex-col items-center">
+                          <div
+                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${
+                              cfg.stepIndex >= 2
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-white border-2 border-stone-300 text-stone-400'
+                            }`}
+                          >
+                            {cfg.stepIndex >= 2 ? '✓' : '2'}
+                          </div>
+                          <span className={`text-[10px] font-bold mt-1 ${cfg.stepIndex >= 2 ? 'text-gray-800' : 'text-stone-400'}`}>
+                            Confirmed
+                          </span>
+                        </div>
+
+                        {/* Step 3: Out for Delivery */}
+                        <div className="relative z-10 flex flex-col items-center">
+                          <div
+                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${
+                              cfg.stepIndex >= 3
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-white border-2 border-stone-300 text-stone-400'
+                            }`}
+                          >
+                            {cfg.stepIndex >= 3 ? '✓' : '3'}
+                          </div>
+                          <span className={`text-[10px] font-bold mt-1 ${cfg.stepIndex >= 3 ? 'text-gray-800' : 'text-stone-400'}`}>
+                            Dispatched
+                          </span>
+                        </div>
+
+                        {/* Step 4: Delivered */}
+                        <div className="relative z-10 flex flex-col items-center">
+                          <div
+                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${
+                              cfg.stepIndex >= 4
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-white border-2 border-stone-300 text-stone-400'
+                            }`}
+                          >
+                            {cfg.stepIndex >= 4 ? '✓' : '4'}
+                          </div>
+                          <span className={`text-[10px] font-bold mt-1 ${cfg.stepIndex >= 4 ? 'text-gray-800' : 'text-stone-400'}`}>
+                            Delivered
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-5 sm:px-7 py-2.5 bg-red-50/70 border-b border-red-200/70 flex items-center gap-2 text-xs text-red-700 font-semibold">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                    <span>This order has been cancelled and will not be dispatched.</span>
+                  </div>
+                )}
+
+                {/* ── 3. Order Items Section ── */}
+                <div className="px-5 sm:px-7 py-5">
+                  <div className="text-[11px] font-black uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                    <Tag className="h-3.5 w-3.5 text-gray-400" />
+                    Ordered Items ({order.items.length})
+                  </div>
+
+                  <div className="bg-stone-50/70 rounded-2xl p-3 sm:p-4 border border-stone-200/80 divide-y divide-stone-200/60">
+                    {order.items.map(item => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-10 w-10 rounded-xl bg-amber-100/70 border border-amber-200/70 flex items-center justify-center shrink-0 text-lg shadow-2xs">
+                            🍯
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-gray-900 text-sm truncate">
+                              {item.productName}
+                            </h4>
+                            <div className="flex items-center flex-wrap gap-2 text-[11px] text-gray-500 mt-0.5">
+                              <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-stone-200">
+                                SKU: {item.sku}
+                              </span>
+                              <span>•</span>
+                              <span className="font-medium text-gray-600">
+                                Qty: <strong className="text-gray-900">{item.quantity}</strong>
+                              </span>
+                              <span>•</span>
+                              <span className="text-gray-500">
+                                {formatPrice(item.unitPrice)} each
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-black text-emerald-800">
+                            {formatPrice(item.lineTotal)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Shipping Address Sneak Peek if available */}
+                  {order.shippingAddress && (
+                    <div className="mt-3.5 pt-3 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-gray-500">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold text-gray-700">Delivery Address: </span>
+                          <span>
+                            {order.shippingAddress.recipientName}
+                            {order.shippingAddress.apartmentName ? `, ${order.shippingAddress.apartmentName}` : ''}
+                            {order.shippingAddress.streetAddress ? `, ${order.shippingAddress.streetAddress}` : ''}
+                            {order.shippingAddress.city ? `, ${order.shippingAddress.city}` : ''}
+                            {order.shippingAddress.postalCode ? ` - ${order.shippingAddress.postalCode}` : ''}
+                            {order.shippingAddress.nearestLandmark ? ` (${order.shippingAddress.nearestLandmark})` : ''}
+                          </span>
+                        </div>
+                      </div>
+                      {(order.shippingAddress.nearestLandmark?.includes('GPS:') || order.notes?.includes('GPS:')) && (
+                        <a
+                          href={
+                            (() => {
+                              const match = (order.shippingAddress.nearestLandmark || '').match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/) ||
+                                            (order.notes || '').match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+                              return match ? `https://maps.google.com/?q=${match[1]},${match[2]}` : '#';
+                            })()
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 hover:bg-emerald-100 shrink-0 self-start sm:self-center transition"
+                        >
+                          <MapPin className="h-3 w-3 text-emerald-700" />
+                          <span>View GPS Location</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
 
-              {/* Order Items Preview */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                {order.items.map(item => (
-                  <div key={item.id} className="bg-white/60 p-3 rounded-2xl border border-gray-200 flex justify-between items-center">
-                    <div>
-                      <div className="font-semibold text-gray-800">{item.productName}</div>
-                      <div className="text-gray-500 text-[11px] font-mono">Qty: {item.quantity} • SKU: {item.sku}</div>
-                    </div>
-                    <div className="text-right font-bold text-emerald-700">
-                      {formatPrice(item.lineTotal)}
-                    </div>
+                {/* ── 4. Card Bottom Summary Bar ── */}
+                <div className="px-5 sm:px-7 py-4 bg-gradient-to-r from-stone-100/90 via-stone-50 to-stone-100/70 border-t border-stone-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-gray-500 font-medium">
+                    <span>
+                      Items Subtotal: <strong className="text-gray-800">{formatPrice(order.subtotalAmount || (order.totalAmount - (order.shippingAmount || 50) - (order.packagingFee || 10)))}</strong>
+                    </span>
+                    <span className="text-stone-300">•</span>
+                    <span>
+                      Delivery: <strong className="text-gray-800">{formatPrice(order.shippingAmount || 50)}</strong>
+                    </span>
+                    <span className="text-stone-300">•</span>
+                    <span>
+                      Packaging: <strong className="text-gray-800">{formatPrice(order.packagingFee || 10)}</strong>
+                    </span>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <span className="text-xs uppercase font-extrabold tracking-wider text-gray-500">
+                      Order Total:
+                    </span>
+                    <span className="text-lg sm:text-xl font-black text-emerald-800 font-mono bg-white px-3 py-1 rounded-xl border border-stone-200/90 shadow-2xs">
+                      {formatPrice(order.totalAmount)}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

@@ -10,17 +10,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import org.json.JSONObject;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
 /**
  * RazorpayController — Razorpay payment integration endpoints.
  *
- * STATUS: Integration prepared. RAZORPAY_ENABLED=false until credentials are configured.
+ * STATUS: Integration active with live Razorpay credentials.
  *
  * Endpoints (all disabled when RAZORPAY_ENABLED=false):
  *   POST /api/v1/commerce/payments/razorpay/create-order
- *       → Create Razorpay order for an existing pending order
+ *       → Create Razorpay order for an existing pending order or checkout amount
  *   POST /api/v1/commerce/payments/razorpay/verify
  *       → Server-side payment signature verification (MUST precede marking order PAID)
  *   POST /api/v1/commerce/payments/razorpay/webhook
@@ -41,10 +43,8 @@ public class RazorpayController {
     }
 
     /**
-     * Step 1: Frontend requests a Razorpay order for a confirmed application order.
+     * Step 1: Frontend requests a Razorpay order for checkout or an existing order.
      * Returns razorpay_order_id + public key_id for the frontend Checkout script.
-     *
-     * The amount is fetched from DB — never trusted from the client request.
      */
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/create-order")
@@ -54,27 +54,52 @@ public class RazorpayController {
         if (!razorpayService.isEnabled()) {
             return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "status", "RAZORPAY_DISABLED",
-                "message", "Razorpay integration is not yet enabled. Payment credentials pending from business owner."
+                "message", "Razorpay integration is not yet enabled."
             )));
         }
 
         try {
-            UUID orderId = UUID.fromString(body.get("orderId"));
-            // Fetch order from DB — amount is AUTHORITATIVE from backend, never from client
-            var order = orderService.getOrderById(orderId, null, true);
+            BigDecimal amount = null;
+            String receipt = "RCPT-" + System.currentTimeMillis();
+            String orderNumber = "";
+
+            if (body.containsKey("orderId") && body.get("orderId") != null && !body.get("orderId").isBlank()) {
+                UUID orderId = UUID.fromString(body.get("orderId"));
+                var order = orderService.getOrderById(orderId, null, true);
+                amount = order.getTotalAmount();
+                receipt = order.getOrderNumber();
+                orderNumber = order.getOrderNumber();
+            } else if (body.containsKey("amount") && body.get("amount") != null) {
+                amount = new BigDecimal(body.get("amount"));
+                receipt = "ORD-" + System.currentTimeMillis();
+                orderNumber = receipt;
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.error("orderId or amount required", "INVALID_REQUEST"));
+            }
 
             String razorpayOrderJson = razorpayService.createRazorpayOrder(
-                    order.getTotalAmount(), "INR", order.getOrderNumber());
+                    amount, "INR", receipt);
+
+            String rzpOrderId = "";
+            try {
+                JSONObject parsed = new JSONObject(razorpayOrderJson);
+                rzpOrderId = parsed.optString("id", "");
+            } catch (Exception ignored) {}
 
             return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "razorpayOrder", razorpayOrderJson,
+                "razorpayOrderId", rzpOrderId,
                 "keyId", razorpayService.getPublicKeyId(), // Public key only — safe to send
-                "orderNumber", order.getOrderNumber()
+                "orderNumber", orderNumber
             )));
         } catch (RazorpayException e) {
             log.error("Failed to create Razorpay order", e);
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.error("Payment gateway error. Please try again.", "PAYMENT_GATEWAY_ERROR"));
+                    .body(ApiResponse.error("Payment gateway error: " + e.getMessage(), "PAYMENT_GATEWAY_ERROR"));
+        } catch (Exception e) {
+            log.error("Failed to initiate Razorpay order", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Payment initiation error: " + e.getMessage(), "PAYMENT_INITIATION_ERROR"));
         }
     }
 

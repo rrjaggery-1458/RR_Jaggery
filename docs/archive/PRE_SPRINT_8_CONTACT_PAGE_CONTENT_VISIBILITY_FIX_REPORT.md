@@ -33,7 +33,7 @@
 
 | Detail | Approved Value | Storefront Display Locations |
 | :--- | :--- | :--- |
-| **Factory & Works** | `Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163` | Contact Page Card, Storefront Footer, Invoices |
+| **Factory & Works** | `Vallurupallem, Thotlavalluru, Andhra Pradesh 5221163` | Contact Page Card, Storefront Footer, Invoices |
 | **Phone / WhatsApp** | `+91 9948533315 / +91 123456789` | Contact Page Card, Header Sub-Nav (`+91 9948533315`) |
 | **Email Enquiries** | `rrjaggery@gmail.com` | Contact Page Card, Storefront Communications |
 | **Business Hours** | `Mon - Sat: 8:00 AM - 7:00 PM` | Contact Page Card |
@@ -47,12 +47,12 @@
 2. **Direct Message Form ([App.tsx L2235–L2290](file:///e:/RR%20Jaggery/frontend/src/App.tsx#L2235-L2290))**:
    - Restored high-contrast inputs, placeholder visibility, and primary emerald submit CTA button (`bg-emerald-700 hover:bg-emerald-600 text-white`).
 3. **Header Secondary Sub-Nav ([App.tsx L3918–L3920](file:///e:/RR%20Jaggery/frontend/src/App.tsx#L3918-L3920))**:
-   - Replaced `📍 Mandya, Karnataka` with `📍 Vollurupallem, Andhra Pradesh`.
+   - Replaced `📍 Mandya, Karnataka` with `📍 Vallurupallem, Andhra Pradesh`.
    - Replaced `📞 Order Line: +91 98450 12345` with `📞 Order Line: +91 9948533315`.
 4. **Storefront Footer ([App.tsx L4048–L4058](file:///e:/RR%20Jaggery/frontend/src/App.tsx#L4048-L4058))**:
-   - Replaced old APMC Mandya address with `Vollurupallem, Thotlavalluru, Andhra Pradesh 5221163`.
+   - Replaced old APMC Mandya address with `Vallurupallem, Thotlavalluru, Andhra Pradesh 5221163`.
 5. **Customer Invoice Letterhead ([CustomerLedger.tsx L1774](file:///e:/RR%20Jaggery/frontend/src/CustomerLedger.tsx#L1774))**:
-   - Updated default address in offline GST invoice templates to `Vollurupallem, Thotlavalluru, Andhra Pradesh - 5221163`.
+   - Updated default address in offline GST invoice templates to `Vallurupallem, Thotlavalluru, Andhra Pradesh - 5221163`.
 
 ---
 

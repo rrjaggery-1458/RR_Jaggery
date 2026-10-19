@@ -13,7 +13,7 @@ public class InvoiceDto {
     private Instant invoiceDate;
     private String sellerName = "RR Jaggery";
     // RR Jaggery is NOT GST registered — no GSTIN field is exposed on invoices.
-    private String sellerAddress = "Vollurupallem, Thotlavalluru, Andhra Pradesh - 521163";
+    private String sellerAddress = "Vallurupallem, Thotlavalluru, Andhra Pradesh - 521163";
     private String sellerContact = "+91 9948533315 | rrjaggery@gmail.com";
     private String customerName;
     private String customerEmail;
@@ -25,70 +25,179 @@ public class InvoiceDto {
     private BigDecimal sgstAmount;
     private BigDecimal totalTax;
     private BigDecimal shippingAmount;
+    private BigDecimal packagingFee = new BigDecimal("10.00");
     private BigDecimal grandTotal;
     private String paymentMethod;
     private String paymentStatus;
 
-    public InvoiceDto() {}
+    public InvoiceDto() {
+    }
 
-    public String getInvoiceNumber() { return invoiceNumber; }
-    public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
+    public String getInvoiceNumber() {
+        return invoiceNumber;
+    }
 
-    public UUID getOrderId() { return orderId; }
-    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public void setInvoiceNumber(String invoiceNumber) {
+        this.invoiceNumber = invoiceNumber;
+    }
 
-    public String getOrderNumber() { return orderNumber; }
-    public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
+    public UUID getOrderId() {
+        return orderId;
+    }
 
-    public Instant getInvoiceDate() { return invoiceDate; }
-    public void setInvoiceDate(Instant invoiceDate) { this.invoiceDate = invoiceDate; }
+    public void setOrderId(UUID orderId) {
+        this.orderId = orderId;
+    }
 
-    public String getSellerName() { return sellerName; }
-    public void setSellerName(String sellerName) { this.sellerName = sellerName; }
+    public String getOrderNumber() {
+        return orderNumber;
+    }
 
+    public void setOrderNumber(String orderNumber) {
+        this.orderNumber = orderNumber;
+    }
 
-    public String getSellerAddress() { return sellerAddress; }
-    public void setSellerAddress(String sellerAddress) { this.sellerAddress = sellerAddress; }
+    public Instant getInvoiceDate() {
+        return invoiceDate;
+    }
 
-    public String getSellerContact() { return sellerContact; }
-    public void setSellerContact(String sellerContact) { this.sellerContact = sellerContact; }
+    public void setInvoiceDate(Instant invoiceDate) {
+        this.invoiceDate = invoiceDate;
+    }
 
-    public String getCustomerName() { return customerName; }
-    public void setCustomerName(String customerName) { this.customerName = customerName; }
+    public String getSellerName() {
+        return sellerName;
+    }
 
-    public String getCustomerEmail() { return customerEmail; }
-    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    public void setSellerName(String sellerName) {
+        this.sellerName = sellerName;
+    }
 
-    public String getCustomerPhone() { return customerPhone; }
-    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+    public String getSellerAddress() {
+        return sellerAddress;
+    }
 
-    public AddressDto getShippingAddress() { return shippingAddress; }
-    public void setShippingAddress(AddressDto shippingAddress) { this.shippingAddress = shippingAddress; }
+    public void setSellerAddress(String sellerAddress) {
+        this.sellerAddress = sellerAddress;
+    }
 
-    public List<OrderItemDto> getItems() { return items; }
-    public void setItems(List<OrderItemDto> items) { this.items = items; }
+    public String getSellerContact() {
+        return sellerContact;
+    }
 
-    public BigDecimal getSubtotal() { return subtotal; }
-    public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
+    public void setSellerContact(String sellerContact) {
+        this.sellerContact = sellerContact;
+    }
 
-    public BigDecimal getCgstAmount() { return cgstAmount; }
-    public void setCgstAmount(BigDecimal cgstAmount) { this.cgstAmount = cgstAmount; }
+    public String getCustomerName() {
+        return customerName;
+    }
 
-    public BigDecimal getSgstAmount() { return sgstAmount; }
-    public void setSgstAmount(BigDecimal sgstAmount) { this.sgstAmount = sgstAmount; }
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
 
-    public BigDecimal getTotalTax() { return totalTax; }
-    public void setTotalTax(BigDecimal totalTax) { this.totalTax = totalTax; }
+    public String getCustomerEmail() {
+        return customerEmail;
+    }
 
-    public BigDecimal getShippingAmount() { return shippingAmount; }
-    public void setShippingAmount(BigDecimal shippingAmount) { this.shippingAmount = shippingAmount; }
+    public void setCustomerEmail(String customerEmail) {
+        this.customerEmail = customerEmail;
+    }
 
-    public BigDecimal getGrandTotal() { return grandTotal; }
-    public void setGrandTotal(BigDecimal grandTotal) { this.grandTotal = grandTotal; }
+    public String getCustomerPhone() {
+        return customerPhone;
+    }
 
-    public String getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public void setCustomerPhone(String customerPhone) {
+        this.customerPhone = customerPhone;
+    }
 
-    public String getPaymentStatus() { return paymentStatus; }
-    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+    public AddressDto getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(AddressDto shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
+
+    public List<OrderItemDto> getItems() {
+        return items;
+    }
+
+    public void setItems(List<OrderItemDto> items) {
+        this.items = items;
+    }
+
+    public BigDecimal getSubtotal() {
+        return subtotal;
+    }
+
+    public void setSubtotal(BigDecimal subtotal) {
+        this.subtotal = subtotal;
+    }
+
+    public BigDecimal getCgstAmount() {
+        return cgstAmount;
+    }
+
+    public void setCgstAmount(BigDecimal cgstAmount) {
+        this.cgstAmount = cgstAmount;
+    }
+
+    public BigDecimal getSgstAmount() {
+        return sgstAmount;
+    }
+
+    public void setSgstAmount(BigDecimal sgstAmount) {
+        this.sgstAmount = sgstAmount;
+    }
+
+    public BigDecimal getTotalTax() {
+        return totalTax;
+    }
+
+    public void setTotalTax(BigDecimal totalTax) {
+        this.totalTax = totalTax;
+    }
+
+    public BigDecimal getShippingAmount() {
+        return shippingAmount;
+    }
+
+    public void setShippingAmount(BigDecimal shippingAmount) {
+        this.shippingAmount = shippingAmount;
+    }
+
+    public BigDecimal getPackagingFee() {
+        return packagingFee;
+    }
+
+    public void setPackagingFee(BigDecimal packagingFee) {
+        this.packagingFee = packagingFee;
+    }
+
+    public BigDecimal getGrandTotal() {
+        return grandTotal;
+    }
+
+    public void setGrandTotal(BigDecimal grandTotal) {
+        this.grandTotal = grandTotal;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
 }

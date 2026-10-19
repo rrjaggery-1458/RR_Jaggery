@@ -11,7 +11,8 @@ import {
   TrendingUp, CheckCheck, Clock,
   ShieldCheck, Info, Trash2, Truck, Building2, Landmark,
   Activity, Database, Server, Wifi, HardDrive, Zap, Eye,
-  ChevronDown, ChevronRight, Cpu, Shield, Layers, Coins, ArrowUpRight
+  ChevronDown, ChevronRight, Cpu, Shield, Layers, Coins, ArrowUpRight,
+  Sprout, Navigation
 } from 'lucide-react';
 import { DynamicFormSection } from './components/DynamicFormSection';
 import { LoadingOverlay, TopProgressBar } from './components/LoadingOverlay';
@@ -220,6 +221,7 @@ export interface Expense {
   payeeVendor?: string;
   description?: string;
   notes?: string;
+  paymentStatus?: string;
 }
 
 export interface CategoryExpense {
@@ -267,6 +269,7 @@ export interface PayrollRecord {
 
 export interface WholesaleCustomer {
   id: string;
+  customerType?: string;
   businessName?: string;
   contactPerson?: string;
   phone: string;
@@ -335,14 +338,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   // Navigation State
   const [currentTab, setCurrentTab] = useState<'overview' | 'wholesale' | 'products' | 'production' | 'purchases_expenses' | 'staff' | 'reports' | 'users' | 'settings' | 'system_health'>('overview');
   const [wholesaleSubTab, setWholesaleSubTab] = useState<'wholesale_orders' | 'retail_orders' | 'manual_retail_orders'>('wholesale_orders');
-  const [purchasesExpensesSubTab, setPurchasesExpensesSubTab] = useState<'stock' | 'supplier_bills' | 'expenses' | 'investments'>('stock');
+  const [purchasesExpensesSubTab, setPurchasesExpensesSubTab] = useState<'supplier_bills' | 'expenses' | 'investments'>('expenses');
   const [staffSubTab, setStaffSubTab] = useState<'directory' | 'attendance' | 'payroll'>('directory');
   const [settingsSubTab, setSettingsSubTab] = useState<'form_builder' | 'production_cost' | 'expense_categories' | 'payment_methods' | 'deduction_types' | 'advance_types' | 'payroll_rules'>('form_builder');
-  
+
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   // Sprint 7 Reports Subtabs
   const [reportsSubTab, setReportsSubTab] = useState<'sales' | 'production' | 'inventory' | 'suppliers' | 'expenses' | 'payroll' | 'wholesale' | 'spending_pnl'>('sales');
-  
+
   // Sprint 7 Notifications State
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
@@ -409,11 +412,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   }
   // Sprint 9 consolidated architecture: 5 JVM services
   const [systemHealthServices, setSystemHealthServices] = useState<ServiceHealth[]>([
-    { name: 'auth-service',                  displayName: 'Auth Service',                    port: 8081, url: `${AUTH_URL}/health`,        schema: 'auth_schema',                                    status: 'LOADING' },
-    { name: 'commerce-service',              displayName: 'Commerce Service',                port: 8082, url: `${COMMERCE_URL}/health`,    schema: 'commerce_schema',                                status: 'LOADING' },
-    { name: 'customer-finance-service',      displayName: 'Customer-Finance Service',        port: 8083, url: `${CUSTOMER_URL}/health`,    schema: 'customer_schema, finance_schema, notification_schema', status: 'LOADING' },
-    { name: 'inventory-procurement-service', displayName: 'Inventory-Procurement Service',   port: 8084, url: `${INVENTORY_URL}/health`,   schema: 'inventory_schema, procurement_schema',           status: 'LOADING' },
-    { name: 'production-service',            displayName: 'Production Service',              port: 8086, url: `${PRODUCTION_URL}/health`,  schema: 'production_schema',                              status: 'LOADING' },
+    { name: 'auth-service', displayName: 'Auth Service', port: 8081, url: `${AUTH_URL}/health`, schema: 'auth_schema', status: 'LOADING' },
+    { name: 'commerce-service', displayName: 'Commerce Service', port: 8082, url: `${COMMERCE_URL}/health`, schema: 'commerce_schema', status: 'LOADING' },
+    { name: 'customer-finance-service', displayName: 'Customer-Finance Service', port: 8083, url: `${CUSTOMER_URL}/health`, schema: 'customer_schema, finance_schema, notification_schema', status: 'LOADING' },
+    { name: 'inventory-procurement-service', displayName: 'Inventory-Procurement Service', port: 8084, url: `${INVENTORY_URL}/health`, schema: 'inventory_schema, procurement_schema', status: 'LOADING' },
+    { name: 'production-service', displayName: 'Production Service', port: 8086, url: `${PRODUCTION_URL}/health`, schema: 'production_schema', status: 'LOADING' },
   ]);
   const [systemHealthLastRefresh, setSystemHealthLastRefresh] = useState<Date | null>(null);
   const [systemHealthRefreshing, setSystemHealthRefreshing] = useState(false);
@@ -447,10 +450,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [productionBatches, setProductionBatches] = useState<ProductionBatch[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [expenseBreakdown, setExpenseBreakdown] = useState<CategoryExpense[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
   const [wholesaleCustomers, setWholesaleCustomers] = useState<WholesaleCustomer[]>([]);
+  const [allCustomers, setAllCustomers] = useState<WholesaleCustomer[]>([]); // ALL customer types for receivables
   const [wholesaleOrders, setWholesaleOrders] = useState<WholesaleOrder[]>([]);
   const [retailOrders, setRetailOrders] = useState<RetailOrder[]>([]);
 
@@ -536,6 +541,37 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [showRecordProductionModal, setShowRecordProductionModal] = useState(false);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showAddSugarcanePurchaseModal, setShowAddSugarcanePurchaseModal] = useState(false);
+  const [sugarcaneExpenseFilter, setSugarcaneExpenseFilter] = useState<'all' | 'sugarcane' | 'jaggery' | 'other' | 'unpaid'>('all');
+  const [sugarcanePurchaseForm, setSugarcanePurchaseForm] = useState({
+    purchaseType: 'Sugarcane Purchase',
+    supplierMode: 'select',
+    supplierId: '',
+    supplierName: '',
+    supplierPhone: '',
+    quantity: '' as string | number,
+    unitOfMeasure: 'Tons',
+    ratePerUnit: '' as string | number,
+    amount: '' as string | number,
+    paymentMethod: 'BANK_TRANSFER',
+    paymentStatus: 'PAID',
+    purchaseDate: getLocalDateInputValue(),
+    vehicleNumber: '',
+    notes: '',
+    updateStock: true,
+  });
+  const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editExpenseForm, setEditExpenseForm] = useState({
+    expenseDate: '',
+    category: '',
+    amount: '' as string | number,
+    paymentMethod: 'CASH',
+    payeeVendor: '',
+    description: '',
+    notes: '',
+    paymentStatus: 'PAID',
+  });
   const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
   const [showRecordAttendanceModal, setShowRecordAttendanceModal] = useState(false);
   const [showCreatePayrollModal, setShowCreatePayrollModal] = useState(false);
@@ -785,6 +821,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     payeeVendor: '',
     description: '',
     notes: '',
+    paymentStatus: 'PAID', // PAID or UNPAID
   });
 
   const [newEmployee, setNewEmployee] = useState({
@@ -802,6 +839,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     overtimeHours: 0,
     notes: '',
   });
+  const [selectedAttendanceEmployeeIds, setSelectedAttendanceEmployeeIds] = useState<string[]>([]);
 
   const currentMonthDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const [newPayroll, setNewPayroll] = useState({
@@ -912,10 +950,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         // 5. Financial Balance & Expenses
         (async () => {
           try {
-            const [balRes, expRes, brkRes] = await Promise.all([
+            const [balRes, expRes, brkRes, allExpRes] = await Promise.all([
               fetch(`${FINANCE_URL}/balance?${financeParams}`, { headers }),
               fetch(`${FINANCE_URL}/expenses?${financeParams}`, { headers }),
               fetch(`${FINANCE_URL}/expenses/breakdown?${financeParams}`, { headers }),
+              fetch(`${FINANCE_URL}/expenses`, { headers }),
             ]);
             if (balRes.ok) {
               const balData = await balRes.json();
@@ -932,6 +971,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               setExpenseBreakdown(bData.data || []);
             } else {
               setExpenseBreakdown([]);
+            }
+            if (allExpRes.ok) {
+              const allEData = await allExpRes.json();
+              setAllExpenses(allEData.data || []);
+            } else {
+              setAllExpenses([]);
             }
           } catch (err) {
             console.warn('Finance fetch error:', err);
@@ -992,11 +1037,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           }
         })(),
 
-        // 7. Wholesale Customers & Orders
+        // 7. Wholesale Customers & Orders (also fetch ALL customers for total receivables)
         (async () => {
           try {
-            const [custRes, offRes, retRes] = await Promise.all([
+            const [custRes, allCustRes, offRes, retRes] = await Promise.all([
               fetch(`${CUSTOMER_URL}?type=OFFLINE_WHOLESALE`, { headers }),
+              fetch(CUSTOMER_URL, { headers }), // all customer types
               fetch(`${CUSTOMER_URL}/offline-orders`, { headers }),
               fetch(`${COMMERCE_URL}/admin/orders`, { headers }),
             ]);
@@ -1005,6 +1051,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               const rawCustomers = Array.isArray(cData) ? cData : (cData.data || []);
               const wholesaleOnly = rawCustomers.filter((c: any) => c.customerType === 'OFFLINE_WHOLESALE' || !c.customerType || c.businessName);
               setWholesaleCustomers(wholesaleOnly.length > 0 ? wholesaleOnly : rawCustomers);
+            }
+            if (allCustRes.ok) {
+              const acData = await allCustRes.json();
+              const allRaw = Array.isArray(acData) ? acData : (acData.data || []);
+              setAllCustomers(allRaw);
             }
             if (offRes.ok) {
               const oData = await offRes.json();
@@ -1230,13 +1281,38 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     return { todayKg, monthKg, yearKg };
   }, [productionBatches, selectedYear, selectedMonth]);
 
-  // D. Sales & Revenue — period-scoped client-side filter on order dates
+  // D. Sales & Revenue — period-scoped client-side filter on order dates (excludes CANCELLED for revenue)
+  // Online orders that are confirmed PAID (excludes CANCELLED and unpaid/pending COD)
   const filteredRetailOrders = useMemo(() => {
     const periodMonthStr = periodType === 'monthly'
       ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
       : `${selectedYear}`;
     return retailOrders.filter(o => {
       if (o.status === 'CANCELLED') return false;
+      if (o.paymentStatus !== 'PAID') return false;
+      const dateStr = o.createdAt || '';
+      return dateStr.startsWith(periodMonthStr);
+    });
+  }, [retailOrders, periodType, selectedYear, selectedMonth]);
+
+  // All active non-cancelled online orders (both PAID and PENDING COD)
+  const activeRetailOrdersInPeriod = useMemo(() => {
+    const periodMonthStr = periodType === 'monthly'
+      ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+      : `${selectedYear}`;
+    return retailOrders.filter(o => {
+      if (o.status === 'CANCELLED') return false;
+      const dateStr = o.createdAt || '';
+      return dateStr.startsWith(periodMonthStr);
+    });
+  }, [retailOrders, periodType, selectedYear, selectedMonth]);
+
+  // Display list for Retail Online Orders table — includes CANCELLED (for visibility), still period-scoped
+  const displayRetailOrders = useMemo(() => {
+    const periodMonthStr = periodType === 'monthly'
+      ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+      : `${selectedYear}`;
+    return retailOrders.filter(o => {
       const dateStr = o.createdAt || '';
       return dateStr.startsWith(periodMonthStr);
     });
@@ -1266,27 +1342,89 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     });
   }, [wholesaleOrders, periodType, selectedYear, selectedMonth]);
 
-  const totalSalesRevenue = useMemo(() => {
-    const onlineRetailTotal = filteredRetailOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+  // Paid income portions from offline orders
+  const paidWholesaleIncome = useMemo(() => {
+    return filteredWholesaleOrders.reduce((sum, o) => {
+      const paid = Number((o as any).paidAmount) || ((o as any).paymentStatus === 'PAID' ? Number(o.totalAmount || 0) : 0);
+      return sum + paid;
+    }, 0);
+  }, [filteredWholesaleOrders]);
+
+  const paidManualRetailIncome = useMemo(() => {
+    return filteredManualRetailOrders.reduce((sum, o) => {
+      const paid = Number((o as any).paidAmount) || ((o as any).paymentStatus === 'PAID' ? Number(o.totalAmount || 0) : 0);
+      return sum + paid;
+    }, 0);
+  }, [filteredManualRetailOrders]);
+
+  const paidOnlineRetailIncome = useMemo(() => {
+    return filteredRetailOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+  }, [filteredRetailOrders]);
+
+  // Gross sales value (billed revenue across all non-cancelled orders in period)
+  const grossSalesRevenue = useMemo(() => {
+    const onlineTotal = activeRetailOrdersInPeriod.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
     const manualRetailTotal = filteredManualRetailOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
     const wholesaleTotal = filteredWholesaleOrders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
-    return onlineRetailTotal + manualRetailTotal + wholesaleTotal;
-  }, [filteredRetailOrders, filteredManualRetailOrders, filteredWholesaleOrders]);
+    return onlineTotal + manualRetailTotal + wholesaleTotal;
+  }, [activeRetailOrdersInPeriod, filteredManualRetailOrders, filteredWholesaleOrders]);
 
-  // E. Receivables (Customer Outstanding)
+  // Local total settled order income across all channels
+  const localPaidOrderIncome = useMemo(() => {
+    return paidWholesaleIncome + paidManualRetailIncome + paidOnlineRetailIncome;
+  }, [paidWholesaleIncome, paidManualRetailIncome, paidOnlineRetailIncome]);
+
+  // Smart composite order income: Uses server-provided offline order totals (wholesale + manual retail)
+  // supplemented by local calculations for resilience against cross-service network drops.
+  const compositeOrderIncome = useMemo(() => {
+    if (financialBalance) {
+      const serverWholesale = Number(financialBalance.periodWholesaleIncome) || 0;
+      const serverManualRetail = Number(financialBalance.periodManualRetailIncome) || 0;
+      const serverWebsite = Number(financialBalance.periodWebsiteRetailIncome) || 0;
+
+      const effectiveWholesale = Math.max(serverWholesale, paidWholesaleIncome);
+      const effectiveManualRetail = Math.max(serverManualRetail, paidManualRetailIncome);
+      const effectiveWebsite = Math.max(serverWebsite, paidOnlineRetailIncome);
+
+      return effectiveWholesale + effectiveManualRetail + effectiveWebsite;
+    }
+    return localPaidOrderIncome;
+  }, [financialBalance, paidWholesaleIncome, paidManualRetailIncome, paidOnlineRetailIncome, localPaidOrderIncome]);
+
+  // E. Receivables (Customer Outstanding) — sum across ALL customer types (wholesale + retail)
+  //    PLUS pending/unpaid online orders (COD) which live only in commerce_schema, never synced to customer_schema
   const totalReceivables = useMemo(() => {
-    return wholesaleCustomers.reduce((sum, c) => sum + (Number(c.currentOutstanding) || 0), 0);
-  }, [wholesaleCustomers]);
+    const source = allCustomers.length > 0 ? allCustomers : wholesaleCustomers;
+    const customerOutstanding = source.reduce((sum, c) => sum + (Number(c.currentOutstanding) || 0), 0);
+    // Online COD/pending orders that haven't been paid — these aren't tracked in customer outstanding
+    const pendingOnlineOrders = retailOrders
+      .filter(o => o.status !== 'CANCELLED' && o.paymentStatus !== 'PAID' && o.paymentStatus !== 'REFUNDED')
+      .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+    return customerOutstanding + pendingOnlineOrders;
+  }, [allCustomers, wholesaleCustomers, retailOrders]);
 
-  // F. Pending Bills / Supplier Payables (Strictly authoritative, no double counting)
+  // F. Pending Bills / Supplier Payables (Authoritative: combines unpaid expenses/purchases & supplier balances)
+  const unpaidExpenses = useMemo(() => {
+    const list = allExpenses.length > 0 ? allExpenses : expenses;
+    return list.filter(e => (e.paymentStatus || 'PAID') === 'UNPAID');
+  }, [allExpenses, expenses]);
+
   const totalPendingBills = useMemo(() => {
     const outstandingSuppliers = suppliers.filter(s => (Number(s.currentOutstanding) || 0) > 0);
-    const totalAmount = outstandingSuppliers.reduce((sum, s) => sum + (Number(s.currentOutstanding) || 0), 0);
+    const supplierOutstandingAmt = outstandingSuppliers.reduce((sum, s) => sum + (Number(s.currentOutstanding) || 0), 0);
+    const unpaidExpensesAmt = unpaidExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
     return {
-      count: outstandingSuppliers.length,
-      amount: totalAmount,
+      count: outstandingSuppliers.length + unpaidExpenses.length,
+      amount: supplierOutstandingAmt + unpaidExpensesAmt,
+      supplierCount: outstandingSuppliers.length,
+      supplierAmount: supplierOutstandingAmt,
+      unpaidExpenseCount: unpaidExpenses.length,
+      unpaidExpenseAmount: unpaidExpensesAmt,
+      unpaidExpenses,
+      outstandingSuppliers,
     };
-  }, [suppliers]);
+  }, [suppliers, unpaidExpenses]);
 
   // G. Expenses Total for Active Period (OPEX only — payroll tracked separately)
   const totalExpenses = useMemo(() => {
@@ -1300,6 +1438,19 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   // G3. Combined Total Operating Costs (OPEX + Payroll)
   const totalOperatingCosts = useMemo(() => totalExpenses + totalPayroll, [totalExpenses, totalPayroll]);
+
+  // G4. Composite Business Position
+  const compositeBusinessPosition = useMemo(() => {
+    if (financialBalance?.totalBusinessPosition != null) {
+      const serverTotalIncome = (Number(financialBalance.periodWholesaleIncome) || 0)
+        + (Number(financialBalance.periodManualRetailIncome) || 0)
+        + (Number(financialBalance.periodWebsiteRetailIncome) || 0);
+      const diff = Math.max(0, compositeOrderIncome - serverTotalIncome);
+      return Number(financialBalance.totalBusinessPosition) + diff;
+    }
+    const invTotal = investments.filter(i => i.status !== 'VOIDED').reduce((s, i) => s + (Number(i.amount) || 0), 0);
+    return invTotal - totalOperatingCosts + compositeOrderIncome + (finishedJaggeryStockKg * 100);
+  }, [financialBalance, compositeOrderIncome, investments, totalOperatingCosts, finishedJaggeryStockKg]);
 
   // H. Top Expenses (Sorted descending)
   const topExpenses = useMemo(() => {
@@ -1428,7 +1579,19 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         }
       });
 
-      // 2. Pending Supplier Bills / Payables
+      // 2. Pending Supplier Bills / Payables (Unpaid expenses & supplier balances)
+      unpaidExpenses.forEach(exp => {
+        alertsToSync.push({
+          type: 'PENDING_BILL',
+          severity: 'CRITICAL',
+          title: `Pending Bill: ${exp.payeeVendor || exp.category}`,
+          message: `Unpaid ${exp.category} bill of ₹${Number(exp.amount).toLocaleString('en-IN')} pending for ${exp.payeeVendor || 'Vendor'}.`,
+          referenceId: exp.id,
+          referenceType: 'EXPENSE',
+          role: 'MANAGER'
+        });
+      });
+
       suppliers.forEach(sup => {
         if (Number(sup.currentOutstanding) > 0) {
           alertsToSync.push({
@@ -2169,6 +2332,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   // 7. Record Today's Production (Direct End-of-Day Entry with auto inventory sync)
   const handleRecordProduction = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingKey === 'create-production') return;
+
     const qty = Number(dailyProduction.quantityProduced);
     if (qty <= 0) {
       setErrorMsg('Produced quantity must be greater than 0.');
@@ -2182,6 +2347,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
     const targetName = selectedProd?.name || dailyProduction.productName || 'Traditional Jaggery Block';
     const targetSku = selectedProd?.sku || dailyProduction.productSku || 'JAG-TRAD-001';
+
+    setSubmittingKey('create-production');
 
     try {
       // 1. Create Batch Record
@@ -2214,10 +2381,18 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
       setSuccessMsg(`Today's production recorded: ${qty} KG of ${targetName}`);
       setShowRecordProductionModal(false);
+      setDailyProduction(prev => ({
+        ...prev,
+        quantityProduced: 500,
+        wastageKg: 0,
+        notes: '',
+      }));
       setProductionCustomAnswers({});
-      loadData(false);
+      await loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording production.');
+    } finally {
+      setSubmittingKey(null);
     }
   };
 
@@ -2243,6 +2418,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           payeeVendor: newExpense.payeeVendor,
           description: newExpense.description,
           notes: newExpense.notes,
+          paymentStatus: newExpense.paymentStatus,
         }),
       });
 
@@ -2270,11 +2446,165 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         payeeVendor: '',
         description: '',
         notes: '',
+        paymentStatus: 'PAID',
       });
       setExpenseCustomAnswers({});
       loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error recording expense.');
+    } finally {
+      setSubmittingKey(null);
+    }
+  };
+
+  // 9b. Sugarcane & Outside Purchase Handler (Raw material / external finished jaggery with supplier tracking)
+  const handleCreateSugarcanePurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const supplier = (sugarcanePurchaseForm.supplierMode === 'new'
+      ? sugarcanePurchaseForm.supplierName
+      : (suppliers.find(s => s.id === sugarcanePurchaseForm.supplierId)?.supplierName || sugarcanePurchaseForm.supplierName)
+    ).trim();
+
+    if (!supplier) {
+      setErrorMsg('Please select or enter the supplier / farmer for this purchase.');
+      return;
+    }
+
+    const qty = Number(sugarcanePurchaseForm.quantity);
+    if (!qty || qty <= 0) {
+      setErrorMsg('Please enter a valid quantity (> 0).');
+      return;
+    }
+
+    const rate = Number(sugarcanePurchaseForm.ratePerUnit);
+    const calculatedAmount = Number(sugarcanePurchaseForm.amount) || (qty * (rate || 0));
+
+    if (!calculatedAmount || calculatedAmount <= 0) {
+      setErrorMsg('Please enter a valid purchase amount or rate per unit.');
+      return;
+    }
+
+    setSubmittingKey('create-sugarcane-purchase');
+
+    try {
+      // 1. If entered as new supplier, register in procurement service for future reference
+      if (sugarcanePurchaseForm.supplierMode === 'new' && sugarcanePurchaseForm.supplierName.trim()) {
+        try {
+          await fetch(`${PROCUREMENT_URL}/suppliers`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+              supplierName: sugarcanePurchaseForm.supplierName.trim(),
+              phone: sugarcanePurchaseForm.supplierPhone || undefined,
+              category: sugarcanePurchaseForm.purchaseType.includes('Sugarcane') ? 'Sugarcane Farmers' : 'Outside Jaggery Traders',
+              notes: 'Auto-added from Sugarcane / External Jaggery Purchase Entry',
+            }),
+          });
+        } catch (supErr) {
+          console.warn('Supplier auto-registration notice:', supErr);
+        }
+      }
+
+      // 2. Build descriptive summary
+      const descParts = [
+        `${sugarcanePurchaseForm.purchaseType}: ${qty} ${sugarcanePurchaseForm.unitOfMeasure}`,
+        rate > 0 ? `@ ₹${rate.toLocaleString('en-IN')}/${sugarcanePurchaseForm.unitOfMeasure}` : null,
+        sugarcanePurchaseForm.vehicleNumber ? `Vehicle: ${sugarcanePurchaseForm.vehicleNumber.trim()}` : null,
+      ].filter(Boolean).join(' • ');
+
+      // 3. Save as Expense in customer-finance-service
+      const expenseRes = await fetch(`${FINANCE_URL}/expenses`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          expenseDate: sugarcanePurchaseForm.purchaseDate,
+          category: sugarcanePurchaseForm.purchaseType,
+          amount: calculatedAmount,
+          paymentMethod: sugarcanePurchaseForm.paymentMethod,
+          payeeVendor: supplier,
+          description: descParts,
+          notes: sugarcanePurchaseForm.notes || undefined,
+          paymentStatus: sugarcanePurchaseForm.paymentStatus,
+        }),
+      });
+
+      if (!expenseRes.ok) {
+        throw new Error(await getResponseErrorMessage(expenseRes, 'Failed to record purchase expense.'));
+      }
+
+      // 4. Optionally update stock inventory
+      if (sugarcanePurchaseForm.updateStock) {
+        try {
+          const isSugarcane = sugarcanePurchaseForm.purchaseType.includes('Sugarcane');
+          const defaultItemName = isSugarcane ? 'Sugarcane Raw Material' : 'Finished Jaggery';
+          let item = inventoryItems.find(i =>
+            isSugarcane
+              ? (i.itemName.toLowerCase().includes('sugarcane') || i.itemType === 'RAW_MATERIAL')
+              : (i.itemType === 'FINISHED_GOOD' || i.itemName.toLowerCase().includes('jaggery'))
+          );
+
+          if (!item) {
+            const autoSku = isSugarcane ? 'MAT-SUGARCANE-001' : 'FG-JAGGERY-001';
+            const createItemRes = await fetch(`${INVENTORY_URL}/items`, {
+              method: 'POST',
+              headers: getHeaders(),
+              body: JSON.stringify({
+                sku: autoSku,
+                itemName: defaultItemName,
+                itemType: isSugarcane ? 'RAW_MATERIAL' : 'FINISHED_GOOD',
+                unitOfMeasure: sugarcanePurchaseForm.unitOfMeasure,
+                initialQuantity: 0,
+                minimumStockLevel: 5,
+              }),
+            });
+            if (createItemRes.ok) {
+              const d = await createItemRes.json();
+              item = d.data;
+            }
+          }
+
+          if (item) {
+            await fetch(`${INVENTORY_URL}/stock/receive`, {
+              method: 'POST',
+              headers: getHeaders(),
+              body: JSON.stringify({
+                sku: item.sku,
+                quantity: qty,
+                referenceType: 'PURCHASE_RECEIPT',
+                referenceId: 'PUR-' + Date.now(),
+                actor: user.fullName || 'MANAGER',
+                notes: `Purchased from supplier ${supplier}. ${descParts}`,
+              }),
+            });
+          }
+        } catch (stockErr) {
+          console.warn('Stock update notice:', stockErr);
+        }
+      }
+
+      setSuccessMsg(`${sugarcanePurchaseForm.purchaseType} recorded successfully from supplier ${supplier}.`);
+      setShowAddSugarcanePurchaseModal(false);
+      setSugarcanePurchaseForm({
+        purchaseType: 'Sugarcane Purchase',
+        supplierMode: 'select',
+        supplierId: '',
+        supplierName: '',
+        supplierPhone: '',
+        quantity: '',
+        unitOfMeasure: 'Tons',
+        ratePerUnit: '',
+        amount: '',
+        paymentMethod: 'BANK_TRANSFER',
+        paymentStatus: 'PAID',
+        purchaseDate: getLocalDateInputValue(),
+        vehicleNumber: '',
+        notes: '',
+        updateStock: true,
+      });
+      loadData(false);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error recording sugarcane purchase.');
     } finally {
       setSubmittingKey(null);
     }
@@ -2684,8 +3014,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   const handleRecordAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingKey === 'record-attendance') return;
-    if (!newAttendance.employeeId) {
-      setErrorMsg('Please select an employee.');
+    if (selectedAttendanceEmployeeIds.length === 0) {
+      setErrorMsg('Please select at least one employee / worker.');
       return;
     }
     if (newAttendance.attendanceDate > getLocalDateInputValue()) {
@@ -2696,22 +3026,31 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     setSubmittingKey('record-attendance');
     setErrorMsg(null);
     try {
-      const sundayOff = isSundayDate(newAttendance.attendanceDate)
-        && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType);
-      const res = await fetch(`${FINANCE_URL}/attendance`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          ...newAttendance,
-          status: sundayOff ? 'ABSENT' : newAttendance.status,
-          overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
-        }),
+      const isSunday = isSundayDate(newAttendance.attendanceDate);
+      const postPromises = selectedAttendanceEmployeeIds.map(async (empId) => {
+        const emp = employees.find(e => e.id === empId);
+        const sundayOff = isSunday && isSundayOffWageType(emp?.wageType);
+        const res = await fetch(`${FINANCE_URL}/attendance`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({
+            employeeId: empId,
+            attendanceDate: newAttendance.attendanceDate,
+            status: sundayOff ? 'ABSENT' : newAttendance.status,
+            overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
+            notes: newAttendance.notes,
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await getResponseErrorMessage(res, `Failed for ${emp?.fullName || empId}`);
+          throw new Error(errText);
+        }
+        return res.json();
       });
 
-      if (!res.ok) {
-        throw new Error(await getResponseErrorMessage(res, 'Failed to record attendance.'));
-      }
-      setSuccessMsg('Attendance recorded successfully.');
+      await Promise.all(postPromises);
+      setSuccessMsg(`Attendance recorded successfully for ${selectedAttendanceEmployeeIds.length} worker${selectedAttendanceEmployeeIds.length > 1 ? 's' : ''}.`);
       setShowRecordAttendanceModal(false);
       loadData(false);
     } catch (err: any) {
@@ -2785,6 +3124,91 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       loadData(false);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error deleting expense.');
+    }
+  };
+
+  // Quick Update Payment Status (e.g. UNPAID -> PAID)
+  const handleQuickUpdatePaymentStatus = async (exp: Expense, nextStatus: 'PAID' | 'UNPAID') => {
+    try {
+      const res = await fetch(`${FINANCE_URL}/expenses/${exp.id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          expenseDate: exp.expenseDate,
+          category: exp.category,
+          amount: Number(exp.amount),
+          paymentMethod: exp.paymentMethod,
+          payeeVendor: exp.payeeVendor,
+          description: exp.description,
+          notes: exp.notes,
+          paymentStatus: nextStatus,
+        }),
+      });
+      if (!res.ok) throw new Error(await getResponseErrorMessage(res, 'Failed to update payment status.'));
+      setSuccessMsg(`Expense bill marked as ${nextStatus === 'PAID' ? 'Paid' : 'Unpaid'}.`);
+      await loadData(false);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error updating payment status.');
+    }
+  };
+
+  // Open Edit Expense Modal
+  const handleOpenEditExpenseModal = (exp: Expense) => {
+    setEditingExpense(exp);
+    setEditExpenseForm({
+      expenseDate: exp.expenseDate || getLocalDateInputValue(),
+      category: exp.category || '',
+      amount: exp.amount || 0,
+      paymentMethod: exp.paymentMethod || 'CASH',
+      payeeVendor: exp.payeeVendor || '',
+      description: exp.description || '',
+      notes: exp.notes || '',
+      paymentStatus: exp.paymentStatus || 'PAID',
+    });
+    setShowEditExpenseModal(true);
+  };
+
+  // Save Updated Expense
+  const handleUpdateExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+    if (submittingKey === 'update-expense') return;
+
+    const amt = Number(editExpenseForm.amount);
+    if (!amt || amt <= 0) {
+      setErrorMsg('Please enter a valid expense amount (> 0).');
+      return;
+    }
+
+    setSubmittingKey('update-expense');
+    try {
+      const res = await fetch(`${FINANCE_URL}/expenses/${editingExpense.id}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          expenseDate: editExpenseForm.expenseDate,
+          category: editExpenseForm.category.trim(),
+          amount: amt,
+          paymentMethod: editExpenseForm.paymentMethod,
+          payeeVendor: editExpenseForm.payeeVendor ? editExpenseForm.payeeVendor.trim() : undefined,
+          description: editExpenseForm.description ? editExpenseForm.description.trim() : undefined,
+          notes: editExpenseForm.notes ? editExpenseForm.notes.trim() : undefined,
+          paymentStatus: editExpenseForm.paymentStatus,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await getResponseErrorMessage(res, 'Failed to update expense.'));
+      }
+
+      setSuccessMsg('Expense updated successfully.');
+      setShowEditExpenseModal(false);
+      setEditingExpense(null);
+      await loadData(false);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error updating expense.');
+    } finally {
+      setSubmittingKey(null);
     }
   };
 
@@ -3266,11 +3690,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("overview");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "overview"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "overview"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Overview</span>
@@ -3282,11 +3705,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("wholesale");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "wholesale"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "wholesale"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <ShoppingBag className="w-4 h-4" />
                 <span>Wholesale & B2B Orders</span>
@@ -3298,11 +3720,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("products");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "products"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "products"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <Package className="w-4 h-4" />
                 <span>Product Master</span>
@@ -3314,11 +3735,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("production");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "production"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "production"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <Factory className="w-4 h-4" />
                 <span>Daily Production Management</span>
@@ -3330,11 +3750,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("purchases_expenses");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "purchases_expenses"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "purchases_expenses"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <Boxes className="w-4 h-4" />
                 <span>Purchases & Operating Expenses</span>
@@ -3346,11 +3765,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("staff");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "staff"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "staff"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <Users className="w-4 h-4" />
                 <span>Staff Attendance & Wages</span>
@@ -3362,11 +3780,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab("reports");
                   setIsSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === "reports"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "reports"
                     ? "bg-emerald-700 text-white font-semibold shadow-sm"
                     : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                }`}
+                  }`}
               >
                 <FileText className="w-4 h-4" />
                 <span>Factory Reports</span>
@@ -3385,11 +3802,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       loadFormDefinition(formBuilderActiveForm);
                       setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                      currentTab === "settings" && settingsSubTab === "form_builder"
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "settings" && settingsSubTab === "form_builder"
                         ? "bg-emerald-700 text-white font-semibold shadow-sm"
                         : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                    }`}
+                      }`}
                   >
                     <FileText className="w-4 h-4 text-emerald-600" />
                     <span>Dynamic Form Builder</span>
@@ -3403,11 +3819,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       loadFormDefinition(formBuilderActiveForm);
                       setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                      currentTab === "settings" && settingsSubTab !== "form_builder"
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "settings" && settingsSubTab !== "form_builder"
                         ? "bg-emerald-700 text-white font-semibold shadow-sm"
                         : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                    }`}
+                      }`}
                   >
                     <Sliders className="w-4 h-4" />
                     <span>Settings & Masters</span>
@@ -3419,11 +3834,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       setCurrentTab("users");
                       setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                      currentTab === "users"
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "users"
                         ? "bg-emerald-700 text-white font-semibold shadow-sm"
                         : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                    }`}
+                      }`}
                   >
                     <Users className="w-4 h-4" />
                     <span>User Access & Permissions</span>
@@ -3435,11 +3849,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       setCurrentTab("system_health");
                       setIsSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                      currentTab === "system_health"
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "system_health"
                         ? "bg-emerald-700 text-white font-semibold shadow-sm"
                         : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
-                    }`}
+                      }`}
                   >
                     <Activity className="w-4 h-4 text-emerald-600" />
                     <span>System Health & Infrastructure</span>
@@ -3497,11 +3910,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-overview"
             onClick={() => setCurrentTab('overview')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'overview'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'overview'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <LayoutDashboard className="w-4 h-4" />
             <span>Overview</span>
@@ -3510,11 +3922,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-wholesale"
             onClick={() => setCurrentTab('wholesale')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'wholesale'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'wholesale'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Wholesale & B2B</span>
@@ -3523,11 +3934,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-products"
             onClick={() => setCurrentTab('products')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'products'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'products'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <Package className="w-4 h-4" />
             <span>Products</span>
@@ -3536,11 +3946,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-production"
             onClick={() => setCurrentTab('production')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'production'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'production'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <Factory className="w-4 h-4" />
             <span>Production</span>
@@ -3549,11 +3958,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-purchases-expenses"
             onClick={() => setCurrentTab('purchases_expenses')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'purchases_expenses'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'purchases_expenses'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <Boxes className="w-4 h-4" />
             <span>Purchases & Expenses</span>
@@ -3562,11 +3970,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-staff"
             onClick={() => setCurrentTab('staff')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'staff'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'staff'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <Users className="w-4 h-4" />
             <span>Staff & Payroll</span>
@@ -3575,11 +3982,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             id="nav-reports"
             onClick={() => setCurrentTab('reports')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-              currentTab === 'reports'
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'reports'
                 ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                 : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-            }`}
+              }`}
           >
             <FileText className="w-4 h-4" />
             <span>Reports</span>
@@ -3597,11 +4003,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setSettingsSubTab('form_builder');
                   loadFormDefinition(formBuilderActiveForm);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === 'settings' && settingsSubTab === 'form_builder'
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'settings' && settingsSubTab === 'form_builder'
                     ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                     : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                }`}
+                  }`}
               >
                 <FileText className="w-4 h-4 text-emerald-600" />
                 <span>Dynamic Form Builder</span>
@@ -3613,11 +4018,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab('settings');
                   setSettingsSubTab('production_cost');
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === 'settings' && settingsSubTab !== 'form_builder'
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'settings' && settingsSubTab !== 'form_builder'
                     ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                     : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                }`}
+                  }`}
               >
                 <Sliders className="w-4 h-4" />
                 <span>Settings & Masters</span>
@@ -3626,11 +4030,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <button
                 id="nav-users"
                 onClick={() => setCurrentTab('users')}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === 'users'
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'users'
                     ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                     : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                }`}
+                  }`}
               >
                 <Users className="w-4 h-4" />
                 <span>User Access</span>
@@ -3639,11 +4042,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <button
                 id="nav-system-health"
                 onClick={() => setCurrentTab('system_health')}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${
-                  currentTab === 'system_health'
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'system_health'
                     ? 'bg-emerald-700 text-white font-semibold shadow-sm'
                     : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                }`}
+                  }`}
               >
                 <Activity className="w-4 h-4 text-emerald-600" />
                 <span>System Health</span>
@@ -3695,17 +4097,15 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             <div className="bg-emerald-50/60 p-1 rounded-xl border border-gray-200 flex items-center text-xs">
               <button
                 onClick={() => setPeriodType('monthly')}
-                className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                  periodType === 'monthly' ? 'bg-emerald-700 text-white font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-3 py-1.5 rounded-lg font-medium transition ${periodType === 'monthly' ? 'bg-emerald-700 text-white font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setPeriodType('yearly')}
-                className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                  periodType === 'yearly' ? 'bg-emerald-700 text-white font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-3 py-1.5 rounded-lg font-medium transition ${periodType === 'yearly' ? 'bg-emerald-700 text-white font-semibold shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 Yearly
               </button>
@@ -3787,77 +4187,70 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar whitespace-nowrap lg:hidden shadow-sm shrink-0">
           <button
             onClick={() => setCurrentTab('overview')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'overview'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'overview'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
             <span>Overview</span>
           </button>
           <button
             onClick={() => setCurrentTab('wholesale')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'wholesale'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'wholesale'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>Wholesale & B2B</span>
           </button>
           <button
             onClick={() => setCurrentTab('products')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'products'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'products'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <Package className="w-3.5 h-3.5" />
             <span>Products</span>
           </button>
           <button
             onClick={() => setCurrentTab('production')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'production'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'production'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <Factory className="w-3.5 h-3.5" />
             <span>Production</span>
           </button>
           <button
             onClick={() => setCurrentTab('purchases_expenses')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'purchases_expenses'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'purchases_expenses'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <Boxes className="w-3.5 h-3.5" />
             <span>Purchases & OPEX</span>
           </button>
           <button
             onClick={() => setCurrentTab('staff')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'staff'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'staff'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <Users className="w-3.5 h-3.5" />
             <span>Staff & Wages</span>
           </button>
           <button
             onClick={() => setCurrentTab('reports')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-              currentTab === 'reports'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'reports'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-            }`}
+              }`}
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Reports</span>
@@ -3870,11 +4263,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setSettingsSubTab('form_builder');
                   loadFormDefinition(formBuilderActiveForm);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-                  currentTab === 'settings' && settingsSubTab === 'form_builder'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'settings' && settingsSubTab === 'form_builder'
                     ? 'bg-emerald-700 text-white shadow-sm'
                     : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-                }`}
+                  }`}
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Forms</span>
@@ -3884,33 +4276,30 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setCurrentTab('settings');
                   setSettingsSubTab('production_cost');
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-                  currentTab === 'settings' && settingsSubTab !== 'form_builder'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'settings' && settingsSubTab !== 'form_builder'
                     ? 'bg-emerald-700 text-white shadow-sm'
                     : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-                }`}
+                  }`}
               >
                 <Sliders className="w-3.5 h-3.5" />
                 <span>Settings</span>
               </button>
               <button
                 onClick={() => setCurrentTab('users')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-                  currentTab === 'users'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'users'
                     ? 'bg-emerald-700 text-white shadow-sm'
                     : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-                }`}
+                  }`}
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Users</span>
               </button>
               <button
                 onClick={() => setCurrentTab('system_health')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
-                  currentTab === 'system_health'
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'system_health'
                     ? 'bg-emerald-700 text-white shadow-sm'
                     : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
-                }`}
+                  }`}
               >
                 <Activity className="w-3.5 h-3.5" />
                 <span>Health</span>
@@ -3989,12 +4378,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <Coins className="w-4 h-4 text-emerald-300" />
                     </div>
                     <div className="mt-2 text-lg sm:text-2xl font-black text-white font-mono">
-                      ₹{(financialBalance?.totalBusinessPosition ?? (
-                        investments.filter(i => i.status !== 'VOIDED').reduce((s, i) => s + (Number(i.amount) || 0), 0)
-                        - totalOperatingCosts
-                        + totalSalesRevenue
-                        + finishedJaggeryStockKg * 100
-                      )).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      ₹{compositeBusinessPosition.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
                     <p className="text-[10px] text-emerald-300 mt-1">Ops Balance + Finished Stock Value</p>
                   </div>
@@ -4018,9 +4402,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <ShoppingBag className="w-4 h-4 text-emerald-300" />
                     </div>
                     <div className="mt-2 text-base sm:text-xl font-bold text-white font-mono">
-                      +₹{(financialBalance?.periodTotalOrderIncome ?? totalSalesRevenue).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      +₹{compositeOrderIncome.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </div>
-                    <p className="text-[10px] text-emerald-300 mt-1">Wholesale + Retail Sales</p>
+                    <p className="text-[10px] text-emerald-300 mt-1">Wholesale + Retail Sales (Paid)</p>
                   </div>
 
                   {/* Card 4: Period Operating Expenses (OPEX + Payroll) */}
@@ -4163,7 +4547,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <div className="space-y-3 text-xs">
                     <div className="flex items-center justify-between py-1.5 border-b border-gray-200">
                       <span className="text-gray-500">Gross Sales (Retail & Wholesale)</span>
-                      <span className="font-semibold text-gray-800">₹{(financialBalance?.periodTotalOrderIncome ?? totalSalesRevenue).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                      <span className="font-semibold text-gray-800">₹{grossSalesRevenue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex items-center justify-between py-1.5 border-b border-gray-200">
                       <span className="text-gray-500">Customer Receivables (Outstanding)</span>
@@ -4387,31 +4771,28 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200">
                   <button
                     onClick={() => setWholesaleSubTab('wholesale_orders')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      wholesaleSubTab === 'wholesale_orders'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${wholesaleSubTab === 'wholesale_orders'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     Wholesale B2B Orders ({wholesaleOrders.filter(o => o.orderType !== 'MANUAL_RETAIL').length})
                   </button>
                   <button
                     onClick={() => setWholesaleSubTab('manual_retail_orders')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      wholesaleSubTab === 'manual_retail_orders'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${wholesaleSubTab === 'manual_retail_orders'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     Manual Retail Orders ({wholesaleOrders.filter(o => o.orderType === 'MANUAL_RETAIL').length})
                   </button>
                   <button
                     onClick={() => setWholesaleSubTab('retail_orders')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      wholesaleSubTab === 'retail_orders'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${wholesaleSubTab === 'retail_orders'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     Retail Online Orders ({retailOrders.length})
                   </button>
@@ -4504,11 +4885,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 </td>
                                 <td className="p-3.5 font-bold text-gray-900">₹{Number(order.totalAmount).toLocaleString()}</td>
                                 <td className="p-3.5">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    order.paymentStatus === 'PAID'
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${order.paymentStatus === 'PAID'
                                       ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
                                       : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                  }`}>
+                                    }`}>
                                     {order.paymentStatus}
                                   </span>
                                 </td>
@@ -4623,11 +5003,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               </td>
                               <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">₹{Number(order.totalAmount).toLocaleString()}</td>
                               <td className="p-3.5">
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  order.paymentStatus === 'PAID'
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${order.paymentStatus === 'PAID'
                                     ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
                                     : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                }`}>
+                                  }`}>
                                   {order.paymentStatus}
                                 </span>
                               </td>
@@ -4702,72 +5081,83 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {filteredRetailOrders.length === 0 ? (
+                        {displayRetailOrders.length === 0 ? (
                           <tr>
                             <td colSpan={7} className="p-8 text-center text-gray-400">
                               No retail website orders recorded for this period.
                             </td>
                           </tr>
                         ) : (
-                          filteredRetailOrders.map(order => (
-                            <tr key={order.id} className="hover:bg-gray-50 transition">
-                              <td className="p-3.5 font-semibold text-gray-800">{order.orderNumber}</td>
-                              <td className="p-3.5 font-medium text-gray-800">
-                                <div>{order.customerName}</div>
-                                <span className="text-[10px] text-gray-500">{order.customerEmail}</span>
-                              </td>
-                              <td className="p-3.5 text-gray-500">
-                                {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
-                              </td>
-                              <td className="p-3.5 font-bold text-gray-900">₹{Number(order.totalAmount).toLocaleString()}</td>
-                              <td className="p-3.5">
-                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 border border-blue-500/20">
-                                  {order.status}
-                                </span>
-                              </td>
-                              <td className="p-3.5">
-                                <div className="flex flex-col gap-0.5">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    order.paymentStatus === 'PAID'
-                                      ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                      : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  }`}>
-                                    {order.paymentStatus}
+                          displayRetailOrders.map(order => {
+                            const isCancelled = order.status === 'CANCELLED';
+                            return (
+                              <tr key={order.id} className={`transition ${isCancelled ? 'bg-rose-50/40 opacity-70' : 'hover:bg-gray-50'}`}>
+                                <td className={`p-3.5 font-semibold ${isCancelled ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{order.orderNumber}</td>
+                                <td className="p-3.5 font-medium text-gray-800">
+                                  <div>{order.customerName}</div>
+                                  <span className="text-[10px] text-gray-500">{order.customerEmail}</span>
+                                </td>
+                                <td className="p-3.5 text-gray-500">
+                                  {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
+                                </td>
+                                <td className={`p-3.5 font-bold ${isCancelled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>₹{Number(order.totalAmount).toLocaleString()}</td>
+                                <td className="p-3.5">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${isCancelled
+                                      ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                    }`}>
+                                    {order.status}
                                   </span>
-                                  {order.paymentMethod === 'COD' && (
-                                    <span className="text-[10px] font-bold text-amber-600">COD</span>
+                                </td>
+                                <td className="p-3.5">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${order.paymentStatus === 'PAID'
+                                        ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                        : order.paymentStatus === 'REFUNDED'
+                                          ? 'bg-gray-100 text-gray-500 border border-gray-300'
+                                          : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      }`}>
+                                      {order.paymentStatus}
+                                    </span>
+                                    {order.paymentMethod === 'COD' && !isCancelled && (
+                                      <span className="text-[10px] font-bold text-amber-600">COD</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3.5">
+                                  {!isCancelled ? (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <button
+                                        onClick={() => handleOpenOrderInfo(order, 'online')}
+                                        title="View Full Order Information"
+                                        className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-[11px] font-medium border border-blue-200 transition flex items-center gap-1"
+                                      >
+                                        <Info className="w-3.5 h-3.5" />
+                                        Info
+                                      </button>
+                                      <button
+                                        onClick={() => handleOpenEditOrder(order, 'online')}
+                                        title="Update Delivery & Payment Status (COD Support)"
+                                        className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-[11px] font-medium border border-amber-200 transition flex items-center gap-1"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                        Update Status
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteOrder(order, 'online')}
+                                        title="Cancel or Delete Online Order"
+                                        className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md border border-rose-200 transition flex items-center justify-center"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-rose-400 font-medium italic">Order Cancelled</span>
                                   )}
-                                </div>
-                              </td>
-                              <td className="p-3.5">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <button
-                                    onClick={() => handleOpenOrderInfo(order, 'online')}
-                                    title="View Full Order Information"
-                                    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-[11px] font-medium border border-blue-200 transition flex items-center gap-1"
-                                  >
-                                    <Info className="w-3.5 h-3.5" />
-                                    Info
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenEditOrder(order, 'online')}
-                                    title="Update Delivery & Payment Status (COD Support)"
-                                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md text-[11px] font-medium border border-amber-200 transition flex items-center gap-1"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                    Update Status
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteOrder(order, 'online')}
-                                    title="Cancel or Delete Online Order"
-                                    className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md border border-rose-200 transition flex items-center justify-center"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -4851,11 +5241,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                           {/* Stock Availability Badge */}
                           <div className="absolute top-2.5 right-2.5">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shadow-md ${
-                              stockQty > 0
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shadow-md ${stockQty > 0
                                 ? 'bg-emerald-500 text-gray-900'
                                 : 'bg-rose-500/90 text-white'
-                            }`}>
+                              }`}>
                               Available: {stockQty} KG
                             </span>
                           </div>
@@ -4871,6 +5260,15 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <span className={`w-2 h-2 rounded-full ${prod.active ? 'bg-emerald-500' : 'bg-emerald-100'}`} />
                             </div>
                             <h4 className="text-sm font-bold text-gray-900 font-serif mt-1 line-clamp-1">{prod.name}</h4>
+                            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-500">
+                              <span className="bg-emerald-50 text-emerald-800 font-semibold px-1.5 py-0.5 rounded border border-emerald-200">
+                                {prod.packageType || 'Box'}
+                              </span>
+                              <span>•</span>
+                              <span className="font-semibold text-gray-700">
+                                {prod.unitWeightKg < 1 ? `${Math.round(prod.unitWeightKg * 1000)}g (${prod.unitWeightKg} kg)` : `${prod.unitWeightKg} kg`}
+                              </span>
+                            </div>
                             <p className="text-xs text-gray-500 mt-1 line-clamp-2">{prod.description || 'Premium farm-made organic jaggery.'}</p>
                           </div>
 
@@ -4878,11 +5276,11 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           <div className="pt-2 border-t border-gray-200 grid grid-cols-2 gap-2 text-xs">
                             <div className="p-2 bg-gray-50 rounded-lg">
                               <span className="text-[10px] text-gray-500 block">Retail Price</span>
-                              <span className="font-bold text-gray-900">₹{prod.retailPrice}/KG</span>
+                              <span className="font-bold text-gray-900">₹{prod.retailPrice}/{prod.unitWeightKg < 1 ? `${Math.round(prod.unitWeightKg * 1000)}g` : prod.unitWeightKg === 1 ? 'KG' : `${prod.unitWeightKg}kg`}</span>
                             </div>
                             <div className="p-2 bg-gray-50 rounded-lg">
                               <span className="text-[10px] text-gray-500 block">Wholesale Price</span>
-                              <span className="font-bold text-emerald-700">₹{prod.wholesalePrice}/KG</span>
+                              <span className="font-bold text-emerald-700">₹{prod.wholesalePrice}/{prod.unitWeightKg < 1 ? `${Math.round(prod.unitWeightKg * 1000)}g` : prod.unitWeightKg === 1 ? 'KG' : `${prod.unitWeightKg}kg`}</span>
                             </div>
                           </div>
 
@@ -4890,11 +5288,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           <div className="space-y-2 pt-2 border-t border-gray-200">
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="text-gray-500">Catalogue Status:</span>
-                              <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
-                                prod.active
+                              <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${prod.active
                                   ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
                                   : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                              }`}>
+                                }`}>
                                 {prod.active ? 'Active (Live)' : 'Archived (Hidden)'}
                               </span>
                             </div>
@@ -4930,11 +5327,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <button
                                 onClick={() => prod.active ? handleDeleteProduct(prod.id, prod.name) : handleToggleProductActive(prod)}
                                 disabled={submittingKey === `toggle-prod-${prod.id}` || submittingKey === `delete-prod-${prod.id}`}
-                                className={`py-1.5 rounded-lg text-xs font-semibold border transition flex items-center justify-center gap-1 ${
-                                  prod.active
+                                className={`py-1.5 rounded-lg text-xs font-semibold border transition flex items-center justify-center gap-1 ${prod.active
                                     ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
                                     : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                                }`}
+                                  }`}
                               >
                                 {(submittingKey === `toggle-prod-${prod.id}` || submittingKey === `delete-prod-${prod.id}`) ? (
                                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -4962,59 +5358,37 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             <div className="space-y-5">
               <div className="flex items-center justify-between border-b border-gray-200 pb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200">
-                  <button
-                    onClick={() => setPurchasesExpensesSubTab('stock')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      purchasesExpensesSubTab === 'stock'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    A. Stock / Purchased Items ({inventoryItems.length})
-                  </button>
+
                   <button
                     onClick={() => setPurchasesExpensesSubTab('supplier_bills')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      purchasesExpensesSubTab === 'supplier_bills'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${purchasesExpensesSubTab === 'supplier_bills'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
-                    B. Supplier Bills & Payables ({suppliers.filter(s => (Number(s.currentOutstanding) || 0) > 0).length})
+                    A. Supplier Bills & Payables ({suppliers.filter(s => (Number(s.currentOutstanding) || 0) > 0).length})
                   </button>
                   <button
                     onClick={() => setPurchasesExpensesSubTab('expenses')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      purchasesExpensesSubTab === 'expenses'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${purchasesExpensesSubTab === 'expenses'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
-                    C. Operating Expenses ({expenses.length})
+                    B. Expenses & Purchases ({expenses.length})
                   </button>
                   {isAdmin && (
                     <button
                       onClick={() => setPurchasesExpensesSubTab('investments')}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                        purchasesExpensesSubTab === 'investments'
+                      className={`px-4 py-2 rounded-lg text-xs font-bold transition ${purchasesExpensesSubTab === 'investments'
                           ? 'bg-violet-500 text-white shadow'
                           : 'text-gray-500 hover:text-gray-900'
-                      }`}
+                        }`}
                     >
-                      D. Capital Investments ({investments.filter(i => i.status !== 'VOIDED').length})
+                      C. Capital Investments ({investments.filter(i => i.status !== 'VOIDED').length})
                     </button>
                   )}
                 </div>
-
-                {purchasesExpensesSubTab === 'stock' && (
-                  <button
-                    onClick={() => setShowAddStockModal(true)}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-sm transition flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Stock Purchase
-                  </button>
-                )}
 
                 {purchasesExpensesSubTab === 'supplier_bills' && (
                   <button
@@ -5027,32 +5401,74 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 )}
 
                 {purchasesExpensesSubTab === 'expenses' && (
-                  <button
-                    onClick={() => {
-                      // Pre-set expense date to a date within the currently selected period
-                      const today = new Date();
-                      let defaultDate: string;
-                      if (periodType === 'monthly') {
-                        const currentMonth = today.getMonth() + 1;
-                        const currentYear = today.getFullYear();
-                        if (selectedYear === currentYear && selectedMonth === currentMonth) {
-                          defaultDate = today.toISOString().split('T')[0];
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => {
+                        const today = new Date();
+                        let defaultDate: string;
+                        if (periodType === 'monthly') {
+                          const currentMonth = today.getMonth() + 1;
+                          const currentYear = today.getFullYear();
+                          if (selectedYear === currentYear && selectedMonth === currentMonth) {
+                            defaultDate = today.toISOString().split('T')[0];
+                          } else {
+                            const lastDay = new Date(selectedYear, selectedMonth, 0);
+                            defaultDate = lastDay.toISOString().split('T')[0];
+                          }
                         } else {
-                          // Use last day of selected month
-                          const lastDay = new Date(selectedYear, selectedMonth, 0);
-                          defaultDate = lastDay.toISOString().split('T')[0];
+                          defaultDate = today.toISOString().split('T')[0];
                         }
-                      } else {
-                        defaultDate = today.toISOString().split('T')[0];
-                      }
-                      setNewExpense(prev => ({ ...prev, expenseDate: defaultDate }));
-                      setShowAddExpenseModal(true);
-                    }}
-                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-sm transition flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Expense
-                  </button>
+                        setSugarcanePurchaseForm({
+                          purchaseType: 'Sugarcane Purchase',
+                          supplierMode: suppliers.length > 0 ? 'select' : 'new',
+                          supplierId: '',
+                          supplierName: '',
+                          supplierPhone: '',
+                          quantity: '',
+                          unitOfMeasure: 'Tons',
+                          ratePerUnit: '',
+                          amount: '',
+                          paymentMethod: 'BANK_TRANSFER',
+                          paymentStatus: 'PAID',
+                          purchaseDate: defaultDate,
+                          vehicleNumber: '',
+                          notes: '',
+                          updateStock: true,
+                        });
+                        setShowAddSugarcanePurchaseModal(true);
+                      }}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-600/20 transition flex items-center gap-1.5"
+                    >
+                      <Sprout className="w-4 h-4" />
+                      Add Sugarcane / Outside Purchase
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Pre-set expense date to a date within the currently selected period
+                        const today = new Date();
+                        let defaultDate: string;
+                        if (periodType === 'monthly') {
+                          const currentMonth = today.getMonth() + 1;
+                          const currentYear = today.getFullYear();
+                          if (selectedYear === currentYear && selectedMonth === currentMonth) {
+                            defaultDate = today.toISOString().split('T')[0];
+                          } else {
+                            // Use last day of selected month
+                            const lastDay = new Date(selectedYear, selectedMonth, 0);
+                            defaultDate = lastDay.toISOString().split('T')[0];
+                          }
+                        } else {
+                          defaultDate = today.toISOString().split('T')[0];
+                        }
+                        setNewExpense(prev => ({ ...prev, expenseDate: defaultDate }));
+                        setShowAddExpenseModal(true);
+                      }}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-sm transition flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Operating Expense
+                    </button>
+                  </div>
                 )}
 
                 {purchasesExpensesSubTab === 'investments' && isAdmin && (
@@ -5066,197 +5482,475 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 )}
               </div>
 
-              {/* Subtab A: Inventory Stock Items & Purchases */}
-              {purchasesExpensesSubTab === 'stock' && (
-                <div className="space-y-4">
-                  <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-500">
-                    <span className="font-semibold text-gray-800">Accounting Note:</span> Stock purchases represent raw materials & packaging inventory (Balance Sheet Assets). They are tracked by physical quantity and are distinct from Operating Expenses.
-                  </div>
-                  <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                            <th className="p-3.5 font-medium">Item Name</th>
-                            <th className="p-3.5 font-medium">Type</th>
-                            <th className="p-3.5 font-medium">Current Quantity</th>
-                            <th className="p-3.5 font-medium">Unit</th>
-                            <th className="p-3.5 font-medium">Min Level</th>
-                            <th className="p-3.5 font-medium">Stock Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {inventoryItems.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="p-8 text-center text-gray-400">
-                                No inventory items registered. Click "Add Stock Purchase" to record incoming stock.
-                              </td>
-                            </tr>
-                          ) : (
-                            inventoryItems.map(item => (
-                              <tr key={item.id} className="hover:bg-gray-50 transition">
-                                <td className="p-3.5 font-semibold text-gray-800">{item.itemName}</td>
-                                <td className="p-3.5 text-gray-700 capitalize">{item.itemType.toLowerCase().replace('_', ' ')}</td>
-                                <td className="p-3.5 font-bold text-emerald-800 text-sm">{Number(item.currentQuantity).toLocaleString()}</td>
-                                <td className="p-3.5 font-medium text-gray-500">{item.unitOfMeasure}</td>
-                                <td className="p-3.5 text-gray-500">{Number(item.minimumStockLevel).toLocaleString()}</td>
-                                <td className="p-3.5">
-                                  {Number(item.currentQuantity) <= Number(item.minimumStockLevel) ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-600 border border-rose-500/20">
-                                      <AlertTriangle className="w-3 h-3" /> Low Stock
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-                                      <CheckCircle2 className="w-3 h-3" /> Adequate
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Subtab B: Supplier Bills & Payables */}
+
               {purchasesExpensesSubTab === 'supplier_bills' && (
-                <div className="space-y-4">
-                  <div className="p-3.5 bg-rose-500/5 border border-rose-500/20 rounded-xl flex items-center justify-between text-xs">
+                <div className="space-y-5">
+                  {/* Summary Banner */}
+                  <div className="p-4 bg-rose-500/5 border border-rose-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div>
-                      <span className="font-bold text-rose-600">Liability / Accounts Payable:</span>
-                      <p className="text-gray-500 text-[11px] mt-0.5">Money owed BY RR Jaggery to suppliers for cane and packaging materials.</p>
+                      <span className="font-bold text-rose-700 text-sm">Total Accounts Payable / Pending Bills:</span>
+                      <p className="text-gray-500 text-[11px] mt-0.5">
+                        {totalPendingBills.unpaidExpenseCount} unpaid purchase/expense bill(s) (₹{totalPendingBills.unpaidExpenseAmount.toLocaleString('en-IN')}) · {totalPendingBills.supplierCount} supplier ledger account(s) (₹{totalPendingBills.supplierAmount.toLocaleString('en-IN')})
+                      </p>
                     </div>
-                    <span className="text-base font-bold text-rose-600">
+                    <span className="text-xl font-bold text-rose-600 font-mono">
                       Total: ₹{totalPendingBills.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
-                  <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                            <th className="p-3.5 font-medium">Supplier Code</th>
-                            <th className="p-3.5 font-medium">Supplier Name</th>
-                            <th className="p-3.5 font-medium">Phone</th>
-                            <th className="p-3.5 font-medium">Address</th>
-                            <th className="p-3.5 font-medium">Category</th>
-                            <th className="p-3.5 font-medium text-right">Pending Payables (₹)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {suppliers.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="p-8 text-center text-gray-400">
-                                No suppliers registered. Click "Add Supplier" to add a vendor.
-                              </td>
+                  {/* Section 1: Unpaid Purchases & Operating Bills */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Receipt className="w-3.5 h-3.5 text-rose-600" />
+                        Unpaid Purchase & Expense Bills ({unpaidExpenses.length})
+                      </h4>
+                      <span className="text-[11px] font-bold text-rose-600 font-mono">
+                        ₹{totalPendingBills.unpaidExpenseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                              <th className="p-3 font-semibold">Date</th>
+                              <th className="p-3 font-semibold">Payee / Supplier</th>
+                              <th className="p-3 font-semibold">Category</th>
+                              <th className="p-3 font-semibold">Description / Notes</th>
+                              <th className="p-3 font-semibold text-right">Amount (₹)</th>
+                              <th className="p-3 font-semibold text-center">Status</th>
+                              <th className="p-3 font-semibold text-right">Actions</th>
                             </tr>
-                          ) : (
-                            suppliers.map(sup => (
-                              <tr key={sup.id} className="hover:bg-gray-50 transition">
-                                <td className="p-3.5 font-mono text-emerald-700 font-semibold">{sup.supplierCode}</td>
-                                <td className="p-3.5 font-semibold text-gray-800">{sup.supplierName}</td>
-                                <td className="p-3.5 text-gray-700">{sup.phone || '—'}</td>
-                                <td className="p-3.5 text-gray-500 max-w-xs truncate">{sup.address || '—'}</td>
-                                <td className="p-3.5 text-gray-700">{sup.category || 'Raw Materials'}</td>
-                                <td className="p-3.5 text-right font-bold text-rose-600">
-                                  ₹{Number(sup.currentOutstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {unpaidExpenses.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="p-8 text-center text-gray-400">
+                                  ✓ No unpaid purchase or expense bills. All current operating bills are settled.
                                 </td>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                            ) : (
+                              unpaidExpenses.map(exp => (
+                                <tr key={exp.id} className="hover:bg-amber-50/30 transition">
+                                  <td className="p-3 text-gray-600 font-mono whitespace-nowrap">{exp.expenseDate}</td>
+                                  <td className="p-3 font-semibold text-gray-900">
+                                    {exp.payeeVendor || 'General Vendor'}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                                      {exp.category}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-gray-500 max-w-xs truncate">
+                                    {exp.description || exp.notes || '—'}
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-rose-600 font-mono whitespace-nowrap">
+                                    ₹{Number(exp.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td className="p-3 text-center whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickUpdatePaymentStatus(exp, 'PAID')}
+                                      title="Click to mark as Paid"
+                                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 hover:bg-emerald-500/20 text-amber-800 hover:text-emerald-800 border border-amber-500/30 transition cursor-pointer group"
+                                    >
+                                      <span className="group-hover:hidden">⏳ Unpaid</span>
+                                      <span className="hidden group-hover:inline">✓ Mark Paid</span>
+                                    </button>
+                                  </td>
+                                  <td className="p-3 text-right whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuickUpdatePaymentStatus(exp, 'PAID')}
+                                        title="Mark Bill as Paid"
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                        <span>Mark Paid</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditExpenseModal(exp)}
+                                        title="Edit Expense Details"
+                                        className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 rounded-lg text-[11px] font-medium border border-blue-500/20 transition flex items-center gap-1"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                        <span>Edit</span>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Registered Suppliers & Ledger Payables */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                        Registered Suppliers Directory & Ledger Balances ({suppliers.length})
+                      </h4>
+                      <span className="text-[11px] font-bold text-rose-600 font-mono">
+                        ₹{totalPendingBills.supplierAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                              <th className="p-3 font-medium">Supplier Code</th>
+                              <th className="p-3 font-medium">Supplier Name</th>
+                              <th className="p-3 font-medium">Phone</th>
+                              <th className="p-3 font-medium">Address</th>
+                              <th className="p-3 font-medium">Category</th>
+                              <th className="p-3 font-medium text-right">Pending Payables (₹)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {suppliers.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="p-8 text-center text-gray-400">
+                                  No suppliers registered. Click "Add Supplier" to add a vendor.
+                                </td>
+                              </tr>
+                            ) : (
+                              suppliers.map(sup => (
+                                <tr key={sup.id} className="hover:bg-gray-50 transition">
+                                  <td className="p-3 font-mono text-emerald-700 font-semibold">{sup.supplierCode}</td>
+                                  <td className="p-3 font-semibold text-gray-800">{sup.supplierName}</td>
+                                  <td className="p-3 text-gray-700">{sup.phone || '—'}</td>
+                                  <td className="p-3 text-gray-500 max-w-xs truncate">{sup.address || '—'}</td>
+                                  <td className="p-3 text-gray-700">{sup.category || 'Raw Materials'}</td>
+                                  <td className="p-3 text-right font-bold text-rose-600">
+                                    ₹{Number(sup.currentOutstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Subtab C: Operating Expenses */}
+              {/* Subtab B: Operating Expenses & Purchases */}
               {purchasesExpensesSubTab === 'expenses' && (
                 <div className="space-y-4">
-                  <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-bold text-gray-800">Operating Expenses for {periodType === 'monthly' ? `${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} ${selectedYear}` : `Year ${selectedYear}`}:</span>
-                      <p className="text-gray-500 text-[11px] mt-0.5">Recurring factory running costs: electricity, boiler wood/fuel, maintenance, logistics, and admin overhead.</p>
-                    </div>
-                    <span className="text-base font-bold text-emerald-800">
-                      Total: ₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                            <th className="p-3.5 font-medium w-28 whitespace-nowrap">Date</th>
-                            <th className="p-3.5 font-medium w-48 whitespace-nowrap">Category</th>
-                            <th className="p-3.5 font-medium min-w-36">Description</th>
-                            <th className="p-3.5 font-medium w-48 whitespace-nowrap">Payee / Vendor</th>
-                            <th className="p-3.5 font-medium w-32 text-center whitespace-nowrap">Payment Mode</th>
-                            <th className="p-3.5 font-medium w-36 text-right whitespace-nowrap">Amount (₹)</th>
-                            <th className="p-3.5 font-medium w-24 text-right whitespace-nowrap">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {loading ? (
-                            <tr>
-                              <td colSpan={7} className="p-8 text-center text-gray-400">
-                                Loading expenses…
-                              </td>
-                            </tr>
-                          ) : expenses.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="p-8 text-center text-gray-400">
-                                No expenses recorded for {periodType === 'monthly' ? `${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} ${selectedYear}` : `Year ${selectedYear}`}. Click "Add Expense" to log costs.
-                              </td>
-                            </tr>
-                          ) : (
-                            expenses.map(exp => {
-                              // Format date: "2026-10-07" → "Oct 7, 2026"
-                              const fmtDate = exp.expenseDate
-                                ? new Date(exp.expenseDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                                : '—';
-                              // Format payment method enum to readable label
-                              const pmLabel: Record<string, string> = {
-                                CASH: 'Cash', UPI: 'UPI', BANK_TRANSFER: 'Bank Transfer',
-                                CHEQUE: 'Cheque', CREDIT: 'Credit', NEFT: 'NEFT', RTGS: 'RTGS',
-                              };
-                              const fmtPm = pmLabel[exp.paymentMethod] || exp.paymentMethod;
-                              return (
-                                <tr key={exp.id} className="hover:bg-gray-50 transition">
-                                  <td className="p-3.5 text-gray-700 whitespace-nowrap font-medium">{fmtDate}</td>
-                                  <td className="p-3.5 font-semibold text-emerald-800 whitespace-nowrap">{exp.category}</td>
-                                  <td className="p-3.5 text-gray-800">{exp.description || '—'}</td>
-                                  <td className="p-3.5 text-gray-600 whitespace-nowrap">{exp.payeeVendor || '—'}</td>
-                                  <td className="p-3.5 text-center whitespace-nowrap">
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                      {fmtPm}
-                                    </span>
-                                  </td>
-                                  <td className="p-3.5 text-right font-bold text-gray-900 font-mono whitespace-nowrap">
-                                    ₹{Number(exp.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3.5 text-right whitespace-nowrap">
-                                    <button
-                                      onClick={() => handleDeleteExpense(exp.id)}
-                                      className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-lg text-[11px] font-medium border border-rose-500/20 transition"
-                                    >
-                                      Delete
-                                    </button>
+                  {/* Stock Summary: Only Finished Jaggery & Sugarcane */}
+                  {(() => {
+                    const stockVisible = inventoryItems.filter(item =>
+                      item.itemType === 'FINISHED_GOOD' ||
+                      item.itemName.toLowerCase().includes('sugarcane') ||
+                      item.itemName.toLowerCase().includes('jaggery')
+                    );
+                    if (stockVisible.length === 0) return null;
+                    return (
+                      <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div className="px-4 py-3 bg-emerald-50/60 border-b border-emerald-200 flex items-center gap-2">
+                          <span className="text-xs font-bold text-emerald-900">📦 Stock Overview — Finished Jaggery & Sugarcane</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                                <th className="p-3 font-medium">Item Name</th>
+                                <th className="p-3 font-medium">Type</th>
+                                <th className="p-3 font-medium text-right">Current Qty</th>
+                                <th className="p-3 font-medium">Unit</th>
+                                <th className="p-3 font-medium text-right">Min Level</th>
+                                <th className="p-3 font-medium">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {stockVisible.map(item => (
+                                <tr key={item.id} className="hover:bg-gray-50 transition">
+                                  <td className="p-3 font-semibold text-gray-800">{item.itemName}</td>
+                                  <td className="p-3 text-gray-600 capitalize">{item.itemType.toLowerCase().replace(/_/g, ' ')}</td>
+                                  <td className="p-3 text-right font-bold text-emerald-800">{Number(item.currentQuantity).toLocaleString()}</td>
+                                  <td className="p-3 text-gray-500">{item.unitOfMeasure}</td>
+                                  <td className="p-3 text-right text-gray-500">{Number(item.minimumStockLevel).toLocaleString()}</td>
+                                  <td className="p-3">
+                                    {Number(item.currentQuantity) <= Number(item.minimumStockLevel) ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-600 border border-rose-500/20">⚠ Low</span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">✓ OK</span>
+                                    )}
                                   </td>
                                 </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Summary & Quick Filter Bar */}
+                  {(() => {
+                    const sugarcaneExpensesList = expenses.filter(e => e.category.toLowerCase().includes('sugarcane'));
+                    const jaggeryExpensesList = expenses.filter(e => e.category.toLowerCase().includes('jaggery'));
+                    const unpaidExpensesList = expenses.filter(e => e.paymentStatus === 'UNPAID');
+                    const otherExpensesList = expenses.filter(e => !e.category.toLowerCase().includes('sugarcane') && !e.category.toLowerCase().includes('jaggery'));
+
+                    const filteredDisplayExpenses = expenses.filter(exp => {
+                      if (sugarcaneExpenseFilter === 'sugarcane') return exp.category.toLowerCase().includes('sugarcane');
+                      if (sugarcaneExpenseFilter === 'jaggery') return exp.category.toLowerCase().includes('jaggery');
+                      if (sugarcaneExpenseFilter === 'unpaid') return exp.paymentStatus === 'UNPAID';
+                      if (sugarcaneExpenseFilter === 'other') return !exp.category.toLowerCase().includes('sugarcane') && !exp.category.toLowerCase().includes('jaggery');
+                      return true;
+                    });
+
+                    const totalSugarcaneAmt = sugarcaneExpensesList.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+                    const totalUnpaidAmt = unpaidExpensesList.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+                    return (
+                      <>
+                        <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between gap-3 flex-wrap text-xs">
+                          <div>
+                            <span className="font-bold text-gray-800">Expenses for {periodType === 'monthly' ? `${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} ${selectedYear}` : `Year ${selectedYear}`}:</span>
+                            <p className="text-gray-500 text-[11px] mt-0.5">Sugarcane raw materials, outside purchases, factory running costs & operating expenses.</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {totalSugarcaneAmt > 0 && (
+                              <div className="text-right">
+                                <span className="text-[10px] text-amber-700 font-bold block">Sugarcane:</span>
+                                <span className="text-xs font-bold text-amber-900">₹{totalSugarcaneAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                            {totalUnpaidAmt > 0 && (
+                              <div className="text-right">
+                                <span className="text-[10px] text-rose-600 font-bold block">Unpaid Bills:</span>
+                                <span className="text-xs font-bold text-rose-600">₹{totalUnpaidAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                            <div className="text-right">
+                              <span className="text-[10px] text-gray-500 font-medium block">Total Outflow:</span>
+                              <span className="text-sm font-bold text-emerald-800">
+                                ₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quick Filter Pills */}
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs bg-emerald-50/50 p-2 rounded-xl border border-emerald-200">
+                          <span className="text-gray-500 font-bold text-[11px] px-1.5">View:</span>
+                          <button
+                            type="button"
+                            onClick={() => setSugarcaneExpenseFilter('all')}
+                            className={`px-3 py-1 rounded-lg font-medium transition text-xs ${sugarcaneExpenseFilter === 'all'
+                                ? 'bg-emerald-700 text-white shadow-xs font-bold'
+                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                              }`}
+                          >
+                            All Expenses ({expenses.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSugarcaneExpenseFilter('sugarcane')}
+                            className={`px-3 py-1 rounded-lg font-medium transition text-xs flex items-center gap-1 ${sugarcaneExpenseFilter === 'sugarcane'
+                                ? 'bg-amber-600 text-white shadow-xs font-bold'
+                                : 'bg-white text-amber-800 hover:bg-amber-50 border border-amber-200'
+                              }`}
+                          >
+                            <span>🌾 Sugarcane ({sugarcaneExpensesList.length})</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSugarcaneExpenseFilter('jaggery')}
+                            className={`px-3 py-1 rounded-lg font-medium transition text-xs flex items-center gap-1 ${sugarcaneExpenseFilter === 'jaggery'
+                                ? 'bg-emerald-700 text-white shadow-xs font-bold'
+                                : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200'
+                              }`}
+                          >
+                            <span>📦 Outside Jaggery ({jaggeryExpensesList.length})</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSugarcaneExpenseFilter('other')}
+                            className={`px-3 py-1 rounded-lg font-medium transition text-xs ${sugarcaneExpenseFilter === 'other'
+                                ? 'bg-gray-800 text-white shadow-xs font-bold'
+                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                              }`}
+                          >
+                            ⚡ Factory Operations ({otherExpensesList.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSugarcaneExpenseFilter('unpaid')}
+                            className={`px-3 py-1 rounded-lg font-medium transition text-xs flex items-center gap-1 ${sugarcaneExpenseFilter === 'unpaid'
+                                ? 'bg-rose-600 text-white shadow-xs font-bold'
+                                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
+                              }`}
+                          >
+                            <span>⏳ Unpaid Bills ({unpaidExpensesList.length})</span>
+                          </button>
+                        </div>
+
+                        <div className="bg-white border border-emerald-200 rounded-2xl overflow-hidden shadow-sm">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead>
+                                <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                                  <th className="p-3.5 font-medium w-28 whitespace-nowrap">Date</th>
+                                  <th className="p-3.5 font-medium w-48 whitespace-nowrap">Category</th>
+                                  <th className="p-3.5 font-medium min-w-36">Description</th>
+                                  <th className="p-3.5 font-medium w-48 whitespace-nowrap">Payee / Vendor</th>
+                                  <th className="p-3.5 font-medium w-32 text-center whitespace-nowrap">Payment Mode</th>
+                                  <th className="p-3.5 font-medium w-36 text-right whitespace-nowrap">Amount (₹)</th>
+                                  <th className="p-3.5 font-medium w-28 text-center whitespace-nowrap">Payment Status</th>
+                                  <th className="p-3.5 font-medium w-24 text-right whitespace-nowrap">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200">
+                                {loading ? (
+                                  <tr>
+                                    <td colSpan={8} className="p-8 text-center text-gray-400">
+                                      Loading expenses…
+                                    </td>
+                                  </tr>
+                                ) : filteredDisplayExpenses.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={8} className="p-8 text-center text-gray-400">
+                                      {sugarcaneExpenseFilter === 'sugarcane'
+                                        ? 'No sugarcane purchase expenses recorded for this period. Click "Add Sugarcane / Outside Purchase" above to add cane deliveries.'
+                                        : sugarcaneExpenseFilter === 'jaggery'
+                                          ? 'No external jaggery purchases recorded for this period.'
+                                          : sugarcaneExpenseFilter === 'unpaid'
+                                            ? 'No unpaid bills pending for this period — all recorded expenses are settled.'
+                                            : `No expenses recorded for ${periodType === 'monthly' ? `${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} ${selectedYear}` : `Year ${selectedYear}`}.`}
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  filteredDisplayExpenses.map(exp => {
+                                    // Format date: "2026-10-07" → "Oct 7, 2026"
+                                    const fmtDate = exp.expenseDate
+                                      ? new Date(exp.expenseDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                                      : '—';
+                                    // Format payment method enum to readable label
+                                    const pmLabel: Record<string, string> = {
+                                      CASH: 'Cash', UPI: 'UPI', BANK_TRANSFER: 'Bank Transfer',
+                                      CHEQUE: 'Cheque', CREDIT: 'Credit', NEFT: 'NEFT', RTGS: 'RTGS',
+                                    };
+                                    const fmtPm = pmLabel[exp.paymentMethod] || exp.paymentMethod;
+                                    const isSugarcane = exp.category.toLowerCase().includes('sugarcane');
+                                    const isOutsideJaggery = exp.category.toLowerCase().includes('jaggery');
+                                    const isMaterialPurchase = isSugarcane || isOutsideJaggery;
+
+                                    return (
+                                      <tr key={exp.id} className="hover:bg-gray-50 transition">
+                                        <td className="p-3.5 text-gray-700 whitespace-nowrap font-medium">{fmtDate}</td>
+                                        <td className="p-3.5 whitespace-nowrap">
+                                          {isSugarcane ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+                                              🌾 {exp.category}
+                                            </span>
+                                          ) : isOutsideJaggery ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-xs">
+                                              📦 {exp.category}
+                                            </span>
+                                          ) : (
+                                            <span className="font-semibold text-emerald-800">{exp.category}</span>
+                                          )}
+                                        </td>
+                                        <td className="p-3.5 text-gray-800">{exp.description || '—'}</td>
+                                        <td className="p-3.5 whitespace-nowrap">
+                                          {isMaterialPurchase ? (
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                                Supplier
+                                              </span>
+                                              <span className="font-semibold text-gray-900">{exp.payeeVendor || '—'}</span>
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-600">{exp.payeeVendor || '—'}</span>
+                                          )}
+                                        </td>
+                                        <td className="p-3.5 text-center whitespace-nowrap">
+                                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                            {fmtPm}
+                                          </span>
+                                        </td>
+                                        <td className="p-3.5 text-right font-bold text-gray-900 font-mono whitespace-nowrap">
+                                          ₹{Number(exp.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="p-3.5 text-center whitespace-nowrap">
+                                          {(exp.paymentStatus || 'PAID') === 'PAID' ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickUpdatePaymentStatus(exp, 'UNPAID')}
+                                              title="Click to switch status to Unpaid"
+                                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 hover:bg-amber-500/20 text-emerald-700 hover:text-amber-800 border border-emerald-500/20 hover:border-amber-500/30 transition cursor-pointer group"
+                                            >
+                                              <span>✓ Paid</span>
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickUpdatePaymentStatus(exp, 'PAID')}
+                                              title="Click to mark as Paid"
+                                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 hover:bg-emerald-500/20 text-amber-800 hover:text-emerald-800 border border-amber-500/30 transition cursor-pointer group"
+                                            >
+                                              <span className="group-hover:hidden">⏳ Unpaid</span>
+                                              <span className="hidden group-hover:inline">✓ Mark Paid</span>
+                                            </button>
+                                          )}
+                                        </td>
+                                        <td className="p-3.5 text-right whitespace-nowrap">
+                                          <div className="flex items-center justify-end gap-1.5">
+                                            {(exp.paymentStatus || 'PAID') === 'UNPAID' && (
+                                              <button
+                                                type="button"
+                                                onClick={() => handleQuickUpdatePaymentStatus(exp, 'PAID')}
+                                                title="Mark as Paid"
+                                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                                              >
+                                                <Check className="w-3 h-3" />
+                                                <span>Mark Paid</span>
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenEditExpenseModal(exp)}
+                                              title="Edit Expense Details"
+                                              className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 rounded-lg text-[11px] font-medium border border-blue-500/20 transition flex items-center gap-1"
+                                            >
+                                              <Edit2 className="w-3 h-3" />
+                                              <span>Edit</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteExpense(exp.id)}
+                                              className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-lg text-[11px] font-medium border border-rose-500/20 transition"
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -5508,13 +6202,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 {batch.notes || 'Normal production batch'}
                               </td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  batch.status === 'COMPLETED'
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${batch.status === 'COMPLETED'
                                     ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
                                     : batch.status === 'CANCELLED'
-                                    ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                                    : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                }`}>
+                                      ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                      : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                  }`}>
                                   {batch.status === 'COMPLETED' && <Check className="w-3 h-3" />}
                                   {batch.status}
                                 </span>
@@ -5551,31 +6244,28 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-gray-200">
                   <button
                     onClick={() => setStaffSubTab('directory')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      staffSubTab === 'directory'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${staffSubTab === 'directory'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     Workers Directory ({employees.length})
                   </button>
                   <button
                     onClick={() => setStaffSubTab('attendance')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      staffSubTab === 'attendance'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${staffSubTab === 'attendance'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     Attendance & Overtime
                   </button>
                   <button
                     onClick={() => setStaffSubTab('payroll')}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${
-                      staffSubTab === 'payroll'
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition ${staffSubTab === 'payroll'
                         ? 'bg-emerald-700 text-white shadow'
                         : 'text-gray-500 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     Wage Payments ({payrollRecords.length})
                   </button>
@@ -5593,7 +6283,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 {staffSubTab === 'attendance' && (
                   <button
-                    onClick={() => setShowRecordAttendanceModal(true)}
+                    onClick={() => {
+                      setSelectedAttendanceEmployeeIds(employees.map(e => e.id));
+                      setNewAttendance({
+                        employeeId: employees[0]?.id || '',
+                        attendanceDate: selectedAttendanceDate,
+                        status: 'PRESENT',
+                        overtimeHours: 0,
+                        notes: '',
+                      });
+                      setShowRecordAttendanceModal(true);
+                    }}
                     className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md shadow-sm transition flex items-center gap-1.5"
                   >
                     <UserCheck className="w-4 h-4" />
@@ -5758,6 +6458,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <button
                         disabled={employees.length === 0}
                         onClick={() => {
+                          setSelectedAttendanceEmployeeIds(employees.map(e => e.id));
                           const defaultEmployee = employees[0];
                           const sundayOff = isSundayDate(selectedAttendanceDate)
                             && isSundayOffWageType(defaultEmployee?.wageType);
@@ -5799,17 +6500,16 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         return (
                           <div
                             key={emp.id}
-                            className={`p-4 rounded-xl border transition flex flex-col justify-between space-y-3 ${
-                              sundayOff
+                            className={`p-4 rounded-xl border transition flex flex-col justify-between space-y-3 ${sundayOff
                                 ? 'bg-amber-50 border-amber-300'
                                 : isMarked
-                                ? rec.status === 'PRESENT'
-                                  ? 'bg-white border-emerald-500/30'
-                                  : rec.status === 'HALF_DAY'
-                                  ? 'bg-white border-emerald-200'
-                                  : 'bg-white border-rose-500/30'
-                                : 'bg-white border-gray-200 hover:border-gray-300'
-                            }`}
+                                  ? rec.status === 'PRESENT'
+                                    ? 'bg-white border-emerald-500/30'
+                                    : rec.status === 'HALF_DAY'
+                                      ? 'bg-white border-emerald-200'
+                                      : 'bg-white border-rose-500/30'
+                                  : 'bg-white border-gray-200 hover:border-gray-300'
+                              }`}
                           >
                             <div className="flex items-start justify-between">
                               <div>
@@ -5821,13 +6521,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   SUNDAY — OFF
                                 </span>
                               ) : isMarked ? (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  rec.status === 'PRESENT'
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.status === 'PRESENT'
                                     ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
                                     : rec.status === 'HALF_DAY'
-                                    ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                    : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                                }`}>
+                                      ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                      : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                  }`}>
                                   {rec.status}
                                 </span>
                               ) : (
@@ -5851,6 +6550,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <button
                                 disabled={sundayOff}
                                 onClick={() => {
+                                  setSelectedAttendanceEmployeeIds([emp.id]);
                                   setNewAttendance({
                                     employeeId: emp.id,
                                     attendanceDate: selectedAttendanceDate,
@@ -5860,13 +6560,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   });
                                   setShowRecordAttendanceModal(true);
                                 }}
-                                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                                  sundayOff
+                                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-70 ${sundayOff
                                     ? 'bg-amber-100 text-amber-800 border border-amber-300'
                                     : isMarked
-                                    ? 'bg-emerald-50/60 hover:bg-gray-200 text-gray-800 border border-gray-300'
-                                    : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow'
-                                }`}
+                                      ? 'bg-emerald-50/60 hover:bg-gray-200 text-gray-800 border border-gray-300'
+                                      : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow'
+                                  }`}
                               >
                                 {sundayOff ? 'Sunday Off' : isMarked ? 'Edit' : 'Mark'}
                               </button>
@@ -5915,13 +6614,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   <td className="p-3.5 font-semibold text-gray-800">{emp?.fullName || 'Worker'}</td>
                                   <td className="p-3.5 text-gray-700">{emp?.designation || 'Staff'}</td>
                                   <td className="p-3.5">
-                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                      att.status === 'PRESENT'
+                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${att.status === 'PRESENT'
                                         ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
                                         : att.status === 'HALF_DAY'
-                                        ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                        : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                                    }`}>
+                                          ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                          : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                      }`}>
                                       {att.status}
                                     </span>
                                   </td>
@@ -6032,11 +6730,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
                 <button
                   onClick={() => setReportsSubTab('sales')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'sales'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'sales'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
                   Sales & Revenue
@@ -6044,11 +6741,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('production')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'production'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'production'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Factory className="w-3.5 h-3.5" />
                   Production & Yield
@@ -6056,11 +6752,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('inventory')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'inventory'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'inventory'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Boxes className="w-3.5 h-3.5" />
                   Inventory & Movements
@@ -6068,11 +6763,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('suppliers')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'suppliers'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'suppliers'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Truck className="w-3.5 h-3.5" />
                   Purchases & Suppliers
@@ -6080,11 +6774,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('expenses')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'expenses'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'expenses'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
                   Operating Expenses
@@ -6092,11 +6785,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('payroll')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'payroll'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'payroll'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Users className="w-3.5 h-3.5" />
                   Staff Wages & Payroll
@@ -6104,11 +6796,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('wholesale')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'wholesale'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'wholesale'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
                   Wholesale Clients
@@ -6116,11 +6807,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 <button
                   onClick={() => setReportsSubTab('spending_pnl')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    reportsSubTab === 'spending_pnl'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'spending_pnl'
                       ? 'bg-emerald-700 text-white shadow'
                       : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   <TrendingUp className="w-3.5 h-3.5" />
                   Financial P&L & Costing
@@ -6131,49 +6821,71 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   1. SALES REPORT
                   ──────────────────────────────────────────────────────────────── */}
               {reportsSubTab === 'sales' && (() => {
+                const periodMonthStr = periodType === 'monthly'
+                  ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+                  : `${selectedYear}`;
+
                 const combinedOrders = [
-                  ...wholesaleOrders.map(o => ({
-                    id: o.id,
-                    orderNumber: o.orderNumber || o.id.substring(0, 8),
-                    channel: o.orderType === 'MANUAL_RETAIL' ? 'MANUAL_RETAIL' : 'WHOLESALE',
-                    customerName: o.customerName || (wholesaleCustomers.find(c => c.id === o.customerId)?.businessName || (o.orderType === 'MANUAL_RETAIL' ? 'Retail Walk-in' : 'Wholesaler')),
-                    orderDate: o.orderDate || o.createdAt || '',
-                    itemsCount: o.items?.length || 1,
-                    subtotal: Number(o.subtotalAmount || o.totalAmount || 0),
-                    tax: Number(o.taxAmount || 0),
-                    total: Number(o.totalAmount || 0),
-                    status: o.status || o.orderStatus || 'CONFIRMED',
-                    paymentStatus: o.paymentStatus || 'PAID',
-                    rawOrder: o,
-                  })),
-                  ...retailOrders.map(o => ({
-                    id: o.id,
-                    orderNumber: o.orderNumber,
-                    channel: 'RETAIL_ONLINE',
-                    customerName: o.customerName || 'Online Customer',
-                    orderDate: o.createdAt || '',
-                    itemsCount: o.items?.length || 1,
-                    subtotal: Number(o.subtotalAmount || 0),
-                    tax: Number(o.taxAmount || 0),
-                    total: Number(o.totalAmount || 0),
-                    status: o.status,
-                    paymentStatus: o.paymentStatus,
-                    rawOrder: o,
-                  }))
+                  ...wholesaleOrders
+                    .filter(o => (o as any).status !== 'CANCELLED' && (o as any).orderStatus !== 'CANCELLED')
+                    .map(o => {
+                      const total = Number(o.totalAmount || 0);
+                      const paid = Number((o as any).paidAmount) || ((o as any).paymentStatus === 'PAID' ? total : 0);
+                      const isPaid = (o as any).paymentStatus === 'PAID' || paid >= total;
+                      return {
+                        id: o.id,
+                        orderNumber: o.orderNumber || o.id.substring(0, 8),
+                        channel: o.orderType === 'MANUAL_RETAIL' ? 'MANUAL_RETAIL' : 'WHOLESALE',
+                        customerName: o.customerName || (wholesaleCustomers.find(c => c.id === o.customerId)?.businessName || (o.orderType === 'MANUAL_RETAIL' ? 'Retail Walk-in' : 'Wholesaler')),
+                        orderDate: o.orderDate || o.createdAt || '',
+                        itemsCount: o.items?.length || 1,
+                        subtotal: Number(o.subtotalAmount || o.totalAmount || 0),
+                        tax: Number(o.taxAmount || 0),
+                        total: total,
+                        paidAmount: paid,
+                        status: o.status || o.orderStatus || 'CONFIRMED',
+                        paymentStatus: isPaid ? 'PAID' : ((o as any).paymentStatus || 'PENDING'),
+                        rawOrder: o,
+                      };
+                    }),
+                  ...retailOrders
+                    .filter(o => o.status !== 'CANCELLED')
+                    .map(o => {
+                      const total = Number(o.totalAmount || 0);
+                      const isPaid = o.paymentStatus === 'PAID';
+                      const paid = isPaid ? total : 0;
+                      return {
+                        id: o.id,
+                        orderNumber: o.orderNumber,
+                        channel: 'RETAIL_ONLINE',
+                        customerName: o.customerName || 'Online Customer',
+                        orderDate: o.createdAt || '',
+                        itemsCount: o.items?.length || 1,
+                        subtotal: Number(o.subtotalAmount || 0),
+                        tax: Number(o.taxAmount || 0),
+                        total: total,
+                        paidAmount: paid,
+                        status: o.status,
+                        paymentStatus: o.paymentStatus || 'PENDING',
+                        rawOrder: o,
+                      };
+                    })
                 ];
 
                 const filteredOrders = combinedOrders.filter(o => {
                   if (salesFilterChannel === 'wholesale' && o.channel !== 'WHOLESALE') return false;
-                  if (salesFilterChannel === 'retail' && o.channel !== 'RETAIL_ONLINE') return false;
+                  if (salesFilterChannel === 'retail' && o.channel !== 'RETAIL_ONLINE' && o.channel !== 'MANUAL_RETAIL') return false;
                   if (salesFilterStatus !== 'all' && o.status !== salesFilterStatus) return false;
+                  const dateStr = o.orderDate || '';
+                  if (!dateStr.startsWith(periodMonthStr)) return false;
                   return true;
                 });
 
                 const totalOrdersCount = filteredOrders.length;
                 const totalGrossSales = filteredOrders.reduce((acc, o) => acc + o.total, 0);
                 const totalTaxCollected = filteredOrders.reduce((acc, o) => acc + o.tax, 0);
-                const totalPaidSales = filteredOrders.filter(o => o.paymentStatus === 'PAID').reduce((acc, o) => acc + o.total, 0);
-                const totalPendingReceivable = totalGrossSales - totalPaidSales;
+                const totalPaidSales = filteredOrders.reduce((acc, o) => acc + o.paidAmount, 0);
+                const totalPendingReceivable = Math.max(0, totalGrossSales - totalPaidSales);
 
                 return (
                   <div className="space-y-4">
@@ -6276,9 +6988,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 <tr key={o.id} className="hover:bg-gray-50 transition">
                                   <td className="p-3 font-mono font-bold text-gray-900">{o.orderNumber}</td>
                                   <td className="p-3">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      o.channel === 'WHOLESALE' ? 'bg-purple-500/10 text-purple-700 border border-purple-500/20' : o.channel === 'MANUAL_RETAIL' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-blue-500/10 text-blue-700 border border-blue-500/20'
-                                    }`}>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${o.channel === 'WHOLESALE' ? 'bg-purple-500/10 text-purple-700 border border-purple-500/20' : o.channel === 'MANUAL_RETAIL' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-blue-500/10 text-blue-700 border border-blue-500/20'
+                                      }`}>
                                       {o.channel}
                                     </span>
                                   </td>
@@ -6288,9 +6999,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   <td className="p-3 text-gray-500">₹{o.tax.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
                                   <td className="p-3 font-bold text-emerald-700">₹{o.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
                                   <td className="p-3">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                      o.paymentStatus === 'PAID' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                    }`}>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${o.paymentStatus === 'PAID' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                      }`}>
                                       {o.paymentStatus}
                                     </span>
                                   </td>
@@ -6431,9 +7141,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     <td className="p-3 text-gray-500">{b.scheduledDate ? b.scheduledDate.substring(0, 10) : '—'}</td>
                                     <td className="p-3 text-gray-700">{b.completionDate ? b.completionDate.substring(0, 10) : '—'}</td>
                                     <td className="p-3">
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                        b.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                      }`}>
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${b.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                        }`}>
                                         {b.status}
                                       </span>
                                     </td>
@@ -7105,10 +7814,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   8. FINANCIAL P&L & COSTING STATEMENT
                   ──────────────────────────────────────────────────────────────── */}
               {reportsSubTab === 'spending_pnl' && (() => {
-                const totalGrossSales = totalSalesRevenue;
+                const totalGrossSales = compositeOrderIncome;
                 const totalOpex = totalExpenses; // Pure OPEX (fuel, maintenance, utilities, admin)
                 const totalPayrollCost = totalPayroll; // Employee wages & salaries
-                
+
                 // Direct COGM (Cost of Goods Manufactured) from Sprint 6 production costing
                 const estimatedCogs = productionBatches.filter(b => b.status === 'COMPLETED').reduce((acc, b) => {
                   const outputKg = Number(b.actualQuantityKg ?? b.actualQuantity ?? b.plannedQuantityKg) || 0;
@@ -7252,11 +7961,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     setSettingsSubTab('form_builder');
                     loadFormDefinition(formBuilderActiveForm);
                   }}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'form_builder'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'form_builder'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
                   Dynamic Form Builder (7 Domains)
@@ -7265,11 +7973,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   id="subtab-production-cost"
                   onClick={() => setSettingsSubTab('production_cost')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'production_cost'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'production_cost'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <Factory className="w-3.5 h-3.5" />
                   Production Cost Rates ({productionCostMasters.length})
@@ -7278,11 +7985,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   id="subtab-expense-categories"
                   onClick={() => setSettingsSubTab('expense_categories')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'expense_categories'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'expense_categories'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
                   Expense Categories ({expenseCategories.length})
@@ -7291,11 +7997,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   id="subtab-payment-methods"
                   onClick={() => setSettingsSubTab('payment_methods')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'payment_methods'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'payment_methods'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <DollarSign className="w-3.5 h-3.5" />
                   Payment Methods ({paymentMethods.length})
@@ -7304,11 +8009,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   id="subtab-deduction-types"
                   onClick={() => setSettingsSubTab('deduction_types')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'deduction_types'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'deduction_types'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <AlertCircle className="w-3.5 h-3.5" />
                   Deduction Types ({deductionTypes.length})
@@ -7317,11 +8021,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   id="subtab-advance-types"
                   onClick={() => setSettingsSubTab('advance_types')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'advance_types'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'advance_types'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <Users className="w-3.5 h-3.5" />
                   Advance Types ({advanceTypes.length})
@@ -7330,11 +8033,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   id="subtab-payroll-rules"
                   onClick={() => setSettingsSubTab('payroll_rules')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${
-                    settingsSubTab === 'payroll_rules'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'payroll_rules'
                       ? 'bg-emerald-700 text-white shadow-sm'
                       : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
-                  }`}
+                    }`}
                 >
                   <Calendar className="w-3.5 h-3.5" />
                   Payroll Standards ({payrollRules.length})
@@ -7412,11 +8114,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 {cm.effectiveFrom || 'Ever'} {cm.effectiveTo ? `to ${cm.effectiveTo}` : '— Present'}
                               </td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  cm.active
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cm.active
                                     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                     : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                }`}>
+                                  }`}>
                                   {cm.active ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
@@ -7508,11 +8209,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 text-gray-700 font-mono text-[11px]">{cat.parentCategory || 'OPERATING'}</td>
                               <td className="p-3.5 text-gray-500">{cat.description || '—'}</td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  cat.active
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cat.active
                                     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                     : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                }`}>
+                                  }`}>
                                   {cat.active ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
@@ -7599,11 +8299,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 font-semibold text-gray-800">{pm.displayName}</td>
                               <td className="p-3.5 text-gray-500">{pm.description || '—'}</td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  pm.active
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${pm.active
                                     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                     : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                }`}>
+                                  }`}>
                                   {pm.active ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
@@ -7690,11 +8389,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 font-semibold text-gray-800">{dt.name}</td>
                               <td className="p-3.5 text-gray-500">{dt.description || '—'}</td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  dt.active
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${dt.active
                                     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                     : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                }`}>
+                                  }`}>
                                   {dt.active ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
@@ -7781,11 +8479,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 font-semibold text-gray-800">{at.name}</td>
                               <td className="p-3.5 text-gray-500">{at.description || '—'}</td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  at.active
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${at.active
                                     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                     : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                }`}>
+                                  }`}>
                                   {at.active ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
@@ -7888,11 +8585,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 {pr.effectiveFrom || 'Ever'} {pr.effectiveTo ? `to ${pr.effectiveTo}` : '— Present'}
                               </td>
                               <td className="p-3.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  pr.active
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${pr.active
                                     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                     : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                }`}>
+                                  }`}>
                                   {pr.active ? 'Active' : 'Inactive'}
                                 </span>
                               </td>
@@ -7956,11 +8652,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             setFormBuilderActiveForm(domain.key);
                             loadFormDefinition(domain.key);
                           }}
-                          className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-2 ${
-                            isSelected
+                          className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-2 ${isSelected
                               ? 'bg-emerald-700/10 border-emerald-600/50 text-emerald-900 ring-1 ring-amber-500/30 shadow-lg'
                               : 'bg-white border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-300'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <Icon className={`w-4 h-4 ${isSelected ? 'text-emerald-700' : 'text-gray-500'}`} />
@@ -7990,11 +8685,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               v{currentFormDefinition.version || 1}
                             </span>
                           )}
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
-                            currentFormDefinition?.active !== false
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${currentFormDefinition?.active !== false
                               ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                               : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                          }`}>
+                            }`}>
                             {currentFormDefinition?.active !== false ? 'Active' : 'Inactive'}
                           </span>
                         </div>
@@ -8090,11 +8784,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     </span>
                                   </td>
                                   <td className="p-3.5">
-                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                                      field.required
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${field.required
                                         ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
                                         : 'bg-emerald-50/60 text-gray-500'
-                                    }`}>
+                                      }`}>
                                       {field.required ? 'Mandatory *' : 'Optional'}
                                     </span>
                                   </td>
@@ -8106,11 +8799,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                             field.options.map((opt: any) => (
                                               <span
                                                 key={opt.id || opt.value}
-                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${
-                                                  opt.active !== false
+                                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${opt.active !== false
                                                     ? 'bg-emerald-50/60 text-gray-800 border-gray-300'
                                                     : 'bg-rose-950/30 text-rose-600 border-rose-900/40 line-through'
-                                                }`}
+                                                  }`}
                                               >
                                                 {opt.label}
                                                 <button
@@ -8146,11 +8838,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     )}
                                   </td>
                                   <td className="p-3.5">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                      field.active !== false
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${field.active !== false
                                         ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                         : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                    }`}>
+                                      }`}>
                                       {field.active !== false ? 'Active' : 'Inactive'}
                                     </span>
                                   </td>
@@ -8166,11 +8857,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     </button>
                                     <button
                                       onClick={() => handleToggleFieldStatus(field)}
-                                      className={`px-2.5 py-1 rounded-lg text-[11px] transition ${
-                                        field.active !== false
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] transition ${field.active !== false
                                           ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600'
                                           : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700'
-                                      }`}
+                                        }`}
                                     >
                                       {field.active !== false ? 'Deactivate' : 'Activate'}
                                     </button>
@@ -8340,11 +9030,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 </td>
                                 <td className="p-3.5 text-gray-500">{u.phone || '—'}</td>
                                 <td className="p-3.5">
-                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                                    u.enabled
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${u.enabled
                                       ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                       : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                  }`}>
+                                    }`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${u.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
                                     {u.enabled ? 'Active' : 'Disabled'}
                                   </span>
@@ -8370,13 +9059,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     onClick={() => handleToggleUserStatus(u)}
                                     disabled={submittingKey === `toggle-user-${u.id}` || isUserAdmin}
                                     title={isUserAdmin ? "Cannot disable master admin" : "Toggle account active status"}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
-                                      isUserAdmin
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${isUserAdmin
                                         ? 'opacity-40 cursor-not-allowed bg-emerald-50/60 text-gray-400 border-gray-300'
                                         : u.enabled
-                                        ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
-                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                                    }`}
+                                          ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
+                                          : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                      }`}
                                   >
                                     {submittingKey === `toggle-user-${u.id}` ? (
                                       <RefreshCw className="w-3 h-3 animate-spin inline" />
@@ -8495,11 +9183,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     {/* Auto-refresh toggle */}
                     <button
                       onClick={() => setSystemHealthAutoRefresh(!systemHealthAutoRefresh)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
-                        systemHealthAutoRefresh
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${systemHealthAutoRefresh
                           ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                           : 'bg-gray-100 text-gray-600 border-gray-300'
-                      }`}
+                        }`}
                       title="Toggle 15-second automatic health refresh"
                     >
                       <span className={`w-2 h-2 rounded-full ${systemHealthAutoRefresh ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
@@ -8525,22 +9212,20 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
 
                 {/* ── Overall Status Banner ───────────────────────────────────── */}
-                <div className={`rounded-2xl p-5 border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                  overall === 'HEALTHY'
+                <div className={`rounded-2xl p-5 border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${overall === 'HEALTHY'
                     ? 'bg-emerald-50/80 border-emerald-300'
                     : overall === 'DEGRADED'
-                    ? 'bg-amber-50/80 border-amber-300'
-                    : overall === 'DOWN'
-                    ? 'bg-rose-50/80 border-rose-300'
-                    : 'bg-gray-50 border-gray-200'
-                }`}>
+                      ? 'bg-amber-50/80 border-amber-300'
+                      : overall === 'DOWN'
+                        ? 'bg-rose-50/80 border-rose-300'
+                        : 'bg-gray-50 border-gray-200'
+                  }`}>
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${
-                      overall === 'HEALTHY' ? 'bg-emerald-200 text-emerald-800'
-                      : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-800'
-                      : overall === 'DOWN' ? 'bg-rose-200 text-rose-800'
-                      : 'bg-gray-200 text-gray-600'
-                    }`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${overall === 'HEALTHY' ? 'bg-emerald-200 text-emerald-800'
+                        : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-800'
+                          : overall === 'DOWN' ? 'bg-rose-200 text-rose-800'
+                            : 'bg-gray-200 text-gray-600'
+                      }`}>
                       {overall === 'HEALTHY' && <CheckCircle2 className="w-6 h-6" />}
                       {overall === 'DEGRADED' && <AlertTriangle className="w-6 h-6" />}
                       {overall === 'DOWN' && <AlertCircle className="w-6 h-6" />}
@@ -8549,15 +9234,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Overall System Status:</span>
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-black tracking-wide uppercase ${
-                          overall === 'HEALTHY' ? 'bg-emerald-200 text-emerald-900 border border-emerald-400'
-                          : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-900 border border-amber-400'
-                          : overall === 'DOWN' ? 'bg-rose-200 text-rose-900 border border-rose-400'
-                          : 'bg-gray-200 text-gray-800'
-                        }`}>
-                          <span className={`w-2 h-2 rounded-full ${
-                            overall === 'HEALTHY' ? 'bg-emerald-600' : overall === 'DEGRADED' ? 'bg-amber-600' : 'bg-rose-600'
-                          }`} />
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-black tracking-wide uppercase ${overall === 'HEALTHY' ? 'bg-emerald-200 text-emerald-900 border border-emerald-400'
+                            : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-900 border border-amber-400'
+                              : overall === 'DOWN' ? 'bg-rose-200 text-rose-900 border border-rose-400'
+                                : 'bg-gray-200 text-gray-800'
+                          }`}>
+                          <span className={`w-2 h-2 rounded-full ${overall === 'HEALTHY' ? 'bg-emerald-600' : overall === 'DEGRADED' ? 'bg-amber-600' : 'bg-rose-600'
+                            }`} />
                           ● {overall}
                         </span>
                       </div>
@@ -8565,8 +9248,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         {overall === 'HEALTHY'
                           ? 'All 5 backend services, PostgreSQL database schemas, and Nginx gateway are operational.'
                           : overall === 'DEGRADED'
-                          ? 'Some services or infrastructure components reported degraded responsiveness or errors.'
-                          : 'Critical infrastructure components are unreachable. Immediate inspection required.'}
+                            ? 'Some services or infrastructure components reported degraded responsiveness or errors.'
+                            : 'Critical infrastructure components are unreachable. Immediate inspection required.'}
                       </p>
                     </div>
                   </div>
@@ -8576,11 +9259,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <span
                         key={svc.name}
                         title={`${svc.displayName}: ${svc.status}`}
-                        className={`inline-block w-3 h-3 rounded-full cursor-pointer transition transform hover:scale-125 ${
-                          svc.status === 'UP' ? 'bg-emerald-500 shadow-[0_0_6px_1px_#10b981]'
-                          : svc.status === 'DOWN' ? 'bg-rose-500'
-                          : 'bg-gray-300 animate-pulse'
-                        }`}
+                        className={`inline-block w-3 h-3 rounded-full cursor-pointer transition transform hover:scale-125 ${svc.status === 'UP' ? 'bg-emerald-500 shadow-[0_0_6px_1px_#10b981]'
+                            : svc.status === 'DOWN' ? 'bg-rose-500'
+                              : 'bg-gray-300 animate-pulse'
+                          }`}
                         onClick={() => setSelectedHealthServiceModal(svc)}
                       />
                     ))}
@@ -8671,26 +9353,23 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <div
                         key={svc.name}
                         onClick={() => setSelectedHealthServiceModal(svc)}
-                        className={`bg-white border rounded-xl p-4 flex flex-col gap-2.5 transition cursor-pointer hover:shadow-md hover:border-emerald-400 ${
-                          svc.status === 'UP' ? 'border-emerald-200'
-                          : svc.status === 'DOWN' ? 'border-rose-300 bg-rose-50/20'
-                          : 'border-gray-200'
-                        }`}
+                        className={`bg-white border rounded-xl p-4 flex flex-col gap-2.5 transition cursor-pointer hover:shadow-md hover:border-emerald-400 ${svc.status === 'UP' ? 'border-emerald-200'
+                            : svc.status === 'DOWN' ? 'border-rose-300 bg-rose-50/20'
+                              : 'border-gray-200'
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                              svc.status === 'UP' ? 'bg-emerald-500 shadow-[0_0_6px_1px_#10b981]'
-                              : svc.status === 'DOWN' ? 'bg-rose-500'
-                              : 'bg-gray-300 animate-pulse'
-                            }`} />
+                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${svc.status === 'UP' ? 'bg-emerald-500 shadow-[0_0_6px_1px_#10b981]'
+                                : svc.status === 'DOWN' ? 'bg-rose-500'
+                                  : 'bg-gray-300 animate-pulse'
+                              }`} />
                             <span className="text-xs font-bold text-gray-900">{svc.displayName}</span>
                           </div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            svc.status === 'UP' ? 'bg-emerald-100 text-emerald-800'
-                            : svc.status === 'DOWN' ? 'bg-rose-100 text-rose-800'
-                            : 'bg-gray-100 text-gray-500'
-                          }`}>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${svc.status === 'UP' ? 'bg-emerald-100 text-emerald-800'
+                              : svc.status === 'DOWN' ? 'bg-rose-100 text-rose-800'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}>
                             {svc.status === 'LOADING' ? '…' : `● ${svc.status}`}
                           </span>
                         </div>
@@ -8707,11 +9386,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           {svc.responseTimeMs != null && (
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /> Latency</span>
-                              <span className={`font-mono font-bold ${
-                                svc.responseTimeMs < 200 ? 'text-emerald-700'
-                                : svc.responseTimeMs < 500 ? 'text-amber-600'
-                                : 'text-rose-600'
-                              }`}>{svc.responseTimeMs} ms</span>
+                              <span className={`font-mono font-bold ${svc.responseTimeMs < 200 ? 'text-emerald-700'
+                                  : svc.responseTimeMs < 500 ? 'text-amber-600'
+                                    : 'text-rose-600'
+                                }`}>{svc.responseTimeMs} ms</span>
                             </div>
                           )}
                           {svc.version && (
@@ -9091,11 +9769,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <div className="p-5 space-y-4 text-xs">
                         <div className="flex items-center justify-between p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
                           <span className="font-semibold text-gray-700">Service Status</span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            selectedHealthServiceModal.status === 'UP'
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedHealthServiceModal.status === 'UP'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-rose-100 text-rose-800'
-                          }`}>
+                            }`}>
                             ● {selectedHealthServiceModal.status}
                           </span>
                         </div>
@@ -9429,7 +10106,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 >
                   {products.filter(p => p.active).map(p => (
                     <option key={p.id} value={p.name}>
-                      {p.name} (₹{p.wholesalePrice}/KG)
+                      {p.name} (₹{p.wholesalePrice}/{p.unitWeightKg < 1 ? `${Math.round(p.unitWeightKg * 1000)}g` : p.unitWeightKg === 1 ? 'KG' : `${p.unitWeightKg}kg`})
                     </option>
                   ))}
                 </select>
@@ -9571,7 +10248,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       ) : (
                         activeProds.map(p => (
                           <option key={p.id} value={p.sku}>
-                            {p.name} ({p.sku}) — ₹{p.retailPrice}/KG
+                            {p.name} ({p.sku}) — ₹{p.retailPrice}/{p.unitWeightKg < 1 ? `${Math.round(p.unitWeightKg * 1000)}g` : p.unitWeightKg === 1 ? 'KG' : `${p.unitWeightKg}kg`}
                           </option>
                         ))
                       )}
@@ -10182,9 +10859,16 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 />
               </div>
 
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-[11px]">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-medium">
                 Saving will automatically update finished goods inventory without requiring duplicate stock entry.
               </div>
+
+              {submittingKey === 'create-production' && (
+                <div className="p-3 bg-emerald-100/70 border border-emerald-300 rounded-xl flex items-center gap-2.5 text-emerald-900 text-xs font-semibold animate-pulse">
+                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-700 shrink-0" />
+                  <span>Recording production batch and updating inventory stock... Please wait.</span>
+                </div>
+              )}
 
               <DynamicFormSection
                 formKey="PRODUCTION"
@@ -10197,16 +10881,25 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">
                 <button
                   type="button"
+                  disabled={submittingKey === 'create-production'}
                   onClick={() => setShowRecordProductionModal(false)}
-                  className="px-4 py-2 bg-emerald-50/60 text-gray-700 rounded-xl"
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow"
+                  disabled={submittingKey === 'create-production'}
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow disabled:opacity-60 flex items-center gap-2 transition"
                 >
-                  Save Production
+                  {submittingKey === 'create-production' ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Saving Production...</span>
+                    </>
+                  ) : (
+                    <span>Save Production</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -10341,6 +11034,18 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
               </div>
 
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">Payment Status</label>
+                <select
+                  value={newExpense.paymentStatus}
+                  onChange={(e) => setNewExpense({ ...newExpense, paymentStatus: e.target.value })}
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700 focus:outline-none font-semibold"
+                >
+                  <option value="PAID">✓ Paid — Bill already settled</option>
+                  <option value="UNPAID">⏳ Unpaid — Bill to be paid later</option>
+                </select>
+              </div>
+
               <DynamicFormSection
                 formKey="EXPENSE"
                 service="finance"
@@ -10366,6 +11071,585 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow disabled:opacity-60 transition"
               >
                 {submittingKey === 'create-expense' ? 'Saving...' : 'Save Expense'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7a. Modal: Add Sugarcane & Outside Purchase */}
+      {showAddSugarcanePurchaseModal && (
+        <div className="fixed inset-0 bg-emerald-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-amber-300 rounded-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-amber-200 flex items-center justify-between shrink-0 bg-amber-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm">
+                  <Sprout className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 font-serif">
+                    Record Sugarcane / External Purchase
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Record raw cane or outside jaggery with mandatory supplier tracking & stock sync
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddSugarcanePurchaseModal(false)}
+                className="p-1.5 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <form id="sugarcane-purchase-form" onSubmit={handleCreateSugarcanePurchase} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
+              {/* Type Selection */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1.5">Purchase Material Type *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSugarcanePurchaseForm({
+                      ...sugarcanePurchaseForm,
+                      purchaseType: 'Sugarcane Purchase',
+                      unitOfMeasure: 'Tons',
+                    })}
+                    className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${sugarcanePurchaseForm.purchaseType === 'Sugarcane Purchase'
+                        ? 'border-amber-500 bg-amber-50/80 text-amber-950 font-bold ring-2 ring-amber-500/20 shadow-xs'
+                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium'
+                      }`}
+                  >
+                    <span className="text-xl">🌾</span>
+                    <div>
+                      <span className="block font-bold">Sugarcane (Raw Material)</span>
+                      <span className="text-[10px] text-gray-500 font-normal">Cane harvest from farmers / suppliers</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSugarcanePurchaseForm({
+                      ...sugarcanePurchaseForm,
+                      purchaseType: 'Finished Jaggery (Outside Purchase)',
+                      unitOfMeasure: 'Kg',
+                    })}
+                    className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${sugarcanePurchaseForm.purchaseType === 'Finished Jaggery (Outside Purchase)'
+                        ? 'border-emerald-500 bg-emerald-50/80 text-emerald-950 font-bold ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium'
+                      }`}
+                  >
+                    <span className="text-xl">📦</span>
+                    <div>
+                      <span className="block font-bold">Finished Jaggery (Outside)</span>
+                      <span className="text-[10px] text-gray-500 font-normal">Procured blocks/powder from outside traders</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Supplier Tracking Section */}
+              <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      Required
+                    </span>
+                    <label className="text-gray-900 font-bold">Supplier / Farmer Account *</label>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setSugarcanePurchaseForm(prev => ({ ...prev, supplierMode: 'select' }))}
+                      className={`px-2 py-0.5 rounded-md font-medium transition ${sugarcanePurchaseForm.supplierMode === 'select'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'text-gray-600 hover:text-gray-900 bg-white border border-gray-200'
+                        }`}
+                    >
+                      Existing Supplier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSugarcanePurchaseForm(prev => ({ ...prev, supplierMode: 'new', supplierId: '' }))}
+                      className={`px-2 py-0.5 rounded-md font-medium transition ${sugarcanePurchaseForm.supplierMode === 'new'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'text-gray-600 hover:text-gray-900 bg-white border border-gray-200'
+                        }`}
+                    >
+                      + New Supplier / Farmer
+                    </button>
+                  </div>
+                </div>
+
+                {sugarcanePurchaseForm.supplierMode === 'select' && suppliers.length > 0 ? (
+                  <div>
+                    <select
+                      required
+                      value={sugarcanePurchaseForm.supplierId}
+                      onChange={(e) => {
+                        const sId = e.target.value;
+                        if (sId === 'NEW') {
+                          setSugarcanePurchaseForm(prev => ({
+                            ...prev,
+                            supplierMode: 'new',
+                            supplierId: '',
+                            supplierName: '',
+                            supplierPhone: '',
+                          }));
+                          return;
+                        }
+                        const sup = suppliers.find(s => s.id === sId);
+                        setSugarcanePurchaseForm(prev => ({
+                          ...prev,
+                          supplierId: sId,
+                          supplierName: sup ? sup.supplierName : '',
+                          supplierPhone: sup?.phone || '',
+                        }));
+                      }}
+                      className="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-gray-900 font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    >
+                      <option value="">-- Choose Supplier from Directory ({suppliers.length} available) --</option>
+                      {suppliers.map(sup => (
+                        <option key={sup.id} value={sup.id}>
+                          {sup.supplierName} ({sup.supplierCode}) {sup.phone ? `• ${sup.phone}` : ''} {sup.category ? `• ${sup.category}` : ''}
+                        </option>
+                      ))}
+                      <option value="NEW">+ Enter New Farmer / Supplier...</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-gray-600 text-[11px] font-semibold mb-1">Farmer / Supplier Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={sugarcanePurchaseForm.supplierName}
+                        onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, supplierName: e.target.value }))}
+                        placeholder="e.g. Ramesh Patil (Krishna Belt)"
+                        className="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-600 text-[11px] font-semibold mb-1">Phone Number (Optional)</label>
+                      <input
+                        type="tel"
+                        value={sugarcanePurchaseForm.supplierPhone}
+                        onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, supplierPhone: e.target.value }))}
+                        placeholder="e.g. 9876543210"
+                        className="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quantity, Rate & Total Calculation */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Quantity *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={sugarcanePurchaseForm.quantity}
+                    onChange={(e) => {
+                      const q = e.target.value;
+                      const r = Number(sugarcanePurchaseForm.ratePerUnit);
+                      const computedAmt = (Number(q) || 0) * (r || 0);
+                      setSugarcanePurchaseForm(prev => ({
+                        ...prev,
+                        quantity: q,
+                        amount: computedAmt > 0 ? computedAmt : prev.amount,
+                      }));
+                    }}
+                    placeholder="e.g. 15.5"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-bold text-gray-900 focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Unit of Measure</label>
+                  <select
+                    value={sugarcanePurchaseForm.unitOfMeasure}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, unitOfMeasure: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-medium focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  >
+                    <option value="Tons">Tons</option>
+                    <option value="Quintals">Quintals</option>
+                    <option value="Kg">Kg</option>
+                    <option value="Bags (50kg)">Bags (50kg)</option>
+                    <option value="Boxes">Boxes</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Rate per {sugarcanePurchaseForm.unitOfMeasure} (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={sugarcanePurchaseForm.ratePerUnit}
+                    onChange={(e) => {
+                      const r = e.target.value;
+                      const q = Number(sugarcanePurchaseForm.quantity);
+                      const computedAmt = (q || 0) * (Number(r) || 0);
+                      setSugarcanePurchaseForm(prev => ({
+                        ...prev,
+                        ratePerUnit: r,
+                        amount: computedAmt > 0 ? computedAmt : prev.amount,
+                      }));
+                    }}
+                    placeholder="e.g. 3200"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Total Calculated Amount */}
+              <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-amber-950 block">Total Expense Amount (₹) *</span>
+                  <span className="text-[11px] text-amber-800">Auto-calculated from Quantity × Rate (editable for freight/cutting deductions)</span>
+                </div>
+                <div className="w-44">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={sugarcanePurchaseForm.amount}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, amount: e.target.value }))}
+                    className="w-full bg-white border border-amber-400 rounded-xl px-3 py-1.5 text-right font-mono font-bold text-base text-amber-900 focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Date, Payment Method & Payment Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Purchase Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={sugarcanePurchaseForm.purchaseDate}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, purchaseDate: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Payment Method</label>
+                  <select
+                    value={sugarcanePurchaseForm.paymentMethod}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  >
+                    <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS)</option>
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI / QR</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="CREDIT">Credit (Pay Later)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Payment Status *</label>
+                  <select
+                    value={sugarcanePurchaseForm.paymentStatus}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                    className={`w-full border rounded-xl px-3 py-2 font-bold focus:outline-none ${sugarcanePurchaseForm.paymentStatus === 'PAID'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                        : 'bg-amber-50 border-amber-300 text-amber-800'
+                      }`}
+                  >
+                    <option value="PAID">✓ Paid — Bill already settled</option>
+                    <option value="UNPAID">⏳ Unpaid — Bill to be paid later</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Delivery Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Vehicle / Tractor Number (Optional)</label>
+                  <input
+                    type="text"
+                    value={sugarcanePurchaseForm.vehicleNumber}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, vehicleNumber: e.target.value }))}
+                    placeholder="e.g. MH-09-AB-1234 or Cart #3"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Challan / Cutting Slip / Notes</label>
+                  <input
+                    type="text"
+                    value={sugarcanePurchaseForm.notes}
+                    onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="e.g. Cutting slip #442, field near river canal"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-amber-600 focus:ring-1 focus:ring-amber-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Stock Inventory Sync Checkbox */}
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-gray-900 block">Receive Stock into Inventory</span>
+                  <span className="text-[11px] text-gray-500">
+                    Automatically adds {sugarcanePurchaseForm.quantity || 0} {sugarcanePurchaseForm.unitOfMeasure} to the Stock Overview table above
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={sugarcanePurchaseForm.updateStock}
+                  onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, updateStock: e.target.checked }))}
+                  className="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"
+                />
+              </div>
+            </form>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50/50 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAddSugarcanePurchaseModal(false)}
+                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="sugarcane-purchase-form"
+                disabled={submittingKey === 'create-sugarcane-purchase'}
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl shadow disabled:opacity-60 transition flex items-center gap-1.5"
+              >
+                <Sprout className="w-4 h-4" />
+                {submittingKey === 'create-sugarcane-purchase' ? 'Saving Purchase...' : 'Save Purchase Entry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7c. Modal: Edit Expense Details & Payment Status */}
+      {showEditExpenseModal && editingExpense && (
+        <div className="fixed inset-0 bg-emerald-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-gray-200 flex items-center justify-between shrink-0 bg-gray-50/80">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <Edit2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900 font-serif">
+                    Edit Expense / Purchase Details
+                  </h3>
+                  <p className="text-[11px] text-gray-500">
+                    Update payment status (Paid / Unpaid), amount, category, supplier, or notes
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditExpenseModal(false);
+                  setEditingExpense(null);
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <form id="edit-expense-form" onSubmit={handleUpdateExpense} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
+              {/* Payment Settlement Status - Highlighted Card */}
+              <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-gray-900 block text-xs">Payment Settlement Status *</span>
+                    <span className="text-[11px] text-gray-500">Toggle whether this expense has been paid or remains pending</span>
+                  </div>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${editExpenseForm.paymentStatus === 'PAID'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}>
+                    {editExpenseForm.paymentStatus === 'PAID' ? '✓ Currently PAID' : '⏳ Currently UNPAID'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditExpenseForm(prev => ({ ...prev, paymentStatus: 'PAID' }))}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${editExpenseForm.paymentStatus === 'PAID'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
+                      }`}
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Paid (Settled)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditExpenseForm(prev => ({ ...prev, paymentStatus: 'UNPAID' }))}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${editExpenseForm.paymentStatus === 'UNPAID'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-amber-50 hover:border-amber-300'
+                      }`}
+                  >
+                    <span>⏳ Unpaid (Pay Later)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Category & Amount */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Expense Category *</label>
+                  <input
+                    type="text"
+                    required
+                    list="edit-expense-categories-list"
+                    value={editExpenseForm.category}
+                    onChange={(e) => setEditExpenseForm(prev => ({ ...prev, category: e.target.value }))}
+                    placeholder="e.g. Fuel / Diesel, Sugarcane Purchase"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-medium focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                  />
+                  <datalist id="edit-expense-categories-list">
+                    <option value="Sugarcane Purchase" />
+                    <option value="Finished Jaggery Purchase" />
+                    <option value="Fuel / Diesel" />
+                    <option value="Electricity / Power" />
+                    <option value="Wood / Bagasse Fuel" />
+                    <option value="Factory Maintenance" />
+                    <option value="Equipment Repairs" />
+                    <option value="Packaging Supplies" />
+                    <option value="Transport & Freight" />
+                    <option value="Staff Refreshments / Pantry" />
+                    <option value="Office Supplies & Admin" />
+                    <option value="Licenses & Government Fees" />
+                    <option value="Security / Cleaning Services" />
+                    <option value="Bank & Financial Charges" />
+                    <option value="Miscellaneous Operating Cost" />
+                    {expenseCategories.map(c => (
+                      <option key={c.id || c.name} value={c.name} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Expense Amount (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={editExpenseForm.amount}
+                    onChange={(e) => setEditExpenseForm(prev => ({ ...prev, amount: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-mono font-bold text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Date & Payment Method */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Expense Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editExpenseForm.expenseDate}
+                    onChange={(e) => setEditExpenseForm(prev => ({ ...prev, expenseDate: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Payment Method</label>
+                  <select
+                    value={editExpenseForm.paymentMethod}
+                    onChange={(e) => setEditExpenseForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                  >
+                    <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS)</option>
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI / QR</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="CREDIT">Credit (Pay Later)</option>
+                    {paymentMethods.map(m => (
+                      <option key={m.id || m.code} value={m.code}>{m.displayName || m.code}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Payee / Vendor & Description */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Payee / Vendor / Supplier</label>
+                  <input
+                    type="text"
+                    value={editExpenseForm.payeeVendor}
+                    onChange={(e) => setEditExpenseForm(prev => ({ ...prev, payeeVendor: e.target.value }))}
+                    placeholder="e.g. Ramesh Patil, Kolhapur Fuel Pump"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Description / Purpose</label>
+                  <input
+                    type="text"
+                    value={editExpenseForm.description}
+                    onChange={(e) => setEditExpenseForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="e.g. Sugarcane procurement batch 12"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Notes / Challan Info */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">Challan / Vehicle / Additional Notes</label>
+                <textarea
+                  rows={2}
+                  value={editExpenseForm.notes}
+                  onChange={(e) => setEditExpenseForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="e.g. Challan #401, Vehicle MH-09-1234, 15 Tons"
+                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+                />
+              </div>
+            </form>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50/50 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditExpenseModal(false);
+                  setEditingExpense(null);
+                }}
+                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-xl font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="edit-expense-form"
+                disabled={submittingKey === 'update-expense'}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow disabled:opacity-60 transition flex items-center gap-1.5"
+              >
+                <Edit2 className="w-4 h-4" />
+                {submittingKey === 'update-expense' ? 'Saving Changes...' : 'Save Changes'}
               </button>
             </div>
           </div>
@@ -10741,28 +12025,94 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
             <form onSubmit={handleRecordAttendance} className="p-5 space-y-3.5 text-xs flex-1 overflow-y-auto">
               <div>
-                <label className="block text-gray-700 font-medium mb-1">Employee / Worker *</label>
-                <select
-                  required
-                  value={newAttendance.employeeId}
-                  onChange={(e) => {
-                    const selectedEmployee = employees.find(emp => emp.id === e.target.value);
-                    const sundayOff = isSundayDate(newAttendance.attendanceDate)
-                      && isSundayOffWageType(selectedEmployee?.wageType);
-                    setNewAttendance({
-                      ...newAttendance,
-                      employeeId: e.target.value,
-                      status: sundayOff ? 'ABSENT' : newAttendance.status,
-                      overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
-                    });
-                  }}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none"
-                >
-                  <option value="">-- Select Worker --</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.designation})</option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-gray-700 font-bold">
+                    Select Employees / Workers *
+                    <span className="ml-2 font-normal text-gray-500">
+                      ({selectedAttendanceEmployeeIds.length} of {employees.length} selected)
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAttendanceEmployeeIds(employees.map(e => e.id))}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
+                    >
+                      Select All ({employees.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAttendanceEmployeeIds([])}
+                      className="px-2.5 py-1 text-[11px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-52 overflow-y-auto border border-gray-300 rounded-xl p-2 bg-gray-50/50 space-y-1.5">
+                  {employees.length === 0 ? (
+                    <p className="text-gray-400 text-center py-4">No employees registered yet.</p>
+                  ) : (
+                    employees.map((emp) => {
+                      const isSelected = selectedAttendanceEmployeeIds.includes(emp.id);
+                      const rec = attendanceRecords.find(a => a.employeeId === emp.id && a.attendanceDate === newAttendance.attendanceDate);
+                      const sundayOff = isSundayDate(newAttendance.attendanceDate) && isSundayOffWageType(emp.wageType);
+
+                      return (
+                        <div
+                          key={emp.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedAttendanceEmployeeIds(prev => prev.filter(id => id !== emp.id));
+                            } else {
+                              setSelectedAttendanceEmployeeIds(prev => [...prev, emp.id]);
+                            }
+                          }}
+                          className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition border text-xs select-none ${isSelected
+                              ? 'bg-emerald-50/90 border-emerald-400 text-gray-900 shadow-xs'
+                              : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100/70'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => { }}
+                              className="w-4 h-4 text-emerald-700 rounded border-gray-300 focus:ring-emerald-600 pointer-events-none accent-emerald-600"
+                            />
+                            <div className="truncate">
+                              <span className="font-bold text-gray-900">{emp.fullName}</span>
+                              <span className="text-gray-500 ml-1.5 text-[11px]">({emp.designation})</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                              {wageTypeLabels[emp.wageType] || emp.wageType}
+                            </span>
+                            {sundayOff ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                Sunday Off
+                              </span>
+                            ) : rec ? (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${rec.status === 'PRESENT'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : rec.status === 'HALF_DAY'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}>
+                                {rec.status === 'PRESENT' ? 'Present' : rec.status === 'HALF_DAY' ? 'Half Day' : 'Absent'}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 italic">Not marked</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -10776,14 +12126,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     onChange={(e) => {
                       const date = e.target.value;
                       const [year, month] = date.split('-').map(Number);
-                      const sundayOff = isSundayDate(date)
-                        && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType);
-                      setNewAttendance({
-                        ...newAttendance,
+                      setNewAttendance(prev => ({
+                        ...prev,
                         attendanceDate: date,
-                        status: sundayOff ? 'ABSENT' : newAttendance.status,
-                        overtimeHours: sundayOff ? 0 : newAttendance.overtimeHours,
-                      });
+                      }));
                       setSelectedAttendanceDate(date);
                       if (year && month) {
                         setSelectedYear(year);
@@ -10798,7 +12144,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <select
                     value={newAttendance.status}
                     disabled={isSundayDate(newAttendance.attendanceDate)
-                      && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType)}
+                      && selectedAttendanceEmployeeIds.length > 0
+                      && selectedAttendanceEmployeeIds.every(id => isSundayOffWageType(employees.find(emp => emp.id === id)?.wageType))}
                     onChange={(e) => setNewAttendance({ ...newAttendance, status: e.target.value as any })}
                     className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-semibold"
                   >
@@ -10807,9 +12154,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <option value="ABSENT">Absent</option>
                   </select>
                   {isSundayDate(newAttendance.attendanceDate)
-                    && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType) && (
+                    && selectedAttendanceEmployeeIds.some(id => isSundayOffWageType(employees.find(emp => emp.id === id)?.wageType)) && (
                       <p className="mt-1 text-[11px] text-amber-800">
-                        Sunday is an automatic weekly rest day; monthly and weekly payroll exclude attendance and overtime for this date.
+                        Sunday is an automatic weekly rest day for monthly/weekly workers (recorded as Absent with 0 OT).
                       </p>
                     )}
                 </div>
@@ -10822,7 +12169,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   min="0"
                   step="0.5"
                   disabled={isSundayDate(newAttendance.attendanceDate)
-                    && isSundayOffWageType(employees.find(emp => emp.id === newAttendance.employeeId)?.wageType)}
+                    && selectedAttendanceEmployeeIds.length > 0
+                    && selectedAttendanceEmployeeIds.every(id => isSundayOffWageType(employees.find(emp => emp.id === id)?.wageType))}
                   value={newAttendance.overtimeHours}
                   onChange={(e) => setNewAttendance({ ...newAttendance, overtimeHours: Number(e.target.value) })}
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 border border-gray-300 focus:border-emerald-700 focus:outline-none font-bold text-emerald-800"
@@ -10850,10 +12198,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingKey === 'record-attendance'}
+                  disabled={submittingKey === 'record-attendance' || selectedAttendanceEmployeeIds.length === 0}
                   className="px-5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl shadow disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submittingKey === 'record-attendance' ? 'Saving...' : 'Save Attendance'}
+                  {submittingKey === 'record-attendance'
+                    ? 'Saving Attendance...'
+                    : selectedAttendanceEmployeeIds.length > 1
+                      ? `Save Attendance for ${selectedAttendanceEmployeeIds.length} Workers`
+                      : 'Save Attendance'}
                 </button>
               </div>
             </form>
@@ -11071,7 +12423,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             <div className="flex items-start justify-between border-b border-gray-200 pb-4">
               <div>
                 <h2 className="text-xl font-black text-emerald-900 tracking-tight">RR JAGGERY</h2>
-                <p className="text-gray-600 mt-0.5">Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163</p>
+                <p className="text-gray-600 mt-0.5">Vallurupallem, Thotlavalluru, Andhra Pradesh – 521163</p>
                 <p className="text-gray-500 text-[11px]">Phone: +91 9948533315 | Email: rrjaggery@gmail.com</p>
               </div>
               <div className="text-right">
@@ -11159,12 +12511,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         const customerEmail = o.customerEmail || cust?.email || '—';
         const formattedDate = (o.orderDate || o.createdAt)
           ? new Date(o.orderDate || o.createdAt).toLocaleString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
           : '—';
 
         const orderStatus = o.orderStatus || o.status || 'DELIVERED';
@@ -11198,13 +12550,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    isWholesale
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isWholesale
                       ? 'bg-purple-100 text-purple-800 border border-purple-200'
                       : isManual
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      : 'bg-blue-100 text-blue-800 border border-blue-200'
-                  }`}>
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    }`}>
                     {isWholesale ? 'Wholesale B2B' : isManual ? 'Manual Retail' : 'Online Storefront'}
                   </span>
                   <button
@@ -11221,13 +12572,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Fulfillment Status</span>
                   <div>
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                      orderStatus === 'DELIVERED'
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${orderStatus === 'DELIVERED'
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : orderStatus === 'CANCELLED'
-                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                        : 'bg-blue-100 text-blue-800 border border-blue-300'
-                    }`}>
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                          : 'bg-blue-100 text-blue-800 border border-blue-300'
+                      }`}>
                       {orderStatus}
                     </span>
                   </div>
@@ -11236,11 +12586,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Payment Status</span>
                   <div>
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                      paymentStatus === 'PAID'
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${paymentStatus === 'PAID'
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : 'bg-amber-100 text-amber-800 border border-amber-300'
-                    }`}>
+                      }`}>
                       {paymentStatus}
                     </span>
                   </div>
@@ -11276,7 +12625,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <p className="text-gray-700 mt-0.5 leading-relaxed">
                         {typeof o.shippingAddress === 'string'
                           ? o.shippingAddress
-                          : `${o.shippingAddress.street || ''}, ${o.shippingAddress.city || ''}, ${o.shippingAddress.state || ''} - ${o.shippingAddress.postalCode || ''}`}
+                          : [
+                              o.shippingAddress.apartmentName || o.shippingAddress.apartment,
+                              o.shippingAddress.streetAddress || o.shippingAddress.street,
+                              o.shippingAddress.city,
+                              o.shippingAddress.state ? `${o.shippingAddress.state} - ${o.shippingAddress.postalCode || ''}` : o.shippingAddress.postalCode,
+                              o.shippingAddress.nearestLandmark ? `(Near: ${o.shippingAddress.nearestLandmark})` : ''
+                            ].filter(Boolean).join(', ')}
                       </p>
                     ) : cust?.shippingAddress ? (
                       <p className="text-gray-700 mt-0.5 leading-relaxed">
@@ -11285,6 +12640,25 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     ) : (
                       <p className="text-gray-400 mt-0.5 italic">Over-the-counter / Local counter pickup</p>
                     )}
+                    {(() => {
+                      const addrText = typeof o.shippingAddress === 'string' ? o.shippingAddress : (o.shippingAddress?.nearestLandmark || '');
+                      const mapsMatch = (o.notes || '').match(/https?:\/\/(?:www\.)?(?:google\.com\/maps[^\s|]+|maps\.google\.com[^\s|]+)/i)
+                        || addrText.match(/https?:\/\/(?:www\.)?(?:google\.com\/maps[^\s|]+|maps\.google\.com[^\s|]+)/i);
+                      if (!mapsMatch) return null;
+                      return (
+                        <div className="mt-2">
+                          <a
+                            href={mapsMatch[0]}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition"
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                            <span>📍 Open Delivery Location in Google Maps ↗</span>
+                          </a>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -11604,17 +12978,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           DRILL-DOWN MODAL: PENDING BILLS (Supplier Payables Breakdown)
           ══════════════════════════════════════════════════════════════════════ */}
       {showPendingBillsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-50/60 backdrop-blur-sm">
-          <div className="bg-white border border-gray-300 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <div>
                 <h3 className="text-base font-bold text-gray-900 font-serif flex items-center gap-2">
                   <Receipt className="w-4 h-4 text-rose-600" />
-                  Pending Bills — Supplier Payables
+                  Pending Bills — Accounts Payable Breakdown
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Authoritative balances from <span className="font-semibold text-gray-700">supplier ledger</span>. Source: <code className="text-[10px] bg-emerald-50/60 px-1.5 py-0.5 rounded text-emerald-800">procurement_schema.suppliers.current_outstanding</code>
+                  Consolidated payables: Unpaid purchase/expense bills + supplier ledger balances
                 </p>
               </div>
               <button
@@ -11626,67 +13000,170 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             </div>
 
             {/* Summary Banner */}
-            <div className="px-6 py-3 bg-rose-500/5 border-b border-rose-500/15 flex items-center justify-between">
-              <span className="text-xs text-gray-700">
-                Total Outstanding Payable
-              </span>
-              <span className="text-lg font-bold text-rose-600">
+            <div className="px-6 py-3.5 bg-rose-500/5 border-b border-rose-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-bold text-gray-800">
+                  Total Outstanding Payable
+                </span>
+                <p className="text-[11px] text-gray-500">
+                  {totalPendingBills.unpaidExpenseCount} unpaid purchase bill(s) (₹{totalPendingBills.unpaidExpenseAmount.toLocaleString('en-IN')}) · {totalPendingBills.supplierCount} supplier ledger account(s) (₹{totalPendingBills.supplierAmount.toLocaleString('en-IN')})
+                </p>
+              </div>
+              <span className="text-xl font-bold text-rose-600 font-mono">
                 ₹{totalPendingBills.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            {/* Supplier Table */}
-            <div className="overflow-y-auto flex-1 px-6 py-4">
-              {suppliers.filter(s => (Number(s.currentOutstanding) || 0) > 0).length === 0 ? (
-                <div className="text-center py-10 text-gray-400 text-sm">No outstanding supplier balances.</div>
-              ) : (
-                <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-white">
-                    <tr className="text-gray-500 border-b border-gray-200">
-                      <th className="py-2.5 font-semibold">Supplier</th>
-                      <th className="py-2.5 font-semibold">Code</th>
-                      <th className="py-2.5 font-semibold">Phone</th>
-                      <th className="py-2.5 font-semibold">Category</th>
-                      <th className="py-2.5 font-semibold text-right">Outstanding (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {suppliers
-                      .filter(s => (Number(s.currentOutstanding) || 0) > 0)
-                      .sort((a, b) => Number(b.currentOutstanding) - Number(a.currentOutstanding))
-                      .map(s => (
-                        <tr key={s.id} className="hover:bg-gray-50 transition">
-                          <td className="py-2.5 font-semibold text-gray-800">{s.supplierName}</td>
-                          <td className="py-2.5 text-gray-500 font-mono text-[11px]">{s.supplierCode}</td>
-                          <td className="py-2.5 text-gray-500">{s.phone || '—'}</td>
-                          <td className="py-2.5">
-                            <span className="px-2 py-0.5 bg-emerald-50/60 text-gray-700 rounded-md text-[10px] font-medium">
-                              {s.category || 'General'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 text-right font-bold text-rose-600">
-                            ₹{Number(s.currentOutstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      ))
-                    }
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-300">
-                      <td colSpan={4} className="py-3 text-xs font-bold text-gray-700">Total Payable</td>
-                      <td className="py-3 text-right text-sm font-bold text-rose-600">
-                        ₹{totalPendingBills.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
+              {/* Section 1: Unpaid Purchases & Operating Bills */}
+              {unpaidExpenses.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-rose-600" />
+                      Unpaid Purchase & Operating Bills ({unpaidExpenses.length})
+                    </h4>
+                    <span className="text-xs font-bold text-rose-600 font-mono">
+                      ₹{totalPendingBills.unpaidExpenseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs min-w-[780px]">
+                        <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                          <tr>
+                            <th className="py-2.5 px-3.5 font-semibold w-28 whitespace-nowrap">Date</th>
+                            <th className="py-2.5 px-3.5 font-semibold">Payee / Supplier</th>
+                            <th className="py-2.5 px-3.5 font-semibold w-36">Category</th>
+                            <th className="py-2.5 px-3.5 font-semibold">Notes / Details</th>
+                            <th className="py-2.5 px-3.5 font-semibold text-right w-32 whitespace-nowrap">Amount (₹)</th>
+                            <th className="py-2.5 px-3.5 font-semibold text-center w-28 whitespace-nowrap">Status</th>
+                            <th className="py-2.5 px-3.5 font-semibold text-right w-44 whitespace-nowrap">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {unpaidExpenses.map(exp => (
+                            <tr key={exp.id} className="hover:bg-amber-50/40 transition">
+                              <td className="py-3 px-3.5 text-gray-600 whitespace-nowrap font-mono">{exp.expenseDate}</td>
+                              <td className="py-3 px-3.5 font-semibold text-gray-900 whitespace-nowrap">
+                                {exp.payeeVendor || 'General Vendor'}
+                              </td>
+                              <td className="py-3 px-3.5 whitespace-nowrap">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200 inline-block">
+                                  {exp.category}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3.5 text-gray-500 max-w-xs truncate text-[11px]">
+                                {exp.description || exp.notes || '—'}
+                              </td>
+                              <td className="py-3 px-3.5 text-right font-bold text-rose-600 font-mono whitespace-nowrap">
+                                ₹{Number(exp.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                  ⏳ Unpaid
+                                </span>
+                              </td>
+                              <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await handleQuickUpdatePaymentStatus(exp, 'PAID');
+                                    }}
+                                    title="Mark Bill as Paid"
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 shrink-0"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Mark Paid</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setShowPendingBillsModal(false);
+                                      handleOpenEditExpenseModal(exp);
+                                    }}
+                                    title="Edit details"
+                                    className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 rounded-lg text-xs font-semibold border border-blue-500/20 transition flex items-center gap-1 shrink-0"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 2: Supplier Ledger Balances */}
+              {suppliers.filter(s => (Number(s.currentOutstanding) || 0) > 0).length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                      Supplier Ledger Payables (Procurement POs)
+                    </h4>
+                    <span className="text-xs font-bold text-rose-600 font-mono">
+                      ₹{totalPendingBills.supplierAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs min-w-[650px]">
+                        <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                          <tr>
+                            <th className="py-2.5 px-3.5 font-semibold">Supplier</th>
+                            <th className="py-2.5 px-3.5 font-semibold">Code</th>
+                            <th className="py-2.5 px-3.5 font-semibold">Phone</th>
+                            <th className="py-2.5 px-3.5 font-semibold">Category</th>
+                            <th className="py-2.5 px-3.5 font-semibold text-right">Outstanding (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {suppliers
+                            .filter(s => (Number(s.currentOutstanding) || 0) > 0)
+                            .sort((a, b) => Number(b.currentOutstanding) - Number(a.currentOutstanding))
+                            .map(s => (
+                              <tr key={s.id} className="hover:bg-gray-50 transition">
+                                <td className="py-3 px-3.5 font-semibold text-gray-800">{s.supplierName}</td>
+                                <td className="py-3 px-3.5 text-gray-500 font-mono text-[11px]">{s.supplierCode}</td>
+                                <td className="py-3 px-3.5 text-gray-500">{s.phone || '—'}</td>
+                                <td className="py-3 px-3.5">
+                                  <span className="px-2.5 py-0.5 bg-emerald-50 text-gray-700 rounded-md text-[10px] font-medium border border-emerald-100">
+                                    {s.category || 'General'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3.5 text-right font-bold text-rose-600 font-mono">
+                                  ₹{Number(s.currentOutstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
+                            ))
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* If no pending bills at all */}
+              {totalPendingBills.count === 0 && (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                  ✓ No outstanding supplier balances or unpaid expense bills.
+                </div>
               )}
             </div>
 
             {/* Footer */}
             <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
               <p className="text-[10px] text-gray-400">
-                ⚠ Liability / Accounts Payable: Money owed BY RR Jaggery to cane and packaging vendors.
+                ⚠ Liability / Accounts Payable: Money owed BY RR Jaggery to cane, packaging, and operating vendors.
               </p>
               <button
                 onClick={() => setShowPendingBillsModal(false)}
@@ -11736,29 +13213,32 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
             {/* Customers Table */}
             <div className="overflow-y-auto flex-1 px-6 py-4">
-              {wholesaleCustomers.filter(c => (Number(c.currentOutstanding) || 0) > 0).length === 0 ? (
+              {(allCustomers.length > 0 ? allCustomers : wholesaleCustomers).filter(c => (Number(c.currentOutstanding) || 0) > 0).length === 0 ? (
                 <div className="text-center py-10 text-gray-400 text-sm">No outstanding customer balances (All customer accounts are clear).</div>
               ) : (
                 <table className="w-full text-left text-xs">
                   <thead className="sticky top-0 bg-white">
                     <tr className="text-gray-500 border-b border-gray-200">
-                      <th className="py-2.5 font-semibold">Customer / Wholesaler</th>
+                      <th className="py-2.5 font-semibold">Customer</th>
+                      <th className="py-2.5 font-semibold">Type</th>
                       <th className="py-2.5 font-semibold">Contact Person</th>
                       <th className="py-2.5 font-semibold">Phone</th>
-                      <th className="py-2.5 font-semibold">Credit Limit</th>
                       <th className="py-2.5 font-semibold text-right">Outstanding (₹)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {wholesaleCustomers
+                    {(allCustomers.length > 0 ? allCustomers : wholesaleCustomers)
                       .filter(c => (Number(c.currentOutstanding) || 0) > 0)
                       .sort((a, b) => Number(b.currentOutstanding) - Number(a.currentOutstanding))
                       .map(c => (
                         <tr key={c.id} className="hover:bg-gray-50 transition">
-                          <td className="py-2.5 font-semibold text-gray-800">{c.businessName}</td>
+                          <td className="py-2.5 font-semibold text-gray-800">{c.businessName || c.contactPerson}</td>
+                          <td className="py-2.5">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.customerType === 'OFFLINE_WHOLESALE' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                              }`}>{c.customerType === 'OFFLINE_WHOLESALE' ? 'Wholesale' : 'Retail'}</span>
+                          </td>
                           <td className="py-2.5 text-gray-700">{c.contactPerson || '—'}</td>
                           <td className="py-2.5 text-gray-500">{c.phone || '—'}</td>
-                          <td className="py-2.5 text-gray-500">₹{Number(c.creditLimit || 0).toLocaleString()}</td>
                           <td className="py-2.5 text-right font-bold text-emerald-800">
                             ₹{Number(c.currentOutstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </td>
@@ -11768,13 +13248,55 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-gray-300">
-                      <td colSpan={4} className="py-3 text-xs font-bold text-gray-700">Total Receivables</td>
+                      <td colSpan={4} className="py-3 text-xs font-bold text-gray-700">Subtotal — Customer Accounts</td>
                       <td className="py-3 text-right text-sm font-bold text-emerald-800">
-                        ₹{totalReceivables.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        ₹{(allCustomers.length > 0 ? allCustomers : wholesaleCustomers)
+                          .filter(c => (Number(c.currentOutstanding) || 0) > 0)
+                          .reduce((s, c) => s + Number(c.currentOutstanding), 0)
+                          .toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
                   </tfoot>
                 </table>
+              )}
+
+              {/* Pending Online Orders (COD / Unpaid) section */}
+              {retailOrders.filter(o => o.status !== 'CANCELLED' && o.paymentStatus !== 'PAID' && o.paymentStatus !== 'REFUNDED').length > 0 && (
+                <div className="mt-4 border-t border-amber-200 pt-4">
+                  <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                    Pending Online Orders (COD / Unpaid)
+                  </p>
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-gray-500 border-b border-amber-200">
+                        <th className="py-2 font-semibold">Order #</th>
+                        <th className="py-2 font-semibold">Customer</th>
+                        <th className="py-2 font-semibold">Method</th>
+                        <th className="py-2 font-semibold text-right">Amount (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100">
+                      {retailOrders
+                        .filter(o => o.status !== 'CANCELLED' && o.paymentStatus !== 'PAID' && o.paymentStatus !== 'REFUNDED')
+                        .map(o => (
+                          <tr key={o.id} className="hover:bg-amber-50/30 transition">
+                            <td className="py-2 font-mono text-gray-700">{o.orderNumber}</td>
+                            <td className="py-2 text-gray-700">{o.customerName || '—'}</td>
+                            <td className="py-2">
+                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">
+                                {o.paymentMethod === 'CASH_ON_DELIVERY' ? 'COD' : (o.paymentMethod || '—')}
+                              </span>
+                            </td>
+                            <td className="py-2 text-right font-bold text-amber-700">
+                              ₹{Number(o.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))
+                      }
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 
@@ -11867,19 +13389,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               })}
                             </td>
                             <td className="py-2.5">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                isInbound
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${isInbound
                                   ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                   : isOutbound
                                     ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                     : 'bg-emerald-100/60 text-gray-700 border-gray-300'
-                              }`}>
+                                }`}>
                                 {typeLabel}
                               </span>
                             </td>
-                            <td className={`py-2.5 text-right font-bold ${
-                              isInbound ? 'text-emerald-300' : isOutbound ? 'text-rose-600' : 'text-gray-700'
-                            }`}>
+                            <td className={`py-2.5 text-right font-bold ${isInbound ? 'text-emerald-300' : isOutbound ? 'text-rose-600' : 'text-gray-700'
+                              }`}>
                               {isInbound ? '+' : isOutbound ? '-' : ''}{Number(mv.quantity).toLocaleString('en-IN', { maximumFractionDigits: 3 })}
                             </td>
                             <td className="py-2.5 text-gray-700">{mv.reason}</td>
@@ -11980,9 +13500,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             {creditAmount > 0 ? `₹${creditAmount.toLocaleString()}` : '—'}
                           </td>
                           <td className={`py-2.5 text-right font-bold ${runningBal > 0 ? 'text-rose-700' : runningBal < 0 ? 'text-emerald-700' : 'text-gray-900'}`}>
-                            {runningBal > 0 
+                            {runningBal > 0
                               ? `₹${runningBal.toLocaleString()} (Adv Owed)`
-                              : runningBal < 0 
+                              : runningBal < 0
                                 ? `-₹${Math.abs(runningBal).toLocaleString()} (Paid / Settled)`
                                 : '₹0'}
                           </td>
@@ -13058,21 +14578,19 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setNotificationsFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                    notificationsFilter === 'all'
+                  className={`px-3 py-1.5 rounded-lg font-medium transition ${notificationsFilter === 'all'
                       ? 'bg-emerald-700 text-white font-bold'
                       : 'bg-emerald-50/60 text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   All ({notifications.length})
                 </button>
                 <button
                   onClick={() => setNotificationsFilter('unread')}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                    notificationsFilter === 'unread'
+                  className={`px-3 py-1.5 rounded-lg font-medium transition ${notificationsFilter === 'unread'
                       ? 'bg-emerald-700 text-white font-bold'
                       : 'bg-emerald-50/60 text-gray-500 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   Unread Only ({unreadNotificationsCount})
                 </button>
@@ -13126,25 +14644,24 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   const borderClass = isCritical
                     ? 'border-rose-200 bg-rose-50'
                     : isWarning
-                    ? 'border-amber-200 bg-amber-50'
-                    : isSuccess
-                    ? 'border-emerald-200 bg-emerald-50'
-                    : 'border-gray-200 bg-gray-50';
+                      ? 'border-amber-200 bg-amber-50'
+                      : isSuccess
+                        ? 'border-emerald-200 bg-emerald-50'
+                        : 'border-gray-200 bg-gray-50';
 
                   const iconColor = isCritical
                     ? 'text-rose-600'
                     : isWarning
-                    ? 'text-emerald-700'
-                    : isSuccess
-                    ? 'text-emerald-700'
-                    : 'text-blue-600';
+                      ? 'text-emerald-700'
+                      : isSuccess
+                        ? 'text-emerald-700'
+                        : 'text-blue-600';
 
                   return (
                     <div
                       key={n.id}
-                      className={`p-4 rounded-xl border ${borderClass} transition flex items-start justify-between gap-3 ${
-                        !n.isRead ? 'shadow-md shadow-sm ring-1 ring-amber-500/20' : 'opacity-85'
-                      }`}
+                      className={`p-4 rounded-xl border ${borderClass} transition flex items-start justify-between gap-3 ${!n.isRead ? 'shadow-md shadow-sm ring-1 ring-amber-500/20' : 'opacity-85'
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`p-2 rounded-lg bg-white border border-gray-200 mt-0.5 ${iconColor}`}>
@@ -13162,9 +14679,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-gray-900 text-xs">{n.title}</span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                              isCritical ? 'bg-rose-500/20 text-rose-600' : isWarning ? 'bg-emerald-700/20 text-emerald-800' : 'bg-emerald-50/60 text-gray-500'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isCritical ? 'bg-rose-500/20 text-rose-600' : isWarning ? 'bg-emerald-700/20 text-emerald-800' : 'bg-emerald-50/60 text-gray-500'
+                              }`}>
                               {n.severity}
                             </span>
                             {n.referenceId && (

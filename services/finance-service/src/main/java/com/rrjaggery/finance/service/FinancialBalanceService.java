@@ -62,8 +62,14 @@ public class FinancialBalanceService {
                 .sorted(Comparator.comparing((FinanceOrderServiceClient.RemoteOfflineOrderDto o) -> o.orderDate != null ? o.orderDate : Instant.EPOCH))
                 .collect(Collectors.toList());
 
+        // Commerce orders: only count as income when payment has actually been received (PAID).
+        // Excludes CANCELLED orders and FAILED/REFUNDED payments.
+        // PENDING payment orders (unpaid COD) are excluded from income until marked PAID.
         List<FinanceOrderServiceClient.RemoteCommerceOrderDto> commerceOrders = orderServiceClient.getCommerceOrders().stream()
-                .filter(o -> !"CANCELLED".equalsIgnoreCase(o.status) && !"FAILED".equalsIgnoreCase(o.paymentStatus) && !"REFUNDED".equalsIgnoreCase(o.paymentStatus))
+                .filter(o -> !"CANCELLED".equalsIgnoreCase(o.status)
+                        && !"FAILED".equalsIgnoreCase(o.paymentStatus)
+                        && !"REFUNDED".equalsIgnoreCase(o.paymentStatus)
+                        && "PAID".equalsIgnoreCase(o.paymentStatus))
                 .sorted(Comparator.comparing((FinanceOrderServiceClient.RemoteCommerceOrderDto o) -> o.createdAt != null ? o.createdAt : Instant.EPOCH))
                 .collect(Collectors.toList());
 
@@ -102,14 +108,20 @@ public class FinancialBalanceService {
         BigDecimal totalOperatingCosts = totalExpenses.add(totalSalaries).setScale(2, RoundingMode.HALF_UP);
 
         // 4. Order Income Totals (Wholesale, Website Retail, Manual Retail)
+        // ONLY count settled/paid amounts. Unpaid / pending / COD orders go to customer receivables.
         BigDecimal wholesaleIncome = BigDecimal.ZERO;
         BigDecimal manualRetailIncome = BigDecimal.ZERO;
         for (FinanceOrderServiceClient.RemoteOfflineOrderDto o : offlineOrders) {
-            BigDecimal amt = o.totalAmount != null ? o.totalAmount : BigDecimal.ZERO;
+            BigDecimal incomeAmt = BigDecimal.ZERO;
+            if (o.paidAmount != null && o.paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+                incomeAmt = o.paidAmount;
+            } else if ("PAID".equalsIgnoreCase(o.paymentStatus)) {
+                incomeAmt = o.totalAmount != null ? o.totalAmount : BigDecimal.ZERO;
+            }
             if ("MANUAL_RETAIL".equalsIgnoreCase(o.orderType)) {
-                manualRetailIncome = manualRetailIncome.add(amt);
+                manualRetailIncome = manualRetailIncome.add(incomeAmt);
             } else {
-                wholesaleIncome = wholesaleIncome.add(amt);
+                wholesaleIncome = wholesaleIncome.add(incomeAmt);
             }
         }
 
@@ -218,6 +230,15 @@ public class FinancialBalanceService {
         }
 
         for (FinanceOrderServiceClient.RemoteOfflineOrderDto o : offlineOrders) {
+            BigDecimal incomeAmt = BigDecimal.ZERO;
+            if (o.paidAmount != null && o.paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+                incomeAmt = o.paidAmount;
+            } else if ("PAID".equalsIgnoreCase(o.paymentStatus)) {
+                incomeAmt = o.totalAmount != null ? o.totalAmount : BigDecimal.ZERO;
+            }
+            if (incomeAmt.compareTo(BigDecimal.ZERO) <= 0) {
+                continue; // Unpaid / COD offline orders go to customer receivables, not order income
+            }
             Instant eventDate = o.orderDate != null ? o.orderDate : Instant.now();
             boolean isRetail = "MANUAL_RETAIL".equalsIgnoreCase(o.orderType);
             String type = isRetail ? "MANUAL_RETAIL_INCOME" : "WHOLESALE_ORDER_INCOME";
@@ -230,7 +251,7 @@ public class FinancialBalanceService {
                     o.orderNumber != null ? o.orderNumber : o.invoiceNumber,
                     "OFFLINE_ORDER",
                     o.id != null ? o.id.toString() : "",
-                    o.totalAmount != null ? o.totalAmount : BigDecimal.ZERO
+                    incomeAmt
             ));
         }
 

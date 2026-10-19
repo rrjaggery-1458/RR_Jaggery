@@ -297,11 +297,10 @@ export function CustomerDirectoryPage({
               key={type}
               id={`filter-${type.toLowerCase()}`}
               onClick={() => setFilterType(type)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 ${
-                filterType === type
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 ${filterType === type
                   ? 'bg-emerald-600 text-gray-900 shadow-md shadow-emerald-500/20 font-bold'
                   : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
-              }`}
+                }`}
             >
               {type === 'ALL' ? 'All Customers' : type.replace('_', ' ')}
             </button>
@@ -405,13 +404,12 @@ export function CustomerDirectoryPage({
                       <td className="py-3.5 px-4">
                         <div>
                           <span
-                            className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              c.customerType === 'REGISTERED_WHOLESALE'
+                            className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${c.customerType === 'REGISTERED_WHOLESALE'
                                 ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                                 : c.customerType === 'OFFLINE_WHOLESALE'
-                                ? 'bg-emerald-50 text-amber-700 border-emerald-500/20'
-                                : 'bg-emerald-50 text-gray-500 border-gray-300'
-                            }`}
+                                  ? 'bg-emerald-50 text-amber-700 border-emerald-500/20'
+                                  : 'bg-emerald-50 text-gray-500 border-gray-300'
+                              }`}
                           >
                             {c.customerType.replace('_', ' ')}
                           </span>
@@ -448,9 +446,8 @@ export function CustomerDirectoryPage({
                       <td className="py-3.5 px-4 text-right">
                         <div
                           id={`customer-outstanding-${c.id}`}
-                          className={`font-mono text-sm font-black ${
-                            hasOutstanding ? 'text-amber-700' : 'text-gray-500'
-                          }`}
+                          className={`font-mono text-sm font-black ${hasOutstanding ? 'text-amber-700' : 'text-gray-500'
+                            }`}
                         >
                           {formatPrice(c.currentOutstanding)}
                         </div>
@@ -890,7 +887,7 @@ export function CreateOfflineOrderModal({
       }
     }
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const currentCustomer = customers.find(c => c.id === selectedCustomerId) || preselectedCustomer;
@@ -1097,7 +1094,7 @@ export function CreateOfflineOrderModal({
                         <option value="">Custom Item / Manual</option>
                         {products.map(p => (
                           <option key={p.id} value={p.id}>
-                            {p.name} ({p.unitWeightKg}kg - {formatPrice(p.wholesalePrice)})
+                            {p.name} ({p.unitWeightKg < 1 ? `${Math.round(p.unitWeightKg * 1000)}g` : `${p.unitWeightKg}kg`} - {formatPrice(p.wholesalePrice)})
                           </option>
                         ))}
                       </select>
@@ -1474,13 +1471,12 @@ export function LedgerStatementModal({
 
                           <td className="py-2.5 px-3">
                             <span
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-sans ${
-                                e.transactionType === 'INVOICE_DEBIT'
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-sans ${e.transactionType === 'INVOICE_DEBIT'
                                   ? 'bg-emerald-50 text-amber-700 border border-emerald-500/20'
                                   : e.transactionType === 'PAYMENT_CREDIT'
-                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                  : 'bg-emerald-50 text-gray-500'
-                              }`}
+                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                    : 'bg-emerald-50 text-gray-500'
+                                }`}
                             >
                               {e.transactionType}
                             </span>
@@ -1756,7 +1752,7 @@ export function OfflineInvoiceModal({
           <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
             <div>
               <div className="font-extrabold text-xl text-gray-900 tracking-tight">RR JAGGERY TRADERS</div>
-              <div className="text-gray-500 text-[11px] mt-1">Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163</div>
+              <div className="text-gray-500 text-[11px] mt-1">Vallurupallem, Thotlavalluru, Andhra Pradesh – 521163</div>
               <div className="text-gray-500 text-[11px]">Phone: +91 9948533315 | Email: rrjaggery@gmail.com</div>
               <div className="text-gray-500 text-[11px]">Commercial invoice; GST is not included in the amounts shown.</div>
             </div>
@@ -1797,7 +1793,7 @@ export function OfflineInvoiceModal({
                 {items.map((item: any, idx) => (
                   <tr key={idx}>
                     <td className="py-2.5 text-gray-900 font-medium">{item.productName}</td>
-                    <td className="py-2.5 text-right text-gray-500 font-mono">{item.unitWeightKg || 10}kg</td>
+                    <td className="py-2.5 text-right text-gray-500 font-mono">{(item.unitWeightKg && item.unitWeightKg < 1) ? `${Math.round(item.unitWeightKg * 1000)}g` : `${item.unitWeightKg || 10}kg`}</td>
                     <td className="py-2.5 text-right text-gray-900 font-mono">{item.quantity}</td>
                     <td className="py-2.5 text-right text-gray-900 font-mono">{formatPrice(item.unitPrice || item.wholesalePrice)}</td>
                     <td className="py-2.5 text-right text-emerald-700 font-semibold font-mono">{formatPrice(item.totalAmount || ((item.unitPrice || item.wholesalePrice || 0) * item.quantity))}</td>

@@ -14,7 +14,7 @@
 | **Business Type** | `Jaggery Manufacturing` | Manufacturing unit |
 | **GST Registration** | **NOT GST REGISTERED** | **CRITICAL:** Do NOT display GSTIN anywhere. No GSTIN: NA, no fake GSTIN, no GST claims. Zero GST charged on orders. |
 | **FSSAI Number** | None available | Do NOT invent or display any FSSAI number |
-| **Registered Business Address** | `Vollurupallem, Thotlavalluru, Andhra Pradesh, PIN 521163` | PIN is exactly `521163` |
+| **Registered Business Address** | `Vallurupallem, Thotlavalluru, Andhra Pradesh, PIN 521163` | PIN is exactly `521163` |
 | **Legal Jurisdiction** | `Krishna District / Vijayawada, Andhra Pradesh` | District court jurisdiction |
 
 ---

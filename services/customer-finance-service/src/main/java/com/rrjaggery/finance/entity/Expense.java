@@ -46,6 +46,9 @@ public class Expense {
     @Column(name = "notes", length = 1000)
     private String notes;
 
+    @Column(name = "payment_status", length = 20)
+    private String paymentStatus = "PAID"; // PAID or UNPAID
+
     @Column(name = "created_by", length = 100)
     private String createdBy;
 
@@ -91,6 +94,9 @@ public class Expense {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus != null ? paymentStatus : "PAID"; }
 
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }

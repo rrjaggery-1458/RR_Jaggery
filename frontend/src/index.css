@@ -120,4 +120,58 @@
   scrollbar-width: none !important;
 }
 
+/* ── Print Media Styles for Clean Commercial Invoices ────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Hide everything on the page except the invoice document */
+  header, footer, nav, #root > *:not(.fixed), .no-print {
+    display: none !important;
+  }
+
+  /* Flatten modal overlays for print */
+  .fixed.inset-0 {
+    position: static !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .fixed.inset-0 > div {
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  #invoice-modal-content {
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    width: 100% !important;
+    padding: 15mm !important;
+  }
+
+  button {
+    display: none !important;
+  }
+}
+
+
 

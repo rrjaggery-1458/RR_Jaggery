@@ -25,8 +25,9 @@ public class OrderService {
     // Tax fields are retained in DB schema for audit/backward compatibility only.
     private static final BigDecimal GST_RATE = BigDecimal.ZERO;
     private static final BigDecimal HALF_GST_RATE = BigDecimal.ZERO;
-    private static final BigDecimal FREE_SHIPPING_THRESHOLD = new BigDecimal("500.00");
+
     private static final BigDecimal STANDARD_SHIPPING_FEE = new BigDecimal("50.00");
+    private static final BigDecimal STANDARD_PACKAGING_FEE = new BigDecimal("10.00");
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
@@ -82,7 +83,7 @@ public class OrderService {
         PaymentMethod paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.TEST_PAYMENT;
         order.setPaymentMethod(paymentMethod);
 
-        if (paymentMethod == PaymentMethod.TEST_PAYMENT) {
+        if (paymentMethod == PaymentMethod.TEST_PAYMENT || paymentMethod == PaymentMethod.RAZORPAY) {
             order.setPaymentStatus(PaymentStatus.PAID);
             order.setStatus(OrderStatus.CONFIRMED);
         } else {
@@ -127,16 +128,15 @@ public class OrderService {
         subtotal = subtotal.setScale(2, RoundingMode.HALF_UP);
         totalTax = totalTax.setScale(2, RoundingMode.HALF_UP);
 
-        BigDecimal shipping = BigDecimal.ZERO;
-        if (subtotal.compareTo(FREE_SHIPPING_THRESHOLD) < 0) {
-            shipping = STANDARD_SHIPPING_FEE;
-        }
+        BigDecimal shipping = STANDARD_SHIPPING_FEE;
+        BigDecimal packaging = STANDARD_PACKAGING_FEE;
 
-        BigDecimal grandTotal = subtotal.add(totalTax).add(shipping).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal grandTotal = subtotal.add(totalTax).add(shipping).add(packaging).setScale(2, RoundingMode.HALF_UP);
 
         order.setSubtotalAmount(subtotal);
         order.setTaxAmount(totalTax);
         order.setShippingAmount(shipping);
+        order.setPackagingFee(packaging);
         order.setDiscountAmount(BigDecimal.ZERO);
         order.setTotalAmount(grandTotal);
 
@@ -301,6 +301,7 @@ public class OrderService {
         invoice.setSgstAmount(sgst);
         invoice.setTotalTax(order.getTaxAmount());
         invoice.setShippingAmount(order.getShippingAmount());
+        invoice.setPackagingFee(order.getPackagingFee() != null ? order.getPackagingFee() : new BigDecimal("10.00"));
         invoice.setGrandTotal(order.getTotalAmount());
         invoice.setPaymentMethod(order.getPaymentMethod().name());
         invoice.setPaymentStatus(order.getPaymentStatus().name());

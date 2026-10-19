@@ -42,6 +42,9 @@ public class Order {
     @Column(name = "shipping_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal shippingAmount = BigDecimal.ZERO;
 
+    @Column(name = "packaging_fee", nullable = false, precision = 12, scale = 2)
+    private BigDecimal packagingFee = new BigDecimal("10.00");
+
     @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
@@ -144,6 +147,9 @@ public class Order {
 
     public BigDecimal getShippingAmount() { return shippingAmount; }
     public void setShippingAmount(BigDecimal shippingAmount) { this.shippingAmount = shippingAmount; }
+
+    public BigDecimal getPackagingFee() { return packagingFee; }
+    public void setPackagingFee(BigDecimal packagingFee) { this.packagingFee = packagingFee; }
 
     public BigDecimal getDiscountAmount() { return discountAmount; }
     public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
