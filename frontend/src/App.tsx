@@ -1105,6 +1105,25 @@ function CartDrawer({
   );
 }
 
+// ─── Location & Maps Helper ───────────────────────────────────────────────────
+
+function extractLocationLink(landmark?: string, notes?: string): string | null {
+  const combined = `${landmark || ''} ${notes || ''}`;
+  const mapLinkMatch = combined.match(/\[Map Link:\s*([^\s\]]+)\]/i);
+  if (mapLinkMatch && mapLinkMatch[1]) return mapLinkMatch[1];
+
+  const gpsMatch = combined.match(/\[GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\]/i) ||
+                   combined.match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/i);
+  if (gpsMatch && gpsMatch[1] && gpsMatch[2]) {
+    return `https://maps.google.com/?q=${gpsMatch[1]},${gpsMatch[2]}`;
+  }
+
+  const urlMatch = combined.match(/(https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|www\.google\.com\/maps|maps\.google\.com)[^\s\]]*)/i);
+  if (urlMatch && urlMatch[1]) return urlMatch[1];
+
+  return null;
+}
+
 // ─── Checkout Modal Component ─────────────────────────────────────────────────
 
 function CheckoutModal({
@@ -1131,27 +1150,43 @@ function CheckoutModal({
     nearestLandmark: '',
   });
   const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'CASH_ON_DELIVERY' | 'TEST_PAYMENT'>('RAZORPAY');
+  const [locationLink, setLocationLink] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationCaptured, setLocationCaptured] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationFeedback, setLocationFeedback] = useState<{
+    type: 'info' | 'error' | 'success';
+    message: string;
+  } | null>(null);
   const [error, setError] = useState('');
 
   if (!isOpen || !cart) return null;
 
   function handleShareLocation() {
+    setLocationFeedback(null);
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser.');
+      setLocationFeedback({
+        type: 'info',
+        message: 'Geolocation is not supported by your browser. You can enter or paste your Google Maps link below.',
+      });
       return;
     }
     setLocating(true);
-    setError('');
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setLocationCaptured({ lat: latitude, lng: longitude });
         setLocating(false);
+        const mapUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+        if (!locationLink) {
+          setLocationLink(mapUrl);
+        }
+        setLocationFeedback({
+          type: 'success',
+          message: `GPS location captured (${latitude.toFixed(5)}, ${longitude.toFixed(5)}) and linked to delivery address.`,
+        });
 
         // Reverse geocoding via OpenStreetMap Nominatim
         try {
@@ -1184,11 +1219,18 @@ function CheckoutModal({
       },
       (err) => {
         setLocating(false);
-        let msg = 'Unable to retrieve location.';
-        if (err.code === 1) msg = 'Location access was denied. Please allow location permission in your browser or fill address manually.';
-        else if (err.code === 2) msg = 'GPS location unavailable. Please fill address manually.';
-        else if (err.code === 3) msg = 'Location request timed out. Please try again.';
-        setError(msg);
+        let msg = 'Unable to access device location.';
+        if (err.code === 1) {
+          msg = 'Location permission is disabled in your browser. You can paste your Google Maps link below or fill your address manually.';
+        } else if (err.code === 2) {
+          msg = 'GPS location is temporarily unavailable on your device. Please paste your Google Maps link below.';
+        } else if (err.code === 3) {
+          msg = 'Location request timed out. Please try again or paste your Google Maps link below.';
+        }
+        setLocationFeedback({
+          type: 'info',
+          message: msg,
+        });
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
@@ -1202,8 +1244,14 @@ function CheckoutModal({
     setError('');
     setLoading(true);
 
-    const gpsNote = locationCaptured ? `[GPS: ${locationCaptured.lat.toFixed(5)}, ${locationCaptured.lng.toFixed(5)}]` : '';
-    const finalNotes = [notes, gpsNote].filter(Boolean).join(' ');
+    const locationDetails: string[] = [];
+    if (locationCaptured) {
+      locationDetails.push(`[GPS: ${locationCaptured.lat.toFixed(5)}, ${locationCaptured.lng.toFixed(5)}]`);
+    }
+    if (locationLink.trim()) {
+      locationDetails.push(`[Map Link: ${locationLink.trim()}]`);
+    }
+    const finalNotes = [notes, ...locationDetails].filter(Boolean).join(' ');
 
     if (paymentMethod === 'RAZORPAY') {
       // ── Razorpay Payment Flow ──
@@ -1253,6 +1301,7 @@ function CheckoutModal({
           deliveryCity: address.city,
           address: `${address.streetAddress}, ${address.apartmentName || ''}`,
           ...(locationCaptured ? { gps: `${locationCaptured.lat},${locationCaptured.lng}` } : {}),
+          ...(locationLink.trim() ? { mapLink: locationLink.trim() } : {}),
         },
         theme: {
           color: '#065f46',
@@ -1377,7 +1426,7 @@ function CheckoutModal({
         <form onSubmit={handleSubmitOrder} className="space-y-6">
           {/* Shipping Address */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">1. Delivery Address</h3>
               <button
                 type="button"
@@ -1385,6 +1434,7 @@ function CheckoutModal({
                 onClick={handleShareLocation}
                 disabled={locating}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 text-xs font-bold transition shadow-2xs hover:shadow-xs disabled:opacity-50"
+                title="Detect GPS coordinates using your device location"
               >
                 {locating ? (
                   <>
@@ -1399,6 +1449,34 @@ function CheckoutModal({
                 )}
               </button>
             </div>
+
+            {/* Non-blocking Location Feedback Notice */}
+            {locationFeedback && (
+              <div
+                className={`flex items-start justify-between text-xs rounded-xl px-3.5 py-2.5 transition border ${
+                  locationFeedback.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                    : 'bg-amber-50 text-amber-900 border-amber-300'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {locationFeedback.type === 'success' ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0 mt-0.5" />
+                  ) : (
+                    <Info className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                  )}
+                  <span>{locationFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocationFeedback(null)}
+                  className="text-stone-400 hover:text-stone-700 ml-2 p-0.5"
+                  title="Dismiss notice"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
             {locationCaptured && (
               <div className="flex items-center justify-between text-xs bg-emerald-50/90 border border-emerald-200 rounded-xl px-3.5 py-2.5 text-emerald-900 shadow-2xs">
@@ -1533,6 +1611,56 @@ function CheckoutModal({
                     placeholder="Your 6-digit PIN code"
                     className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
+                </div>
+              </div>
+
+              {/* Google Maps / Delivery Location Link Input */}
+              <div className="sm:col-span-2 bg-stone-50/80 p-3.5 rounded-2xl border border-stone-200/90 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="checkout-location-link" className="text-gray-800 font-bold flex items-center gap-1.5 text-xs">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+                    <span>Google Maps / Delivery Location Link (Optional)</span>
+                  </label>
+                  {locationLink.trim() && (
+                    <a
+                      href={locationLink.trim().startsWith('http') ? locationLink.trim() : `https://${locationLink.trim()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline flex items-center gap-1"
+                    >
+                      <span>Preview Map</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500 leading-tight">
+                  Paste your Google Maps link (e.g. <code>https://maps.app.goo.gl/...</code>) or live location link so the delivery agent can reach your exact location without calling.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    id="checkout-location-link"
+                    type="text"
+                    value={locationLink}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setLocationLink(val);
+                      if (val.trim()) {
+                        setLocationFeedback(null);
+                      }
+                    }}
+                    placeholder="Paste Google Maps URL here (e.g. https://maps.app.goo.gl/xyz or https://goo.gl/maps/...)"
+                    className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600 text-xs placeholder:text-gray-400"
+                  />
+                  {locationLink.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setLocationLink('')}
+                      className="px-2.5 py-1 text-gray-400 hover:text-gray-700 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-semibold"
+                      title="Clear location link"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1746,6 +1874,23 @@ function OrderConfirmationModal({
               {order.shippingAddress.nearestLandmark ? ` (${order.shippingAddress.nearestLandmark})` : ''}
             </span>
           </div>
+          {extractLocationLink(order.shippingAddress?.nearestLandmark, order.notes) && (
+            <div className="flex justify-between items-center bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200">
+              <span className="text-gray-600 font-semibold flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Delivery Location:</span>
+              </span>
+              <a
+                href={extractLocationLink(order.shippingAddress?.nearestLandmark, order.notes)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold underline text-emerald-800 hover:text-emerald-950 flex items-center gap-1 text-[11px]"
+              >
+                <span>Open in Google Maps</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -2654,21 +2799,15 @@ function OrderHistoryView({
                           </span>
                         </div>
                       </div>
-                      {(order.shippingAddress.nearestLandmark?.includes('GPS:') || order.notes?.includes('GPS:')) && (
+                      {extractLocationLink(order.shippingAddress.nearestLandmark, order.notes) && (
                         <a
-                          href={
-                            (() => {
-                              const match = (order.shippingAddress.nearestLandmark || '').match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/) ||
-                                            (order.notes || '').match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
-                              return match ? `https://maps.google.com/?q=${match[1]},${match[2]}` : '#';
-                            })()
-                          }
+                          href={extractLocationLink(order.shippingAddress.nearestLandmark, order.notes)!}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 hover:bg-emerald-100 shrink-0 self-start sm:self-center transition"
                         >
                           <MapPin className="h-3 w-3 text-emerald-700" />
-                          <span>View GPS Location</span>
+                          <span>View Location Map</span>
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
