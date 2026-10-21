@@ -1672,6 +1672,25 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'jfif'];
+
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(fileExt)) {
+      setErrorMsg('Invalid file format. Please upload a valid JPG, PNG, or WEBP image.');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    // Validate file size (20MB)
+    const MAX_SIZE_MB = 20;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setErrorMsg(`Image size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds maximum allowed limit of ${MAX_SIZE_MB}MB.`);
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     setImageUploading(true);
     setErrorMsg(null);
 
@@ -1687,19 +1706,36 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         body: formData,
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        throw new Error(`Upload failed with status: ${res.status}`);
+        let message = data?.error?.message || data?.message;
+        if (!message) {
+          if (res.status === 413) {
+            message = 'Image size exceeds maximum upload limit allowed by server.';
+          } else if (res.status === 401 || res.status === 403) {
+            message = 'Session expired or insufficient admin permissions. Please log in again.';
+          } else {
+            message = `Failed to upload image (HTTP ${res.status}).`;
+          }
+        }
+        setErrorMsg(message);
+        return;
       }
 
-      const data = await res.json();
-      if (data.data?.imageUrl) {
+      if (data?.data?.imageUrl) {
         setProductForm(prev => ({ ...prev, imageUrl: data.data.imageUrl }));
         setSuccessMsg('Product image uploaded successfully.');
+      } else {
+        setErrorMsg('Image uploaded but server returned no URL.');
       }
     } catch (err: any) {
-      setErrorMsg('Failed to upload image. Please ensure it is a valid JPG, PNG, or WEBP file.');
+      setErrorMsg(err?.message || 'Network error occurred while uploading image. Please check connection and try again.');
     } finally {
       setImageUploading(false);
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   };
 
@@ -9921,13 +9957,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       {imageUploading ? 'Uploading...' : 'Choose Image'}
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.jfif"
                         onChange={handleImageFileChange}
                         disabled={imageUploading}
                         className="hidden"
                       />
                     </label>
-                    <p className="text-[10px] text-gray-500">Uploads to persistent storage (JPG, PNG, WEBP)</p>
+                    <p className="text-[10px] text-gray-500">Supports JPG, PNG, WEBP up to 20MB</p>
                   </div>
                 </div>
               </div>

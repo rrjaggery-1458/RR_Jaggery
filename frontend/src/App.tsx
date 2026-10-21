@@ -859,112 +859,111 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 </button>
               </form>
             ) : (
-          <form onSubmit={handleRegisterSubmit} className="space-y-3">
-            {!registrationOtpSent ? (
-              <>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Full Name</label>
-              <input
-                id="reg-fullname"
-                type="text"
-                required
-                value={regForm.fullName}
-                onChange={e => setRegForm(f => ({ ...f, fullName: e.target.value }))}
-                placeholder="Your name"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
-              <input
-                id="reg-email"
-                type="email"
-                required
-                value={regForm.email}
-                onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="Your email"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone (Optional)</label>
-              <input
-                id="reg-phone"
-                type="tel"
-                value={regForm.phone}
-                onChange={e => setRegForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="Your phone number"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Password</label>
-              <input
-                id="reg-password"
-                type="password"
-                required
-                minLength={6}
-                value={regForm.password}
-                onChange={e => setRegForm(f => ({ ...f, password: e.target.value }))}
-                placeholder="Your password"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-              />
-            </div>
-            <p className="text-[11px] text-gray-500">
-              All new accounts are retail customer accounts. Verify your email to finish creating your account.
-            </p>
-              </>
-            ) : (
-              <>
-                <div className={`rounded-xl border p-3 text-xs ${
-                  registrationEmailStatus === 'FAILED'
-                    ? 'border-red-200 bg-red-50 text-red-800'
-                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                }`}>
-                  {registrationEmailStatus === 'PENDING' && <>Sending a verification code to <strong>{regForm.email}</strong>…</>}
-                  {registrationEmailStatus === 'SENT' && <>A verification code was sent to <strong>{regForm.email}</strong>.</>}
-                  {registrationEmailStatus === 'FAILED' && <>Could not send a verification code to <strong>{regForm.email}</strong>. Edit your details and try again.</>}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Verification Code</label>
-                  <input
-                    id="register-email-otp"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    required
-                    value={registrationOtp}
-                    onChange={e => setRegistrationOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                    placeholder="Your verification code"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
-                  />
-                </div>
+              <form onSubmit={handleRegisterSubmit} className="space-y-3">
+                {!registrationOtpSent ? (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Full Name</label>
+                      <input
+                        id="reg-fullname"
+                        type="text"
+                        required
+                        value={regForm.fullName}
+                        onChange={e => setRegForm(f => ({ ...f, fullName: e.target.value }))}
+                        placeholder="Your name"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
+                      <input
+                        id="reg-email"
+                        type="email"
+                        required
+                        value={regForm.email}
+                        onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="Your email"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone (Optional)</label>
+                      <input
+                        id="reg-phone"
+                        type="tel"
+                        value={regForm.phone}
+                        onChange={e => setRegForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="Your phone number"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Password</label>
+                      <input
+                        id="reg-password"
+                        type="password"
+                        required
+                        minLength={6}
+                        value={regForm.password}
+                        onChange={e => setRegForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="Your password"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      All new accounts are retail customer accounts. Verify your email to finish creating your account.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className={`rounded-xl border p-3 text-xs ${registrationEmailStatus === 'FAILED'
+                        ? 'border-red-200 bg-red-50 text-red-800'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      }`}>
+                      {registrationEmailStatus === 'PENDING' && <>Sending a verification code to <strong>{regForm.email}</strong>…</>}
+                      {registrationEmailStatus === 'SENT' && <>A verification code was sent to <strong>{regForm.email}</strong>.</>}
+                      {registrationEmailStatus === 'FAILED' && <>Could not send a verification code to <strong>{regForm.email}</strong>. Edit your details and try again.</>}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Verification Code</label>
+                      <input
+                        id="register-email-otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        required
+                        value={registrationOtp}
+                        onChange={e => setRegistrationOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                        placeholder="Your verification code"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-emerald-600 transition"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegistrationOtpSent(false);
+                        setRegistrationOtp('');
+                        setRegistrationChallengeId('');
+                        setError('');
+                      }}
+                      className="text-xs text-emerald-700 font-semibold"
+                    >
+                      Edit registration details
+                    </button>
+                  </>
+                )}
                 <button
-                  type="button"
-                  onClick={() => {
-                    setRegistrationOtpSent(false);
-                    setRegistrationOtp('');
-                    setRegistrationChallengeId('');
-                    setError('');
-                  }}
-                  className="text-xs text-emerald-700 font-semibold"
+                  id="register-submit"
+                  type="submit"
+                  disabled={loading || (registrationOtpSent && !registrationOtp)}
+                  className="w-full mt-2 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-amber-600/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
                 >
-                  Edit registration details
+                  {loading
+                    ? <><Spinner size={4} /><span>{registrationOtpSent ? 'Verifying email…' : 'Sending verification code…'}</span></>
+                    : <><UserPlus className="h-4 w-4" /><span>{registrationOtpSent ? 'Verify Email & Create Account' : 'Send Email Verification Code'}</span></>}
                 </button>
-              </>
+              </form>
             )}
-            <button
-              id="register-submit"
-              type="submit"
-              disabled={loading || (registrationOtpSent && !registrationOtp)}
-              className="w-full mt-2 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm shadow-lg shadow-amber-600/20 hover:brightness-105 disabled:opacity-50 flex items-center justify-center gap-2 transition"
-            >
-              {loading
-                ? <><Spinner size={4} /><span>{registrationOtpSent ? 'Verifying email…' : 'Sending verification code…'}</span></>
-                : <><UserPlus className="h-4 w-4" /><span>{registrationOtpSent ? 'Verify Email & Create Account' : 'Send Email Verification Code'}</span></>}
-            </button>
-          </form>
-        )}
           </>
         )}
       </div>
@@ -1113,7 +1112,7 @@ function extractLocationLink(landmark?: string, notes?: string): string | null {
   if (mapLinkMatch && mapLinkMatch[1]) return mapLinkMatch[1];
 
   const gpsMatch = combined.match(/\[GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\]/i) ||
-                   combined.match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/i);
+    combined.match(/GPS:\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)/i);
   if (gpsMatch && gpsMatch[1] && gpsMatch[2]) {
     return `https://maps.google.com/?q=${gpsMatch[1]},${gpsMatch[2]}`;
   }
@@ -1200,7 +1199,7 @@ function CheckoutModal({
               state: addr.state || prev.state,
               postalCode: addr.postcode || prev.postalCode,
               streetAddress: prev.streetAddress || [addr.road, addr.suburb].filter(Boolean).join(', ') || prev.streetAddress,
-              nearestLandmark: prev.nearestLandmark 
+              nearestLandmark: prev.nearestLandmark
                 ? (prev.nearestLandmark.includes('GPS:') ? prev.nearestLandmark : `${prev.nearestLandmark} (GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)})`)
                 : `GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
             }));
@@ -1340,7 +1339,7 @@ function CheckoutModal({
               }),
             });
             let body: any = null;
-            try { body = await res.json(); } catch {}
+            try { body = await res.json(); } catch { }
             if (res.ok && body?.success) {
               onOrderPlaced(body.data);
             } else {
@@ -1387,7 +1386,7 @@ function CheckoutModal({
       let body: any = null;
       try {
         body = await res.json();
-      } catch {}
+      } catch { }
       if (res.ok && body?.success) {
         onOrderPlaced(body.data);
       } else {
@@ -1453,11 +1452,10 @@ function CheckoutModal({
             {/* Non-blocking Location Feedback Notice */}
             {locationFeedback && (
               <div
-                className={`flex items-start justify-between text-xs rounded-xl px-3.5 py-2.5 transition border ${
-                  locationFeedback.type === 'success'
+                className={`flex items-start justify-between text-xs rounded-xl px-3.5 py-2.5 transition border ${locationFeedback.type === 'success'
                     ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
                     : 'bg-amber-50 text-amber-900 border-amber-300'
-                }`}
+                  }`}
               >
                 <div className="flex items-start gap-2">
                   {locationFeedback.type === 'success' ? (
@@ -2106,11 +2104,10 @@ function InvoiceModal({
                     Date: <span className="font-semibold text-gray-800">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                   </div>
                   <div className="pt-1">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                      invoice.paymentStatus === 'PAID'
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${invoice.paymentStatus === 'PAID'
                         ? 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
                         : 'bg-amber-100/80 text-amber-800 border-amber-300'
-                    }`}>
+                      }`}>
                       <CreditCard className="h-3 w-3" />
                       {invoice.paymentStatus === 'PAID' ? 'Paid Online' : `Pending (${invoice.paymentMethod})`}
                     </span>
@@ -2394,42 +2391,38 @@ function OrderHistoryView({
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilter('ALL')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filter === 'ALL'
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'ALL'
                 ? 'bg-emerald-800 text-white shadow-md'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+              }`}
           >
             All Orders ({orders.length})
           </button>
           <button
             onClick={() => setFilter('ACTIVE')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filter === 'ACTIVE'
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'ACTIVE'
                 ? 'bg-amber-600 text-white shadow-md'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+              }`}
           >
             Active In-Flight ({activeOrdersCount})
           </button>
           <button
             onClick={() => setFilter('DELIVERED')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              filter === 'DELIVERED'
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'DELIVERED'
                 ? 'bg-emerald-600 text-white shadow-md'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-            }`}
+              }`}
           >
             Delivered ({deliveredOrdersCount})
           </button>
           {cancelledOrdersCount > 0 && (
             <button
               onClick={() => setFilter('CANCELLED')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                filter === 'CANCELLED'
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'CANCELLED'
                   ? 'bg-red-600 text-white shadow-md'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-              }`}
+                }`}
             >
               Cancelled ({cancelledOrdersCount})
             </button>
@@ -2489,7 +2482,7 @@ function OrderHistoryView({
         <div className="space-y-7 sm:space-y-8">
           {filteredOrders.map(order => {
             const isCancellable = order.status === 'PENDING' || order.status === 'CONFIRMED';
-            
+
             const statusConfig: Record<string, {
               borderLeft: string;
               headerBg: string;
@@ -2610,11 +2603,10 @@ function OrderHistoryView({
                           {cfg.label}
                         </span>
                         {/* Payment Pill */}
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                          isPaid
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${isPaid
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}>
+                          }`}>
                           <CreditCard className="h-3 w-3" />
                           {isPaid ? (order.paymentMethod === 'RAZORPAY' ? 'Paid via Razorpay' : 'Paid') : 'Cash on Delivery'}
                         </span>
@@ -2664,10 +2656,10 @@ function OrderHistoryView({
                               cfg.stepIndex === 1
                                 ? '15%'
                                 : cfg.stepIndex === 2
-                                ? '45%'
-                                : cfg.stepIndex === 3
-                                ? '75%'
-                                : '100%',
+                                  ? '45%'
+                                  : cfg.stepIndex === 3
+                                    ? '75%'
+                                    : '100%',
                           }}
                         ></div>
 
@@ -2682,11 +2674,10 @@ function OrderHistoryView({
                         {/* Step 2: Confirmed */}
                         <div className="relative z-10 flex flex-col items-center">
                           <div
-                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${
-                              cfg.stepIndex >= 2
+                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${cfg.stepIndex >= 2
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-white border-2 border-stone-300 text-stone-400'
-                            }`}
+                              }`}
                           >
                             {cfg.stepIndex >= 2 ? '✓' : '2'}
                           </div>
@@ -2698,11 +2689,10 @@ function OrderHistoryView({
                         {/* Step 3: Out for Delivery */}
                         <div className="relative z-10 flex flex-col items-center">
                           <div
-                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${
-                              cfg.stepIndex >= 3
+                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${cfg.stepIndex >= 3
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-white border-2 border-stone-300 text-stone-400'
-                            }`}
+                              }`}
                           >
                             {cfg.stepIndex >= 3 ? '✓' : '3'}
                           </div>
@@ -2714,11 +2704,10 @@ function OrderHistoryView({
                         {/* Step 4: Delivered */}
                         <div className="relative z-10 flex flex-col items-center">
                           <div
-                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${
-                              cfg.stepIndex >= 4
+                            className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${cfg.stepIndex >= 4
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-white border-2 border-stone-300 text-stone-400'
-                            }`}
+                              }`}
                           >
                             {cfg.stepIndex >= 4 ? '✓' : '4'}
                           </div>
@@ -3131,7 +3120,7 @@ function Storefront({
           <div className="lg:col-span-5 relative flex justify-center lg:justify-end items-center">
             <div className="relative w-64 h-64 sm:w-80 sm:h-80 lg:w-[420px] lg:h-[420px] xl:w-[460px] xl:h-[460px] aspect-square rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-2 ring-emerald-200/90 bg-white flex items-center justify-center p-3 sm:p-4">
               <img
-                src="/hero-jaggery.jpg"
+                src="/RR_Jaggery_Logo.png"
                 alt="RR Jaggery - 100% Naturally Made Traditional Jaggery"
                 className="w-full h-full object-contain rounded-2xl transform hover:scale-105 transition duration-500 drop-shadow-sm"
               />
@@ -3239,207 +3228,205 @@ function Storefront({
       {/* Main Content Area */}
       <div className="bg-[#e8f5f1] pb-12 border-t border-emerald-100/60">
         <div id="catalog-section" className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 pt-4 sm:pt-10">
-        {/* Flipkart-Style Horizontal Category Strip (Mobile & Tablet) */}
-        <div className="mb-3 sm:mb-6">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth">
-            <button
-              id="category-pill-all"
-              onClick={() => setSelectedCategory(null)}
-              className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 shadow-sm ${
-                !selectedCategory
-                  ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
-              }`}
-            >
-              <Leaf className="h-3.5 w-3.5" />
-              <span>All Products</span>
-            </button>
-            {categories.map((cat) => (
+          {/* Flipkart-Style Horizontal Category Strip (Mobile & Tablet) */}
+          <div className="mb-3 sm:mb-6">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth">
               <button
-                key={cat.id}
-                id={`category-pill-${cat.slug || cat.id}`}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all shadow-sm ${
-                  selectedCategory === cat.id
+                id="category-pill-all"
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 shadow-sm ${!selectedCategory
                     ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
                     : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
-                }`}
+                  }`}
               >
-                <span>{cat.name}</span>
+                <Leaf className="h-3.5 w-3.5" />
+                <span>All Products</span>
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filter Controls & Search */}
-        <div className="bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-emerald-200 mb-4 sm:mb-8 space-y-3 sm:space-y-4">
-          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-center justify-between">
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3.5 top-3 h-4 w-4 text-emerald-700" />
-              <input
-                id="catalogue-search"
-                type="text"
-                placeholder="Search jaggery powder, blocks, syrup..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm outline-none transition bg-[#f2f8f3]"
-              />
-            </div>
-
-            {/* Filter Dropdowns: Category */}
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto">
-              {/* Category Dropdown */}
-              <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
-                <span className="text-xs text-gray-600 font-semibold shrink-0">Category:</span>
-                <select
-                  id="select-category"
-                  value={selectedCategory || ''}
-                  onChange={(e) => setSelectedCategory(e.target.value || null)}
-                  className="px-3 py-2 rounded-xl border border-gray-200 bg-[#f2f8f3] text-xs font-medium text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full sm:w-auto cursor-pointer"
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  id={`category-pill-${cat.slug || cat.id}`}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all shadow-sm ${selectedCategory === cat.id
+                      ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
+                    }`}
                 >
-                  <option value="">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filter Controls & Search */}
+          <div className="bg-white rounded-2xl p-3 sm:p-6 shadow-sm border border-emerald-200 mb-4 sm:mb-8 space-y-3 sm:space-y-4">
+            <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-center justify-between">
+              <div className="relative w-full md:w-80">
+                <Search className="absolute left-3.5 top-3 h-4 w-4 text-emerald-700" />
+                <input
+                  id="catalogue-search"
+                  type="text"
+                  placeholder="Search jaggery powder, blocks, syrup..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm outline-none transition bg-[#f2f8f3]"
+                />
+              </div>
+
+              {/* Filter Dropdowns: Category */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto">
+                {/* Category Dropdown */}
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
+                  <span className="text-xs text-gray-600 font-semibold shrink-0">Category:</span>
+                  <select
+                    id="select-category"
+                    value={selectedCategory || ''}
+                    onChange={(e) => setSelectedCategory(e.target.value || null)}
+                    className="px-3 py-2 rounded-xl border border-gray-200 bg-[#f2f8f3] text-xs font-medium text-gray-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none w-full sm:w-auto cursor-pointer"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Products Grid */}
-        {loading ? (
-          <div className="py-20 text-center">
-            <Loader2 className="h-10 w-10 text-emerald-600 animate-spin mx-auto mb-4" />
-            <p className="text-sm font-medium text-gray-500">Fetching our finest natural jaggery...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl text-center max-w-lg mx-auto">
-            <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-500" />
-            <p className="font-semibold text-sm">{error}</p>
-            <button
-              onClick={fetchData}
-              className="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : displayProducts.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-emerald-200 max-w-md mx-auto my-8">
-            <Package className="h-12 w-12 text-emerald-300 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-gray-800">No products found</h3>
-            <p className="text-xs text-gray-500 mt-1">Try clearing filters or searching for another term.</p>
-            <button
-              onClick={() => { setSelectedCategory(null); setQuery(''); }}
-              className="mt-4 px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-200 transition"
-            >
-              Reset All Filters
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
-            {displayProducts.map((product) => {
-              const { avg, count } = getProductAverageRating(product.id);
-              const price = isWholesale ? product.wholesalePrice : product.retailPrice;
-              const qty = cardQuantities[product.id] || (isWholesale ? product.wholesaleMoq || 1 : 1);
+          {/* Products Grid */}
+          {loading ? (
+            <div className="py-20 text-center">
+              <Loader2 className="h-10 w-10 text-emerald-600 animate-spin mx-auto mb-4" />
+              <p className="text-sm font-medium text-gray-500">Fetching our finest natural jaggery...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl text-center max-w-lg mx-auto">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-500" />
+              <p className="font-semibold text-sm">{error}</p>
+              <button
+                onClick={fetchData}
+                className="mt-4 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : displayProducts.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-emerald-200 max-w-md mx-auto my-8">
+              <Package className="h-12 w-12 text-emerald-300 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-gray-800">No products found</h3>
+              <p className="text-xs text-gray-500 mt-1">Try clearing filters or searching for another term.</p>
+              <button
+                onClick={() => { setSelectedCategory(null); setQuery(''); }}
+                className="mt-4 px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl hover:bg-emerald-200 transition"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
+              {displayProducts.map((product) => {
+                const { avg, count } = getProductAverageRating(product.id);
+                const price = isWholesale ? product.wholesalePrice : product.retailPrice;
+                const qty = cardQuantities[product.id] || (isWholesale ? product.wholesaleMoq || 1 : 1);
 
-              return (
-                <div
-                  key={product.id}
-                  id={`product-card-${product.sku}`}
-                  className="sf-card group bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-emerald-200/80 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="relative aspect-square bg-gradient-to-br from-amber-50/60 to-emerald-50/40 overflow-hidden cursor-pointer" onClick={() => setActiveModalProduct(product)}>
-                      <img
-                        src={product.imageUrl || 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&q=80&w=600'}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
-                      <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col gap-1 items-start">
-                        {product.featured && (
-                          <span className="px-1.5 py-0.5 sm:px-2 rounded text-[8px] sm:text-[10px] font-bold tracking-wider bg-amber-500 text-gray-950 shadow-sm">
-                            BESTSELLER
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="p-2 sm:p-3.5 lg:p-4 space-y-1.5 sm:space-y-2">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded truncate">
-                          {product.categoryName || 'Pure Jaggery'}
-                        </span>
-                        <div className="flex items-center gap-0.5 sm:gap-1 bg-emerald-700 text-white px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold shrink-0">
-                          <span>{avg}</span>
-                          <Star className="h-2 w-2 sm:h-2.5 sm:w-2.5 fill-white text-white" />
-                          <span className="text-emerald-100 font-normal">({count})</span>
+                return (
+                  <div
+                    key={product.id}
+                    id={`product-card-${product.sku}`}
+                    className="sf-card group bg-white rounded-xl sm:rounded-2xl overflow-hidden border border-emerald-200/80 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative aspect-square bg-gradient-to-br from-amber-50/60 to-emerald-50/40 overflow-hidden cursor-pointer" onClick={() => setActiveModalProduct(product)}>
+                        <img
+                          src={product.imageUrl || 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&q=80&w=600'}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 flex flex-col gap-1 items-start">
+                          {product.featured && (
+                            <span className="px-1.5 py-0.5 sm:px-2 rounded text-[8px] sm:text-[10px] font-bold tracking-wider bg-amber-500 text-gray-950 shadow-sm">
+                              BESTSELLER
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      <h3
-                        onClick={() => setActiveModalProduct(product)}
-                        className="font-bold text-gray-900 text-xs sm:text-sm group-hover:text-emerald-700 transition line-clamp-2 leading-snug cursor-pointer min-h-[2rem] sm:min-h-[2.5rem]"
-                        title={product.name}
-                      >
-                        {product.name}
-                      </h3>
-
-                      <div className="text-[9px] sm:text-[10px] text-gray-500 flex items-center gap-1">
-                        <span className="bg-gray-100 px-1 py-0.5 rounded font-medium text-gray-700 truncate">{product.packageType || '1 kg Block'}</span>
-                        <span>•</span>
-                        <span>{product.unitWeightKg} {product.unit || 'kg'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-2 sm:p-3.5 lg:p-4 pt-0">
-                    <div className="pt-2 border-t border-gray-100 flex flex-col xs:flex-row xs:items-center justify-between gap-1.5 sm:gap-2">
-                      <div className="min-w-0">
-                        <span className="text-[8px] sm:text-[9px] text-gray-400 uppercase font-semibold block truncate">
-                          {isWholesale ? 'Wholesale Price' : 'Price'}
-                        </span>
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-sm sm:text-base lg:text-lg font-black text-emerald-800 truncate block">
-                            {formatPrice(price)}
+                      <div className="p-2 sm:p-3.5 lg:p-4 space-y-1.5 sm:space-y-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded truncate">
+                            {product.categoryName || 'Pure Jaggery'}
                           </span>
-                          <span className="text-[9px] text-gray-400 line-through hidden xs:inline">
-                            {formatPrice(Math.round(price * 1.25))}
-                          </span>
+                          <div className="flex items-center gap-0.5 sm:gap-1 bg-emerald-700 text-white px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold shrink-0">
+                            <span>{avg}</span>
+                            <Star className="h-2 w-2 sm:h-2.5 sm:w-2.5 fill-white text-white" />
+                            <span className="text-emerald-100 font-normal">({count})</span>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 w-full xs:w-auto">
-                        <button
-                          id={`view-details-${product.sku}`}
+                        <h3
                           onClick={() => setActiveModalProduct(product)}
-                          className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 transition hidden xs:flex lg:flex"
-                          title="Quick View"
-                          aria-label={`View details of ${product.name}`}
+                          className="font-bold text-gray-900 text-xs sm:text-sm group-hover:text-emerald-700 transition line-clamp-2 leading-snug cursor-pointer min-h-[2rem] sm:min-h-[2.5rem]"
+                          title={product.name}
                         >
-                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        </button>
-                        <button
-                          id={`add-to-cart-${product.sku}`}
-                          onClick={() => onAddToCart(product.id, qty)}
-                          className="flex-1 xs:flex-initial px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl organic-gradient text-white text-[11px] sm:text-xs font-bold shadow-sm hover:shadow-md transition flex items-center justify-center gap-1 hover:brightness-105 active:scale-95"
-                          aria-label={`Add ${product.name} to cart`}
-                        >
-                          <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                          <span>Add</span>
-                        </button>
+                          {product.name}
+                        </h3>
+
+                        <div className="text-[9px] sm:text-[10px] text-gray-500 flex items-center gap-1">
+                          <span className="bg-gray-100 px-1 py-0.5 rounded font-medium text-gray-700 truncate">{product.packageType || '1 kg Block'}</span>
+                          <span>•</span>
+                          <span>{product.unitWeightKg} {product.unit || 'kg'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-2 sm:p-3.5 lg:p-4 pt-0">
+                      <div className="pt-2 border-t border-gray-100 flex flex-col xs:flex-row xs:items-center justify-between gap-1.5 sm:gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[8px] sm:text-[9px] text-gray-400 uppercase font-semibold block truncate">
+                            {isWholesale ? 'Wholesale Price' : 'Price'}
+                          </span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-sm sm:text-base lg:text-lg font-black text-emerald-800 truncate block">
+                              {formatPrice(price)}
+                            </span>
+                            <span className="text-[9px] text-gray-400 line-through hidden xs:inline">
+                              {formatPrice(Math.round(price * 1.25))}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 w-full xs:w-auto">
+                          <button
+                            id={`view-details-${product.sku}`}
+                            onClick={() => setActiveModalProduct(product)}
+                            className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 transition hidden xs:flex lg:flex"
+                            title="Quick View"
+                            aria-label={`View details of ${product.name}`}
+                          >
+                            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          </button>
+                          <button
+                            id={`add-to-cart-${product.sku}`}
+                            onClick={() => onAddToCart(product.id, qty)}
+                            className="flex-1 xs:flex-initial px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl organic-gradient text-white text-[11px] sm:text-xs font-bold shadow-sm hover:shadow-md transition flex items-center justify-center gap-1 hover:brightness-105 active:scale-95"
+                            aria-label={`Add ${product.name} to cart`}
+                          >
+                            <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                            <span>Add</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Quick View Modal */}
@@ -4132,7 +4119,7 @@ function ContactPage() {
                 <div>
                   <strong className="block text-white text-xs font-bold mb-0.5">Factory & Works:</strong>
                   <p className="text-emerald-50 text-xs leading-relaxed font-medium">
-                    Vollurupallem, Thotlavalluru, Andhra Pradesh – 521163
+                    Kankipadu, Thotlavalluru, Andhra Pradesh – 521163
                   </p>
                 </div>
               </div>
@@ -4305,6 +4292,25 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
     const file = e.target.files?.[0];
     if (!file || !auth.token) return;
 
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'jfif'];
+
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(fileExt)) {
+      alert('Invalid file format. Please upload a valid JPG, PNG, or WEBP image.');
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    // Validate file size (20MB)
+    const MAX_SIZE_MB = 20;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      alert(`Image size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds maximum allowed limit of ${MAX_SIZE_MB}MB.`);
+      if (e.target) e.target.value = '';
+      return;
+    }
+
     setImageUploading(true);
     const formData = new FormData();
     formData.append('file', file);
@@ -4318,18 +4324,33 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
         body: formData,
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        throw new Error(`Upload failed with status: ${res.status}`);
+        let message = data?.error?.message || data?.message;
+        if (!message) {
+          if (res.status === 413) {
+            message = 'Image size exceeds maximum upload limit allowed by server.';
+          } else if (res.status === 401 || res.status === 403) {
+            message = 'Session expired or insufficient admin permissions. Please log in again.';
+          } else {
+            message = `Failed to upload image (HTTP ${res.status}).`;
+          }
+        }
+        alert(message);
+        return;
       }
 
-      const data = await res.json();
-      if (data.data?.imageUrl) {
+      if (data?.data?.imageUrl) {
         setProductForm(prev => ({ ...prev, imageUrl: data.data.imageUrl }));
       }
-    } catch {
-      alert('Failed to upload image. Please ensure it is a valid JPG, PNG, or WEBP file.');
+    } catch (err: any) {
+      alert(err?.message || 'Network error occurred while uploading image. Please check connection and try again.');
     } finally {
       setImageUploading(false);
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   };
 
@@ -4673,13 +4694,13 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                       {imageUploading ? 'Uploading...' : 'Choose Image'}
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.jfif"
                         onChange={handleImageFileChange}
                         disabled={imageUploading}
                         className="hidden"
                       />
                     </label>
-                    <p className="text-[10px] text-gray-500">Uploads to persistent storage (JPG, PNG, WEBP)</p>
+                    <p className="text-[10px] text-gray-500">Supports JPG, PNG, WEBP up to 20MB</p>
                   </div>
                 </div>
               </div>
@@ -6081,11 +6102,10 @@ export function App() {
                 <button
                   id="subnav-shop"
                   onClick={() => setStorefrontPage('shop')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
-                    storefrontPage === 'shop'
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'shop'
                       ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
                       : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
-                  }`}
+                    }`}
                 >
                   <Store className="w-3.5 h-3.5 lg:hidden text-emerald-200" />
                   <span>Shop Catalogue</span>
@@ -6093,11 +6113,10 @@ export function App() {
                 <button
                   id="subnav-about"
                   onClick={() => setStorefrontPage('about')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
-                    storefrontPage === 'about'
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'about'
                       ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
                       : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
-                  }`}
+                    }`}
                 >
                   <Info className="w-3.5 h-3.5 lg:hidden text-emerald-600" />
                   <span>Our Heritage & About Us</span>
@@ -6105,11 +6124,10 @@ export function App() {
                 <button
                   id="subnav-reviews"
                   onClick={() => setStorefrontPage('reviews')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
-                    storefrontPage === 'reviews'
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'reviews'
                       ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
                       : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
-                  }`}
+                    }`}
                 >
                   <Star className="w-3.5 h-3.5 lg:hidden fill-amber-400 text-amber-500" />
                   <span>Verified Reviews</span>
@@ -6117,11 +6135,10 @@ export function App() {
                 <button
                   id="subnav-contact"
                   onClick={() => setStorefrontPage('contact')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${
-                    storefrontPage === 'contact'
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'contact'
                       ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
                       : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
-                  }`}
+                    }`}
                 >
                   <Phone className="w-3.5 h-3.5 lg:hidden text-emerald-600" />
                   <span>Contact & Distribution</span>
@@ -6130,7 +6147,7 @@ export function App() {
 
               <div className="hidden lg:flex items-center gap-4 text-emerald-300 text-[11px] shrink-0 font-medium">
                 <span>📞 Order Line: +91 9948533315</span>
-                <span>📍 Vollurupallem, Andhra Pradesh</span>
+                <span>📍 Kankipadu, Andhra Pradesh</span>
               </div>
             </div>
           </div>
@@ -6235,9 +6252,8 @@ export function App() {
         <button
           id="bottom-nav-shop"
           onClick={() => { setView('storefront'); setStorefrontPage('shop'); }}
-          className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
-            view === 'storefront' && storefrontPage === 'shop' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
-          }`}
+          className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${view === 'storefront' && storefrontPage === 'shop' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+            }`}
         >
           <Store className="h-5 w-5" />
           <span>Shop</span>
@@ -6268,9 +6284,8 @@ export function App() {
               setIsAuthModalOpen(true);
             }
           }}
-          className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
-            view === 'orders' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
-          }`}
+          className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${view === 'orders' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+            }`}
         >
           <Receipt className="h-5 w-5" />
           <span>Orders</span>
@@ -6280,9 +6295,8 @@ export function App() {
           <button
             id="bottom-nav-profile"
             onClick={() => setView('profile')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
-              view === 'profile' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
-            }`}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${view === 'profile' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+              }`}
           >
             <User className="h-5 w-5" />
             <span>Profile</span>
@@ -6293,9 +6307,8 @@ export function App() {
           <button
             id="bottom-nav-admin"
             onClick={() => setView('admin')}
-            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
-              view === 'admin' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
-            }`}
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${view === 'admin' ? 'text-emerald-700 font-bold' : 'text-gray-500 hover:text-gray-900'
+              }`}
           >
             <Building2 className="h-5 w-5" />
             <span>ERP</span>
@@ -6400,7 +6413,7 @@ export function App() {
             <div>
               <h4 className="font-bold text-white text-sm mb-3 font-serif">Factory Works</h4>
               <p className="text-emerald-200/90 leading-relaxed">
-                Vollurupallem, Thotlavalluru,<br />
+                Kankipadu, Thotlavalluru,<br />
                 Andhra Pradesh 521163
               </p>
             </div>

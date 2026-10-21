@@ -8,6 +8,11 @@ server:
 spring:
   application:
     name: commerce-service
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 25MB
   main:
     lazy-initialization: true
   datasource:

@@ -35,8 +35,23 @@ public class ImageStorageService {
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
             extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
-        } else {
+        }
+
+        if (extension.equals(".jfif")) {
             extension = ".jpg";
+        }
+
+        if (extension.isEmpty()) {
+            String ct = file.getContentType();
+            if (ct != null) {
+                if (ct.equalsIgnoreCase("image/jpeg") || ct.equalsIgnoreCase("image/jpg")) {
+                    extension = ".jpg";
+                } else if (ct.equalsIgnoreCase("image/png")) {
+                    extension = ".png";
+                } else if (ct.equalsIgnoreCase("image/webp")) {
+                    extension = ".webp";
+                }
+            }
         }
 
         // Validate allowed extensions
