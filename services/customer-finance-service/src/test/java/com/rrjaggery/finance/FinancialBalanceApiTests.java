@@ -87,6 +87,8 @@ class FinancialBalanceApiTests {
         wholesaleOrder.subtotalAmount = new BigDecimal("50000.00"); // 500 KG * ₹100
         wholesaleOrder.deliveryCharges = new BigDecimal("2000.00");
         wholesaleOrder.totalAmount = new BigDecimal("52000.00");
+        wholesaleOrder.paidAmount = new BigDecimal("52000.00");
+        wholesaleOrder.paymentStatus = "PAID";
         wholesaleOrder.orderDate = Instant.parse("2026-09-10T10:00:00Z");
         wholesaleOrder.status = "CONFIRMED";
 
@@ -98,6 +100,8 @@ class FinancialBalanceApiTests {
         manualRetailOrder.subtotalAmount = new BigDecimal("10000.00"); // 100 KG * ₹100
         manualRetailOrder.deliveryCharges = new BigDecimal("500.00");
         manualRetailOrder.totalAmount = new BigDecimal("10500.00");
+        manualRetailOrder.paidAmount = new BigDecimal("10500.00");
+        manualRetailOrder.paymentStatus = "PAID";
         manualRetailOrder.orderDate = Instant.parse("2026-09-15T10:00:00Z");
         manualRetailOrder.status = "CONFIRMED";
 

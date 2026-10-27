@@ -260,14 +260,14 @@ class FormRegistryApiTests {
         mockMvc.perform(post("/api/v1/finance/forms/fields/" + fieldId + "/options")
                         .contentType("application/json")
                         .content("""
-                                {"value":"OWNER_CAPITAL","label":"Owner capital","displayOrder":0}
+                                {"value":"VENTURE_DEBT","label":"Venture Debt","displayOrder":99}
                                 """))
                 .andExpect(status().isCreated());
 
         MvcResult investmentResult = mockMvc.perform(post("/api/v1/finance/investments")
                         .contentType("application/json")
                         .content("""
-                                {"investorName":"Owner","investmentType":"OWNER_CAPITAL","amount":25000.00,"investmentDate":"2026-09-30"}
+                                {"investorName":"Owner","investmentType":"VENTURE_DEBT","amount":25000.00,"investmentDate":"2026-09-30"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.amount").value(25000.00))
@@ -279,9 +279,9 @@ class FormRegistryApiTests {
                         .param("recordType", "INVESTMENT")
                         .param("recordId", investmentId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].answers.investmentType").value("OWNER_CAPITAL"))
-                .andExpect(jsonPath("$.data[0].revisionSnapshot.fields[0].options[0].label")
-                        .value("Owner capital"));
+                .andExpect(jsonPath("$.data[0].answers.investmentType").value("VENTURE_DEBT"))
+                .andExpect(jsonPath("$.data[0].revisionSnapshot.fields[0].options[?(@.value == 'VENTURE_DEBT')].label")
+                        .value(org.hamcrest.Matchers.hasItem("Venture Debt")));
 
         mockMvc.perform(get("/api/v1/finance/expenses"))
                 .andExpect(status().isOk())
