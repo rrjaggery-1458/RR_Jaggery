@@ -485,4 +485,97 @@ public class OrderControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("RAZORPAY_DISABLED"));
     }
+
+    // ── CORS Preflight Tests (Phase 2.2A) ────────────────────────────────────
+
+    @Test
+    void testCorsProductionOriginsReceiveHeaders() throws Exception {
+        // Preflight request from production root domain must receive explicit Allow-Origin
+        mockMvc.perform(options("/api/v1/commerce/products")
+                        .header("Origin", "https://rrdentalneeds.online")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "Authorization,Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    String allowOrigin = result.getResponse().getHeader("Access-Control-Allow-Origin");
+                    org.junit.jupiter.api.Assertions.assertEquals("https://rrdentalneeds.online", allowOrigin,
+                            "Production root domain should receive explicit Access-Control-Allow-Origin header");
+                });
+
+        // Preflight request from www subdomain must also receive explicit Allow-Origin
+        mockMvc.perform(options("/api/v1/commerce/products")
+                        .header("Origin", "https://www.rrdentalneeds.online")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Authorization,Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    String allowOrigin = result.getResponse().getHeader("Access-Control-Allow-Origin");
+                    org.junit.jupiter.api.Assertions.assertEquals("https://www.rrdentalneeds.online", allowOrigin,
+                            "Production www subdomain should receive explicit Access-Control-Allow-Origin header");
+                });
+    }
+
+    @Test
+    void testCorsLocalDevOriginReceivesHeader() throws Exception {
+        // Configured local development origin (http://localhost:5173)
+        // should receive Access-Control-Allow-Origin in preflight response.
+        mockMvc.perform(options("/api/v1/commerce/products")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "Authorization"))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    String allowOrigin = result.getResponse().getHeader("Access-Control-Allow-Origin");
+                    org.junit.jupiter.api.Assertions.assertEquals("http://localhost:5173", allowOrigin,
+                            "Allowed dev origin should receive explicit Access-Control-Allow-Origin header");
+                });
+    }
+
+    @Test
+    void testCorsDisallowedOriginReceivesNoHeader() throws Exception {
+        // An untrusted origin must NOT receive Access-Control-Allow-Origin in preflight response.
+        mockMvc.perform(options("/api/v1/commerce/products")
+                        .header("Origin", "https://evil.example.com")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "Authorization"))
+                .andExpect(result -> {
+                    String allowOrigin = result.getResponse().getHeader("Access-Control-Allow-Origin");
+                    org.junit.jupiter.api.Assertions.assertNull(allowOrigin,
+                            "Untrusted origin must not receive Access-Control-Allow-Origin");
+                });
+    }
+
+    @Test
+    void testCorsAllowedMethodsAndHeaders() throws Exception {
+        // Preflight request must confirm allowed methods and required headers
+        mockMvc.perform(options("/api/v1/commerce/products")
+                        .header("Origin", "https://rrdentalneeds.online")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Authorization,Content-Type"))
+                .andExpect(status().isOk())
+                .andExpect(result -> {
+                    String allowMethods = result.getResponse().getHeader("Access-Control-Allow-Methods");
+                    org.junit.jupiter.api.Assertions.assertNotNull(allowMethods, "Allowed methods must be present");
+                    org.junit.jupiter.api.Assertions.assertTrue(allowMethods.contains("GET"), "Methods must include GET");
+                    org.junit.jupiter.api.Assertions.assertTrue(allowMethods.contains("POST"), "Methods must include POST");
+                    String allowHeaders = result.getResponse().getHeader("Access-Control-Allow-Headers");
+                    org.junit.jupiter.api.Assertions.assertNotNull(allowHeaders, "Allowed headers must be present");
+                    org.junit.jupiter.api.Assertions.assertTrue(allowHeaders.contains("Authorization"), "Headers must include Authorization");
+                    org.junit.jupiter.api.Assertions.assertTrue(allowHeaders.contains("Content-Type"), "Headers must include Content-Type");
+                });
+    }
+
+    @Test
+    void testCorsNoWildcardInAllowedOrigins() throws Exception {
+        // The wildcard '*' must not appear in the Access-Control-Allow-Origin header.
+        // Perform a preflight from the allowed origin and assert the response is an explicit value.
+        mockMvc.perform(options("/api/v1/commerce/products")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(result -> {
+                    String allowOrigin = result.getResponse().getHeader("Access-Control-Allow-Origin");
+                    org.junit.jupiter.api.Assertions.assertNotEquals("*", allowOrigin,
+                            "Access-Control-Allow-Origin must not be a wildcard '*'");
+                });
+    }
 }

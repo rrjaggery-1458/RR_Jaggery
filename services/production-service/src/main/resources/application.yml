@@ -1,5 +1,8 @@
 server:
   port: ${PRODUCTION_SERVICE_PORT:8086}
+  # Trust X-Forwarded-* headers from the Nginx reverse proxy (Docker internal network only).
+  # Safe because Docker bridge isolates the upstream; untrusted clients cannot reach the service directly.
+  forward-headers-strategy: native
 
 spring:
   application:
@@ -25,6 +28,11 @@ spring:
       fail-on-empty-beans: false
 
 app:
+  cors:
+    # Comma-separated list of allowed CORS origins.
+    # Production: set ALLOWED_ORIGINS in .env on the VPS.
+    # Local dev: falls back to Vite dev server.
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173}
   forms:
     enabled: true
     api-base: /api/v1/production/forms

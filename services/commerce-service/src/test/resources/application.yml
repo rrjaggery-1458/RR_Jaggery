@@ -17,5 +17,7 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
         default_schema: COMMERCE_SCHEMA
 app:
+  cors:
+    allowed-origins: http://localhost:5173,https://rrdentalneeds.online,https://www.rrdentalneeds.online
   demo-data:
     seed-enabled: true

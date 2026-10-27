@@ -18,6 +18,8 @@ spring:
         default_schema: PRODUCTION_SCHEMA
 
 app:
+  cors:
+    allowed-origins: http://localhost:5173
   forms:
     enabled: true
     api-base: /api/v1/production/forms

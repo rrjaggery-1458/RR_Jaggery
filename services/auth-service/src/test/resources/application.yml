@@ -21,3 +21,7 @@ bootstrap:
   admin:
     username: bootstrap-test-admin@example.invalid
     password: test-only-bootstrap-password
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173

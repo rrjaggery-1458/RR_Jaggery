@@ -1,5 +1,8 @@
 server:
   port: ${COMMERCE_SERVICE_PORT:8082}
+  # Trust X-Forwarded-* headers from the Nginx reverse proxy (Docker internal network only).
+  # Safe because Docker bridge isolates the upstream; untrusted clients cannot reach the service directly.
+  forward-headers-strategy: native
   tomcat:
     threads:
       max: 50
@@ -43,6 +46,11 @@ app:
     dir: ${UPLOAD_DIR:./uploads/products}
   inventory:
     base-url: ${INVENTORY_SERVICE_URL:http://localhost:8084}
+  cors:
+    # Comma-separated list of allowed CORS origins.
+    # Production: set ALLOWED_ORIGINS in .env on the VPS.
+    # Local dev: falls back to Vite dev server.
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173}
   jwt:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}

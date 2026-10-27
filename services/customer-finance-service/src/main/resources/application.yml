@@ -1,5 +1,8 @@
 server:
   port: ${CUSTOMER_FINANCE_SERVICE_PORT:8083}
+  # Trust X-Forwarded-* headers from the Nginx reverse proxy (Docker internal network only).
+  # Safe because Docker bridge isolates the upstream; untrusted clients cannot reach the service directly.
+  forward-headers-strategy: native
 
 spring:
   application:
@@ -38,6 +41,11 @@ app:
   contact:
     recipient: ${CONTACT_EMAIL_RECIPIENT:rrjaggery@gmail.com}
     from: ${CONTACT_EMAIL_FROM:${SMTP_USERNAME:}}
+  cors:
+    # Comma-separated list of allowed CORS origins.
+    # Production: set ALLOWED_ORIGINS in .env on the VPS.
+    # Local dev: falls back to Vite dev server.
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173}
   forms:
     enabled: true
     api-base: /api/v1/customers/forms

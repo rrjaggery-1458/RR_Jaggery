@@ -21,6 +21,8 @@ app:
     enabled: true
     api-base: /api/v1/customers/forms
     owned-keys: WHOLESALE_ORDER
+  cors:
+    allowed-origins: http://localhost:5173
   demo-data:
     seed-enabled: true
   jwt:
