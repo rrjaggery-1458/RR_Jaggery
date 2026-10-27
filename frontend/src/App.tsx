@@ -917,8 +917,8 @@ function AuthModal({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 ) : (
                   <>
                     <div className={`rounded-xl border p-3 text-xs ${registrationEmailStatus === 'FAILED'
-                        ? 'border-red-200 bg-red-50 text-red-800'
-                        : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      ? 'border-red-200 bg-red-50 text-red-800'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-800'
                       }`}>
                       {registrationEmailStatus === 'PENDING' && <>Sending a verification code to <strong>{regForm.email}</strong>…</>}
                       {registrationEmailStatus === 'SENT' && <>A verification code was sent to <strong>{regForm.email}</strong>.</>}
@@ -1453,8 +1453,8 @@ function CheckoutModal({
             {locationFeedback && (
               <div
                 className={`flex items-start justify-between text-xs rounded-xl px-3.5 py-2.5 transition border ${locationFeedback.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                    : 'bg-amber-50 text-amber-900 border-amber-300'
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                  : 'bg-amber-50 text-amber-900 border-amber-300'
                   }`}
               >
                 <div className="flex items-start gap-2">
@@ -2105,8 +2105,8 @@ function InvoiceModal({
                   </div>
                   <div className="pt-1">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${invoice.paymentStatus === 'PAID'
-                        ? 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
-                        : 'bg-amber-100/80 text-amber-800 border-amber-300'
+                      ? 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-100/80 text-amber-800 border-amber-300'
                       }`}>
                       <CreditCard className="h-3 w-3" />
                       {invoice.paymentStatus === 'PAID' ? 'Paid Online' : `Pending (${invoice.paymentMethod})`}
@@ -2145,7 +2145,7 @@ function InvoiceModal({
                     </div>
                     <div className="text-gray-900 font-bold text-xs">Jaggery Manufacturing & Direct Distribution</div>
                     <div className="text-gray-500 text-[11px] mt-1 leading-relaxed">
-                      All products supplied directly from the sugarcane crushing and organic boiling unit at Vallurupallem.
+                      All products supplied directly from the sugarcane crushing and organic boiling unit at Kankipadu.
                     </div>
                   </div>
                   <div className="mt-3 pt-2 border-t border-stone-200/60 flex items-center justify-between text-[11px] text-gray-500">
@@ -2268,7 +2268,7 @@ function InvoiceModal({
                   <span>Authorized computer-generated invoice from RR Jaggery Traders</span>
                 </div>
                 <div className="text-gray-500">
-                  Support: <strong className="text-gray-700">+91 9948533315</strong>
+                  Support: <strong className="text-gray-700">+91 7207063315</strong>
                 </div>
               </div>
             </div>
@@ -2392,8 +2392,8 @@ function OrderHistoryView({
           <button
             onClick={() => setFilter('ALL')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'ALL'
-                ? 'bg-emerald-800 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-emerald-800 text-white shadow-md'
+              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
           >
             All Orders ({orders.length})
@@ -2401,8 +2401,8 @@ function OrderHistoryView({
           <button
             onClick={() => setFilter('ACTIVE')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'ACTIVE'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
           >
             Active In-Flight ({activeOrdersCount})
@@ -2410,8 +2410,8 @@ function OrderHistoryView({
           <button
             onClick={() => setFilter('DELIVERED')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'DELIVERED'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
               }`}
           >
             Delivered ({deliveredOrdersCount})
@@ -2420,8 +2420,8 @@ function OrderHistoryView({
             <button
               onClick={() => setFilter('CANCELLED')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${filter === 'CANCELLED'
-                  ? 'bg-red-600 text-white shadow-md'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                ? 'bg-red-600 text-white shadow-md'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }`}
             >
               Cancelled ({cancelledOrdersCount})
@@ -2604,8 +2604,8 @@ function OrderHistoryView({
                         </span>
                         {/* Payment Pill */}
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${isPaid
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}>
                           <CreditCard className="h-3 w-3" />
                           {isPaid ? (order.paymentMethod === 'RAZORPAY' ? 'Paid via Razorpay' : 'Paid') : 'Cash on Delivery'}
@@ -2675,8 +2675,8 @@ function OrderHistoryView({
                         <div className="relative z-10 flex flex-col items-center">
                           <div
                             className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${cfg.stepIndex >= 2
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-white border-2 border-stone-300 text-stone-400'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-white border-2 border-stone-300 text-stone-400'
                               }`}
                           >
                             {cfg.stepIndex >= 2 ? '✓' : '2'}
@@ -2690,8 +2690,8 @@ function OrderHistoryView({
                         <div className="relative z-10 flex flex-col items-center">
                           <div
                             className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${cfg.stepIndex >= 3
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-white border-2 border-stone-300 text-stone-400'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-white border-2 border-stone-300 text-stone-400'
                               }`}
                           >
                             {cfg.stepIndex >= 3 ? '✓' : '3'}
@@ -2705,8 +2705,8 @@ function OrderHistoryView({
                         <div className="relative z-10 flex flex-col items-center">
                           <div
                             className={`h-7 w-7 rounded-full flex items-center justify-center shadow-xs text-xs font-bold transition-colors ${cfg.stepIndex >= 4
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-white border-2 border-stone-300 text-stone-400'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-white border-2 border-stone-300 text-stone-400'
                               }`}
                           >
                             {cfg.stepIndex >= 4 ? '✓' : '4'}
@@ -2878,14 +2878,16 @@ function AdminOrderManagement({ auth, onViewInvoice }: { auth: AuthState; onView
         headers: authHeaders(auth.token),
         body: JSON.stringify({ status: newStatus }),
       });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({}));
       if (res.ok && body.success) {
         fetchOrders();
       } else {
-        alert(body.error?.message ?? 'Failed to update order status.');
+        alert(body.error?.message || body.message || 'The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it delivered.');
+        fetchOrders();
       }
-    } catch {
-      alert('Error updating order status.');
+    } catch (err: any) {
+      alert(err.message || 'Error updating order status.');
+      fetchOrders();
     }
   }
 
@@ -3074,13 +3076,13 @@ function Storefront({
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-center">
           <div className="lg:col-span-7 space-y-3 sm:space-y-6">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] sm:text-xs font-bold tracking-wide uppercase">
-              <Sparkles className="h-3 w-3 text-emerald-700" /> 20+ Years of Excellence · 100% Chemical Free
+              <Sparkles className="h-3 w-3 text-emerald-700" /> 20+ Years of Excellence · 100% Chemical Free ORGANIC JAGGERY
             </div>
             <h1 className="text-2xl sm:text-4xl lg:text-6xl font-extrabold tracking-tight text-emerald-950 font-serif leading-tight">
               100% Naturally Made,<span className="text-emerald-700"> Organic</span> Jaggery
             </h1>
             <p className="text-xs sm:text-base lg:text-lg text-gray-600 max-w-2xl leading-relaxed">
-              With over 20+ years of hands-on experience, we craft 100% chemical-free, hygienic jaggery made with authentic heritage care and uncompromising purity passed down through generations.
+              With over 20+ years of hands-on experience, we craft 100% chemical-free, hygienic jaggery made with authentic heritage care and uncompromising purity.
             </p>
 
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1 sm:pt-2">
@@ -3134,13 +3136,13 @@ function Storefront({
         <div className="text-center space-y-2 mb-6 sm:mb-8">
           <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold tracking-wide border border-emerald-300 inline-flex items-center gap-1.5">
             <Sparkles className="h-3 w-3 text-amber-600" />
-            20+ YEARS OF EXCELLENCE · 100% CHEMICAL FREE
+            20+ YEARS OF EXCELLENCE · 100% CHEMICAL FREE ORGANIC JAGGERY
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-emerald-950 font-serif leading-tight">
-            Real Makers, <span className="text-emerald-700">Not Just Resellers</span>
+            Real Manufacturers, <span className="text-emerald-700">Not Just Resellers</span>
           </h2>
           <p className="text-xs sm:text-sm text-gray-600 max-w-2xl mx-auto">
-            With 20+ years of hands-on experience, RR Jaggery makes 100% chemical-free jaggery in our own facility — we are direct makers, not traders. Every batch is made under our direct care from farm to your kitchen.
+            With 20+ years of hands-on experience, RR Jaggery makes 100% chemical-free Organic jaggery in our own facility — we are direct Manufacturers, not traders. Every batch is made under our direct care from farm to your kitchen.
           </p>
         </div>
 
@@ -3163,7 +3165,7 @@ function Storefront({
             </div>
             <h3 className="font-extrabold text-gray-900 text-sm sm:text-base">Jaggery Specialists</h3>
             <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed">
-              We only make 100% chemical-free jaggery — cubes, crushed powder & solid blocks made with pure care.
+              We only make 100% chemical-free and Organic— Jaggery cubes, Jaggery powder, Liquid Jaggery & solid blocks made with pure care.
             </p>
           </div>
 
@@ -3174,7 +3176,7 @@ function Storefront({
             </div>
             <h3 className="font-extrabold text-gray-900 text-sm sm:text-base">Premium Sugarcane</h3>
             <p className="text-[11px] sm:text-xs text-gray-600 leading-relaxed">
-              Sourced directly from Krishna river belt farmers at ₹5,000/ton premium for the finest cane.
+              Sourced directly from Krishna river belt farmers at premium price for the finest cane.
             </p>
           </div>
 
@@ -3235,8 +3237,8 @@ function Storefront({
                 id="category-pill-all"
                 onClick={() => setSelectedCategory(null)}
                 className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 shadow-sm ${!selectedCategory
-                    ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
+                  ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
+                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
                   }`}
               >
                 <Leaf className="h-3.5 w-3.5" />
@@ -3248,8 +3250,8 @@ function Storefront({
                   id={`category-pill-${cat.slug || cat.id}`}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all shadow-sm ${selectedCategory === cat.id
-                      ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
+                    ? 'bg-emerald-700 text-white shadow-emerald-700/20 ring-2 ring-emerald-500/40'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-emerald-50'
                     }`}
                 >
                   <span>{cat.name}</span>
@@ -3766,7 +3768,7 @@ function AboutPage({
         <div className="flex justify-center mb-2">
           <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl p-2 bg-white border-2 border-amber-400 shadow-md flex items-center justify-center">
             <img
-              src="/rr-logo.png"
+              src="/RR_Jaggery_Logo.png"
               alt="RR Jaggery Official Logo"
               className="w-full h-full object-contain rounded-xl"
             />
@@ -3774,16 +3776,16 @@ function AboutPage({
         </div>
         <span className="px-3.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold tracking-wide border border-emerald-300 inline-flex items-center gap-1.5 shadow-sm">
           <Sparkles className="h-3.5 w-3.5 text-amber-600" />
-          20+ YEARS OF EXCELLENCE · 100% CHEMICAL FREE
+          20+ YEARS OF EXCELLENCE · 100% CHEMICAL FREE ORGANIC JAGGERY
         </span>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-emerald-950 font-serif leading-tight">
           Introducing <span className="text-emerald-700">RR Jaggery</span>
         </h1>
         <p className="text-base sm:text-lg font-medium text-amber-800">
-          Your Natural, Pure, Chemical-Free &amp; Hygienic Sweet Delight!
+          Your Natural, Pure, Chemical-Free, Organic &amp; Hygienic Sweet Delight!
         </p>
         <p className="text-sm sm:text-base text-gray-700 max-w-3xl mx-auto leading-relaxed">
-          With over <strong>20+ years of hands-on experience</strong>, RR Jaggery is the exclusive <strong>100% chemical-free</strong> jaggery producer in Andhra Pradesh, India. While many other brands only buy and resell jaggery from open markets, we make it ourselves from start to finish. Our direct commitment to hygiene, chemical-free processing, and pure quality makes RR Jaggery the natural first choice for your home.
+          With over <strong>20+ years of hands-on experience</strong>, RR Jaggery is the exclusive <strong>100% chemical-free Organic</strong> jaggery producer in Andhra Pradesh. While many other brands only buy and resell jaggery from open markets, we make it ourselves from Cane to Jaggery. Our direct commitment to hygiene, chemical-free processing, and pure quality makes RR Jaggery the natural first choice for your kitchen.
         </p>
       </div>
 
@@ -3794,7 +3796,7 @@ function AboutPage({
             Why Choose RR Jaggery?
           </h2>
           <p className="text-xs sm:text-sm text-gray-600">
-            20+ years of pure, chemical-free jaggery making, clean processes, and trusted farmer partnerships.
+            20+ years of pure, chemical-free Organic jaggery making, clean processes, and trusted farmer partnerships.
           </p>
         </div>
 
@@ -3811,7 +3813,7 @@ function AboutPage({
               </div>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed">
-              With <strong>20+ years of experience</strong>, RR Jaggery is a pioneer in making <strong>100% chemical-free</strong> jaggery <strong>Cubes</strong> and <strong>Crushed Powder</strong>. We make our own jaggery — we are <strong>direct makers, not resellers</strong>. Unlike brands who simply buy mixed stock from local open markets, we maintain complete chemical-free control over quality at every single step. When you choose RR Jaggery, you get 100% pure, honest sweetener.
+              With <strong>20+ years of experience</strong>, RR Jaggery is a pioneer in making <strong>100% chemical-free Organic Jaggery Cubes, Liquid Jaggey </strong> and <strong>Jaggery Powder</strong>. We make our own jaggery — we are <strong>direct Manufacturers, not resellers</strong>. Unlike brands who simply buy mixed stock from local open markets, we maintain complete chemical-free control over quality at every single step. When you choose RR Jaggery, you get 100% pure, honest and Organic sweetener.
             </p>
           </div>
 
@@ -3827,7 +3829,7 @@ function AboutPage({
               </div>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed">
-              For over 20+ years, our only focus has been making the finest <strong>chemical-free</strong> jaggery, not general grocery trading. Because we specialize only in jaggery, we maintain strict cleanliness and zero synthetic chemicals. We take great pride in making pure, clean jaggery and delivering it fresh to your kitchen.
+              For over 20+ years, our only focus has been making the finest <strong>chemical-free Organic</strong> jaggery, not general grocery trading. Because we specialize only in jaggery, we maintain strict cleanliness and zero synthetic chemicals. We take great pride in making pure, clean jaggery and delivering it fresh to your kitchen.
             </p>
           </div>
 
@@ -3843,7 +3845,7 @@ function AboutPage({
               </div>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed">
-              Quality begins with the raw materials, and we understand that intimately. We pay our sugarcane growing farmers along the Krishna river belt a premium of <strong>₹5,000 per ton</strong>, making us the top paymaster in the region. This ensures we receive the highest quality sugarcane, adhering to RR Jaggery's strict Standard Operating Procedures (SOP).
+              Quality begins with the raw materials, and we understand that intimately. We pay our sugarcane growing farmers <strong> Premium price</strong>, making us the top paymaster in the region. This ensures we receive the highest quality sugarcane, adhering to RR Jaggery's strict Standard Operating Procedures (SOP).
             </p>
           </div>
 
@@ -3859,7 +3861,7 @@ function AboutPage({
               </div>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed">
-              We take hygiene seriously. RR Jaggery is made <strong>100% chemical-free</strong> &mdash; after washing each sugarcane stalk thoroughly with pure, clean water to achieve a certified <strong>bacterial count of nil</strong>. No synthetic preservatives, no bleaching agents, no artificial additives. With RR Jaggery, your family&apos;s health comes first.
+              We take hygiene seriously. RR Jaggery is made <strong>100% chemical-free</strong> &mdash; after washing each sugarcane stalk thoroughly with salt water to achieve a certified <strong>bacterial count of nil</strong>. No synthetic preservatives, no bleaching agents, no artificial additives. With RR Jaggery, your family&apos;s health comes first.
             </p>
           </div>
         </div>
@@ -4020,7 +4022,7 @@ function AboutPage({
             RR Jaggery &mdash; 20+ Years of Pure, Chemical-Free Tradition
           </h2>
           <p className="text-xs sm:text-sm md:text-base text-emerald-100/90 leading-relaxed font-sans max-w-xl mx-auto">
-            Experience the difference of 20+ years of pure jaggery making &mdash; 100% chemical-free, hygienic, and naturally wholesome. Enjoy authentic sweetness made with direct care for you and your family.
+            Experience the difference of 20+ years of pure organic jaggery making &mdash; 100% chemical-free, hygienic, and naturally wholesome. Enjoy authentic sweetness made with direct care for you and your family.
           </p>
         </div>
 
@@ -4084,7 +4086,7 @@ function ContactPage() {
     }
   };
 
-  const whatsappHref = `https://wa.me/919948533315?text=${encodeURIComponent(
+  const whatsappHref = `https://wa.me/917207063315?text=${encodeURIComponent(
     `Website inquiry from ${formData.name} (${formData.email}${formData.phone ? `, ${formData.phone}` : ''}): ${formData.message}`
   )}`;
 
@@ -4119,7 +4121,7 @@ function ContactPage() {
                 <div>
                   <strong className="block text-white text-xs font-bold mb-0.5">Factory & Works:</strong>
                   <p className="text-emerald-50 text-xs leading-relaxed font-medium">
-                    Kankipadu, Thotlavalluru, Andhra Pradesh – 521163
+                    Kankipadu, Andhra Pradesh – 521163
                   </p>
                 </div>
               </div>
@@ -4131,7 +4133,7 @@ function ContactPage() {
                 <div>
                   <strong className="block text-white text-xs font-bold mb-0.5">Phone / WhatsApp:</strong>
                   <p className="text-emerald-50 text-xs font-medium">
-                    +91 9948533315
+                    +91 7207063315
                   </p>
                 </div>
               </div>
@@ -4413,13 +4415,15 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
         headers: authHeaders(auth.token),
         body: JSON.stringify(payload),
       });
-      const body = await res.json();
-      if (res.ok && body.success) {
+      const body = await res.json().catch(() => null);
+      if (res.ok && body?.success) {
         setShowCreateModal(false);
         setEditingProduct(null);
         fetchData();
       } else {
-        alert(body.error?.message ?? 'Failed to save product.');
+        const errorDetail = body?.error?.details?.map((d: any) => d.message || `${d.field}: invalid`).join('; ');
+        const errorMsg = errorDetail || body?.error?.message || body?.message || 'Failed to save product.';
+        alert(errorMsg);
       }
     } catch {
       alert('Error connecting to Commerce Service.');
@@ -4623,12 +4627,18 @@ function AdminCatalogue({ auth }: { auth: AuthState }) {
                   value={productForm.name}
                   onChange={e => {
                     const val = e.target.value;
-                    setProductForm(f => ({
-                      ...f,
-                      name: val,
-                      slug: editingProduct ? f.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-                      sku: editingProduct ? f.sku : (val ? 'RR-' + val.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + (f.packageType ? f.packageType.substring(0, 3) : 'PKG') : f.sku)
-                    }));
+                    setProductForm(f => {
+                      const slug = editingProduct ? f.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      let sku = f.sku;
+                      if (!editingProduct) {
+                        const baseSku = val ? 'RR-' + val.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + (f.packageType ? f.packageType.substring(0, 3) : 'PKG') : '';
+                        if (baseSku) {
+                          const exists = products.some(p => p.sku.toUpperCase() === baseSku);
+                          sku = exists ? `${baseSku}-${Math.floor(100 + Math.random() * 900)}` : baseSku;
+                        }
+                      }
+                      return { ...f, name: val, slug, sku };
+                    });
                   }}
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                 />
@@ -6103,8 +6113,8 @@ export function App() {
                   id="subnav-shop"
                   onClick={() => setStorefrontPage('shop')}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'shop'
-                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
-                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                    ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                    : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
                     }`}
                 >
                   <Store className="w-3.5 h-3.5 lg:hidden text-emerald-200" />
@@ -6114,8 +6124,8 @@ export function App() {
                   id="subnav-about"
                   onClick={() => setStorefrontPage('about')}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'about'
-                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
-                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                    ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                    : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
                     }`}
                 >
                   <Info className="w-3.5 h-3.5 lg:hidden text-emerald-600" />
@@ -6125,8 +6135,8 @@ export function App() {
                   id="subnav-reviews"
                   onClick={() => setStorefrontPage('reviews')}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'reviews'
-                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
-                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                    ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                    : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
                     }`}
                 >
                   <Star className="w-3.5 h-3.5 lg:hidden fill-amber-400 text-amber-500" />
@@ -6136,8 +6146,8 @@ export function App() {
                   id="subnav-contact"
                   onClick={() => setStorefrontPage('contact')}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all flex items-center gap-1.5 ${storefrontPage === 'contact'
-                      ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
-                      : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
+                    ? 'bg-emerald-700 text-white shadow-sm ring-1 ring-emerald-600 lg:bg-emerald-500 lg:ring-emerald-300/40'
+                    : 'bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 border border-emerald-200/80 lg:bg-emerald-900/60 lg:text-emerald-200 lg:hover:bg-emerald-800 lg:hover:text-white lg:border-emerald-800/60'
                     }`}
                 >
                   <Phone className="w-3.5 h-3.5 lg:hidden text-emerald-600" />
@@ -6146,7 +6156,7 @@ export function App() {
               </div>
 
               <div className="hidden lg:flex items-center gap-4 text-emerald-300 text-[11px] shrink-0 font-medium">
-                <span>📞 Order Line: +91 9948533315</span>
+                <span>📞 Order Line: +91 7207063315</span>
                 <span>📍 Kankipadu, Andhra Pradesh</span>
               </div>
             </div>
@@ -6376,7 +6386,7 @@ export function App() {
                 <span className="font-extrabold text-base text-white font-serif tracking-tight">RR JAGGERY</span>
               </div>
               <p className="text-emerald-200/90 leading-relaxed">
-                Producer of naturally made, authentic sugarcane jaggery powder, solid blocks, and syrup crafted with care.
+                Producer of naturally made, Organic jaggery blocks,Powder and syrup crafted with care.
               </p>
             </div>
 
@@ -6413,7 +6423,7 @@ export function App() {
             <div>
               <h4 className="font-bold text-white text-sm mb-3 font-serif">Factory Works</h4>
               <p className="text-emerald-200/90 leading-relaxed">
-                Kankipadu, Thotlavalluru,<br />
+                Kankipadu,<br />
                 Andhra Pradesh 521163
               </p>
             </div>

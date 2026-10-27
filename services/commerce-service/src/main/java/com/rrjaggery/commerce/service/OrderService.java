@@ -34,19 +34,22 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final StockOutboxService stockOutboxService;
+    private final InventoryStockClient inventoryStockClient;
 
     public OrderService(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             CartItemRepository cartItemRepository,
             ProductRepository productRepository,
-            StockOutboxService stockOutboxService
+            StockOutboxService stockOutboxService,
+            InventoryStockClient inventoryStockClient
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.stockOutboxService = stockOutboxService;
+        this.inventoryStockClient = inventoryStockClient;
     }
 
     public OrderDto checkout(
@@ -220,9 +223,34 @@ public class OrderService {
                 throw new IllegalStateException("Orders already in processing or dispatch cannot be cancelled automatically.");
             }
             if (!isStockConsumingStatus(previousStatus) && isStockConsumingStatus(newStatus)) {
+                // ── Stock availability pre-check ─────────────────────────────────────
+                // Online orders can be placed regardless of stock, but CANNOT be
+                // moved to DISPATCHED/DELIVERED when inventory is insufficient.
+                // Check live stock before marking dispatched/delivered and enqueuing the sale.
+                for (com.rrjaggery.commerce.entity.OrderItem item : order.getItems()) {
+                    java.math.BigDecimal weight = item.getUnitWeightKg();
+                    if (weight == null || weight.compareTo(java.math.BigDecimal.ZERO) <= 0) weight = java.math.BigDecimal.ONE;
+                    java.math.BigDecimal required = java.math.BigDecimal.valueOf(item.getQuantity())
+                            .multiply(weight)
+                            .setScale(3, java.math.RoundingMode.HALF_UP);
+                    java.math.BigDecimal available = inventoryStockClient.checkAvailableStock(item.getSku());
+                    if (available == null) available = java.math.BigDecimal.ZERO;
+                    if (available.compareTo(required) < 0) {
+                        String targetAction = newStatus == OrderStatus.DELIVERED ? "delivered" : "dispatched";
+                        throw new IllegalStateException(
+                                "The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it "
+                                + targetAction + ". (Product: \"" + item.getProductName() + "\", SKU: " + item.getSku()
+                                + ", Required: " + required.stripTrailingZeros().toPlainString() + " KG, Available: "
+                                + available.stripTrailingZeros().toPlainString() + " KG)");
+                    }
+                }
+                // ─────────────────────────────────────────────────────────────────────
                 stockOutboxService.enqueueSale(order);
             }
-            if (newStatus == OrderStatus.CANCELLED && previousStatus != OrderStatus.CANCELLED) {
+            if (newStatus == OrderStatus.CANCELLED && isStockConsumingStatus(previousStatus)) {
+                stockOutboxService.enqueueRestoration(order);
+            }
+            if (isStockConsumingStatus(previousStatus) && !isStockConsumingStatus(newStatus) && newStatus != OrderStatus.CANCELLED) {
                 stockOutboxService.enqueueRestoration(order);
             }
             order.setStatus(newStatus);
@@ -253,8 +281,7 @@ public class OrderService {
     }
 
     private boolean isStockConsumingStatus(OrderStatus status) {
-        return status == OrderStatus.CONFIRMED || status == OrderStatus.PROCESSING
-                || status == OrderStatus.DISPATCHED || status == OrderStatus.DELIVERED;
+        return status == OrderStatus.DISPATCHED || status == OrderStatus.DELIVERED;
     }
 
     private boolean isCancellableStatus(OrderStatus status) {

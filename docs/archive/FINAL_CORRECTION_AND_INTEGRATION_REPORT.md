@@ -16,7 +16,7 @@ A comprehensive audit and end-to-end verification of the entire RR Jaggery platf
 3. **Product Creation Failure:** Resolved missing standard category references and DTO field alignment in `commerce-service`. Product creation persists in PostgreSQL and is immediately available in the catalog.
 4. **Wage Payments Table Empty:** Unified the payroll view in `ManagerPortal.tsx` to read both `/finance/salary-payments` and `/payroll`, correctly displaying all recorded wage settlements.
 5. **Missing Manual Retail Order Action:** Added "Manual Retail Orders" workflow and modal in the dashboard with automated financial reconciliation (`Product Income = KG × Price/KG + Delivery`).
-6. **Storefront & Contact Details Cleanup:** Completely purged all unrelated/fabricated Mandya and test claims across storefront, invoice headers, and DTOs. Embedded the authoritative factory address (`Vallurupallem, Thotlavalluru, Andhra Pradesh 5221163`) and contact details.
+6. **Storefront & Contact Details Cleanup:** Completely purged all unrelated/fabricated Mandya and test claims across storefront, invoice headers, and DTOs. Embedded the authoritative factory address (`Kankipadu,Andhra Pradesh 5221163`) and contact details.
 7. **UI Text Visibility & Modal Responsiveness:** Fixed all transparent/low-contrast text styles and resized oversized modals with responsive 2-column layouts and internal scrolling.
 8. **Admin System Health & Dynamic Form Builder:** Verified operational health across all 8 microservices and database schemas with strict RBAC enforcement (ADMIN only).
 
@@ -69,7 +69,7 @@ $$\text{Closing Operational Balance} = \text{Opening Balance} + \text{Period Inv
 |---|---|---|---|
 | **Storefront** | White/Emerald Theme & Typography | Browser & CSS Inspection | **PASS** |
 | **Storefront** | Removal of Mandya & Demo Claims | Global Codebase Grep & Inspection | **PASS** |
-| **Storefront** | Authoritative Contact Info (Thotlavalluru, AP) | Storefront & Invoice Inspection | **PASS** |
+| **Storefront** | Authoritative Contact Info (, AP) | Storefront & Invoice Inspection | **PASS** |
 | **Storefront** | Text Contrast & Readability | UI Audit & Contrast Ratio Check | **PASS** |
 | **Storefront** | Catalog, Cart, Checkout, My Orders | API & Component Verification | **PASS** |
 | **ERP Dashboard**| 5 Running Balance Cards (Operational, Opening, etc.) | Frontend TSX & API Verification | **PASS** |
@@ -141,7 +141,7 @@ Traditional Jaggery Finished Stock Check (>= 200 KG): PASS (200 KG)
 
 [7] Testing Salary / Wage Payments Flow (/api/v1/finance/salary-payments)...
 Salary Payments Status: 200 OK
-Salary Payments Records: 1 active record (CH Padma - ₹23,076.00)
+Salary Payments Records: 1 active record (CH Venkata Ramesh - ₹23,076.00)
 Wage Payment Records Check: PASS (Records Found)
 
 [8] Testing Financial Running Balance after Transactions...
@@ -164,18 +164,18 @@ ALL VERIFICATION FLOWS COMPLETED WITH 100% SUCCESS!
    - Unified Wage Payments table to display records from `/finance/salary-payments`.
    - Fixed text contrast and responsive 2-column modal forms.
 2. **`frontend/src/App.tsx`**:
-   - Replaced all Mandya / test references with authoritative Vallurupallem, Thotlavalluru, AP contact information.
+   - Replaced all Mandya / test references with authoritative Kankipadu,AP contact information.
    - Fixed low-contrast text elements on Contact, About, and storefront sections.
 3. **`frontend/src/CustomerLedger.tsx`**:
    - Cleaned up invoice seller headers to remove Mandya references and ensure high contrast.
 4. **`services/commerce-service/src/main/java/com/rrjaggery/commerce/service/ProductService.java`**:
    - Fixed category resolution fallback and aligned validation handling.
 5. **`services/commerce-service/src/main/java/com/rrjaggery/commerce/config/CommerceDataInitializer.java`**:
-   - Updated product seed metadata to use authentic Thotlavalluru origins.
+   - Updated product seed metadata to use authentic  origins.
 6. **`services/commerce-service/src/main/java/com/rrjaggery/commerce/dto/InvoiceDto.java`**:
    - Updated seller contact info to authoritative address and numbers.
 7. **`services/customer-ledger-service/src/main/java/com/rrjaggery/customerledger/dto/OfflineInvoiceDto.java`**:
-   - Updated B2B tax invoice headers to AP state GSTIN (37) and Thotlavalluru bank branch.
+   - Updated B2B tax invoice headers to AP state GSTIN (37) and  bank branch.
 8. **`services/production-service/src/main/java/com/rrjaggery/production/client/InventoryStockClient.java`**:
    - Resolved 4xx handling to ensure finished goods stock updates execute cleanly upon batch completion.
 9. **`services/production-service/src/main/java/com/rrjaggery/production/service/ProductionService.java`**:

@@ -9,11 +9,11 @@ interface LegalPageProps {
 // ============================================================
 const BIZ_NAME = 'RR Jaggery';
 const BIZ_TYPE = 'Jaggery Manufacturing';
-const BIZ_ADDRESS = 'Vallurupallem, Thotlavalluru, Andhra Pradesh – 521163';
+const BIZ_ADDRESS = 'Kankipadu,Andhra Pradesh – 521163';
 const BIZ_EMAIL = 'rrjaggery@gmail.com';
-const BIZ_PHONE = '+91 9948533315';
+const BIZ_PHONE = '+91 7207063315';
 const BIZ_HOURS = '10:00 AM – 6:00 PM (Mon–Sat)';
-const BIZ_GRIEVANCE_OFFICER = 'CH Padma';
+const BIZ_GRIEVANCE_OFFICER = 'CH Venkata Ramesh';
 // Do not infer GST registration status or add an unverified GSTIN.
 // FSSAI: No FSSAI number available — do not invent one.
 
@@ -46,7 +46,7 @@ export const TermsPage: React.FC<LegalPageProps> = ({ onBackToStore }) => {
               <h2 className="text-base font-bold text-emerald-950 font-serif">1. Introduction &amp; Acceptance of Terms</h2>
               <p>
                 Welcome to <strong>{BIZ_NAME}</strong> ({BIZ_TYPE}), operating from {BIZ_ADDRESS}. By accessing our website,
-                placing an order, or registering for an account, you ("Customer", "User", or "You") agree to be bound by
+                placing an order, or registering for an account, you agree to be bound by
                 these Terms and Conditions.
               </p>
             </section>
@@ -308,7 +308,6 @@ export const ShippingPolicyPage: React.FC<LegalPageProps> = ({ onBackToStore }) 
                 Shipping charges are calculated transparently during checkout based on order subtotal:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-xs">
-                <li>Orders above ₹500 qualify for free delivery within the primary delivery region.</li>
                 <li>Standard shipping charges apply for orders below ₹500 as shown on the order summary prior to payment.</li>
               </ul>
             </section>

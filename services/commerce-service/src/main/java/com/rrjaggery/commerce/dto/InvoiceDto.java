@@ -13,8 +13,8 @@ public class InvoiceDto {
     private Instant invoiceDate;
     private String sellerName = "RR Jaggery";
     // RR Jaggery is NOT GST registered — no GSTIN field is exposed on invoices.
-    private String sellerAddress = "Vallurupallem, Thotlavalluru, Andhra Pradesh - 521163";
-    private String sellerContact = "+91 9948533315 | rrjaggery@gmail.com";
+    private String sellerAddress = "Kankipadu,Andhra Pradesh - 521163";
+    private String sellerContact = "+91 7207063315 | rrjaggery@gmail.com";
     private String customerName;
     private String customerEmail;
     private String customerPhone;

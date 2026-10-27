@@ -34,17 +34,20 @@ public class OfflineOrderService {
     private final CustomerLedgerRepository ledgerRepository;
     private final CustomerPaymentRepository paymentRepository;
     private final StockOutboxService stockOutboxService;
+    private final OfflineInventoryStockClient inventoryClient;
 
     public OfflineOrderService(CustomerRepository customerRepository,
                                OfflineOrderRepository offlineOrderRepository,
                                CustomerLedgerRepository ledgerRepository,
                                CustomerPaymentRepository paymentRepository,
-                               StockOutboxService stockOutboxService) {
+                               StockOutboxService stockOutboxService,
+                               OfflineInventoryStockClient inventoryClient) {
         this.customerRepository = customerRepository;
         this.offlineOrderRepository = offlineOrderRepository;
         this.ledgerRepository = ledgerRepository;
         this.paymentRepository = paymentRepository;
         this.stockOutboxService = stockOutboxService;
+        this.inventoryClient = inventoryClient;
     }
 
     @Transactional
@@ -187,6 +190,24 @@ public class OfflineOrderService {
             order.setPaymentStatus("PARTIALLY_PAID");
         } else {
             order.setPaymentStatus("PENDING");
+        }
+
+        if (isStockConsumingStatus(initialStatus)) {
+            for (OfflineOrderItem item : order.getItems()) {
+                BigDecimal required = BigDecimal.valueOf(item.getQuantity())
+                        .multiply(item.getUnitWeightKg() != null ? item.getUnitWeightKg() : BigDecimal.ONE)
+                        .setScale(3, java.math.RoundingMode.HALF_UP);
+                BigDecimal available = inventoryClient.checkAvailableStock(item.getSku());
+                if (available == null) available = BigDecimal.ZERO;
+                if (available.compareTo(required) < 0) {
+                    String targetAction = "DISPATCHED".equalsIgnoreCase(initialStatus) ? "dispatched" : "delivered";
+                    throw new IllegalStateException(
+                            "The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it "
+                            + targetAction + ". (Product: \"" + item.getProductName() + "\", SKU: " + item.getSku()
+                            + ", Required: " + required.stripTrailingZeros().toPlainString() + " KG, Available: "
+                            + available.stripTrailingZeros().toPlainString() + " KG)");
+                }
+            }
         }
 
         OfflineOrder savedOrder = offlineOrderRepository.save(order);
@@ -365,11 +386,36 @@ public class OfflineOrderService {
             }
         }
 
+        // ── Stock availability pre-check (before save) ───────────────────────────
+        // Orders can be placed with zero stock, but CANNOT be transitioned to a
+        // stock-consuming status (DISPATCHED/DELIVERED) when there is insufficient inventory.
+        // Check live stock now before persisting.
+        if (requestedStatus != null
+                && !isStockConsumingStatus(previousStatus)
+                && isStockConsumingStatus(requestedStatus)) {
+            for (OfflineOrderItem item : order.getItems()) {
+                BigDecimal required = BigDecimal.valueOf(item.getQuantity())
+                        .multiply(item.getUnitWeightKg() != null ? item.getUnitWeightKg() : BigDecimal.ONE)
+                        .setScale(3, java.math.RoundingMode.HALF_UP);
+                BigDecimal available = inventoryClient.checkAvailableStock(item.getSku());
+                if (available == null) available = BigDecimal.ZERO;
+                if (available.compareTo(required) < 0) {
+                    String targetAction = "DISPATCHED".equalsIgnoreCase(requestedStatus) ? "dispatched" : "delivered";
+                    throw new IllegalStateException(
+                            "The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it "
+                            + targetAction + ". (Product: \"" + item.getProductName() + "\", SKU: " + item.getSku()
+                            + ", Required: " + required.stripTrailingZeros().toPlainString() + " KG, Available: "
+                            + available.stripTrailingZeros().toPlainString() + " KG)");
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         OfflineOrder saved = offlineOrderRepository.save(order);
         if (requestedStatus != null) {
             if (!isStockConsumingStatus(previousStatus) && isStockConsumingStatus(requestedStatus)) {
                 stockOutboxService.enqueueSale(saved);
-            } else if (!"CANCELLED".equals(previousStatus) && "CANCELLED".equals(requestedStatus)) {
+            } else if (isStockConsumingStatus(previousStatus) && !isStockConsumingStatus(requestedStatus)) {
                 stockOutboxService.enqueueRestoration(saved);
             }
         }
@@ -397,8 +443,7 @@ public class OfflineOrderService {
 
     private boolean isStockConsumingStatus(String status) {
         String normalized = normalizeStatus(status);
-        return "CONFIRMED".equals(normalized) || "PROCESSING".equals(normalized)
-                || "DISPATCHED".equals(normalized) || "DELIVERED".equals(normalized);
+        return "DISPATCHED".equals(normalized) || "DELIVERED".equals(normalized);
     }
 
     private String normalizeStatus(String status) {

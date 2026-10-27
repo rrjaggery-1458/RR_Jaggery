@@ -77,6 +77,8 @@ public class OrderControllerTest {
         );
 
         testProduct = productRepository.findAll().stream().findFirst().orElseThrow();
+        org.mockito.Mockito.when(inventoryStockClient.checkAvailableStock(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new BigDecimal("100.000"));
     }
 
     @Test
@@ -206,7 +208,87 @@ public class OrderControllerTest {
     }
 
     @Test
-    void confirmedOrderCancellation_restoresStockOnlyAfterSaleCommand() throws Exception {
+    void cannotMarkOrderDeliveredWhenStockInsufficient() throws Exception {
+        testProduct.setRetailPrice(new BigDecimal("160.00"));
+        testProduct.setUnitWeightKg(BigDecimal.ONE);
+        productRepository.save(testProduct);
+
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 5);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
+        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.CASH_ON_DELIVERY, "Test order");
+        MvcResult checkout = mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkoutReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andReturn();
+
+        String orderId = objectMapper.readTree(checkout.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+
+        // Simulate 0 available stock in inventory
+        org.mockito.Mockito.when(inventoryStockClient.checkAvailableStock(testProduct.getSku()))
+                .thenReturn(BigDecimal.ZERO);
+
+        UpdateOrderStatusRequest delivered = new UpdateOrderStatusRequest(OrderStatus.DELIVERED);
+        mockMvc.perform(put("/api/v1/commerce/admin/orders/" + orderId + "/status")
+                        .header("Authorization", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(delivered)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value(org.hamcrest.Matchers.containsString(
+                        "The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it delivered")));
+    }
+
+    @Test
+    void cannotMarkOrderDispatchedWhenStockInsufficient() throws Exception {
+        testProduct.setRetailPrice(new BigDecimal("160.00"));
+        testProduct.setUnitWeightKg(BigDecimal.ONE);
+        productRepository.save(testProduct);
+
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 5);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
+        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Test order");
+        MvcResult checkout = mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkoutReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
+                .andReturn();
+
+        String orderId = objectMapper.readTree(checkout.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+
+        // Simulate 2 KG available stock, but order needs 5 KG
+        org.mockito.Mockito.when(inventoryStockClient.checkAvailableStock(testProduct.getSku()))
+                .thenReturn(new BigDecimal("2.000"));
+
+        UpdateOrderStatusRequest dispatched = new UpdateOrderStatusRequest(OrderStatus.DISPATCHED);
+        mockMvc.perform(put("/api/v1/commerce/admin/orders/" + orderId + "/status")
+                        .header("Authorization", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dispatched)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.message").value(org.hamcrest.Matchers.containsString(
+                        "The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it dispatched")));
+    }
+
+    @Test
+    void dispatchedOrderRollback_restoresStock() throws Exception {
         testProduct.setRetailPrice(new BigDecimal("160.00"));
         testProduct.setUnitWeightKg(BigDecimal.ONE);
         productRepository.save(testProduct);
@@ -219,7 +301,7 @@ public class OrderControllerTest {
                 .andExpect(status().isCreated());
 
         AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
-        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Test cancellation");
+        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Test rollback");
         MvcResult checkout = mockMvc.perform(post("/api/v1/commerce/orders/checkout")
                         .header("Authorization", customerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -230,13 +312,23 @@ public class OrderControllerTest {
         String orderId = orderData.path("id").asText();
         String orderNumber = orderData.path("orderNumber").asText();
 
-        UpdateOrderStatusRequest cancel = new UpdateOrderStatusRequest(OrderStatus.CANCELLED);
+        // Mark DISPATCHED (deducts stock)
+        UpdateOrderStatusRequest dispatch = new UpdateOrderStatusRequest(OrderStatus.DISPATCHED);
         mockMvc.perform(put("/api/v1/commerce/admin/orders/" + orderId + "/status")
                         .header("Authorization", adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(cancel)))
+                        .content(objectMapper.writeValueAsString(dispatch)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+                .andExpect(jsonPath("$.data.status").value("DISPATCHED"));
+
+        // Roll back to CONFIRMED (restores stock)
+        UpdateOrderStatusRequest rollback = new UpdateOrderStatusRequest(OrderStatus.CONFIRMED);
+        mockMvc.perform(put("/api/v1/commerce/admin/orders/" + orderId + "/status")
+                        .header("Authorization", adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(rollback)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
 
         var commands = stockOutboxRepository.findAll().stream()
                 .filter(command -> command.getReferenceId().startsWith(orderNumber + ":"))

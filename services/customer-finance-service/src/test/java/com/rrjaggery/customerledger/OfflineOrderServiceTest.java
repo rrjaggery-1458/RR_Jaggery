@@ -38,6 +38,12 @@ class OfflineOrderServiceTest {
     @MockBean
     private OfflineInventoryStockClient offlineInventoryStockClient;
 
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        org.mockito.Mockito.when(offlineInventoryStockClient.checkAvailableStock(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new BigDecimal("500.000"));
+    }
+
     private CustomerDto createTestCustomer(BigDecimal creditLimit, int creditDays) {
         CreateCustomerRequest req = new CreateCustomerRequest();
         req.setCustomerType(CustomerType.OFFLINE_WHOLESALE);
@@ -179,6 +185,9 @@ class OfflineOrderServiceTest {
     @Test
     @DisplayName("A delivered retail order includes delivery but no GST and deducts the sold kilograms")
     void deliveredRetailOrderTotalsAndStockUseKilograms() {
+        org.mockito.Mockito.when(offlineInventoryStockClient.checkAvailableStock(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new BigDecimal("100.000"));
+
         CustomerDto customer = createTestCustomer(new BigDecimal("100000.00"), 30);
         CreateOfflineOrderRequest request = new CreateOfflineOrderRequest();
         request.setCustomerId(customer.getId());
@@ -209,8 +218,43 @@ class OfflineOrderServiceTest {
     }
 
     @Test
-    @DisplayName("Cancelling a confirmed offline order queues restoration after its deduction")
-    void confirmedOfflineOrderCancellationDependsOnSaleCommand() {
+    @DisplayName("Reject updating offline order to DELIVERED when stock is insufficient")
+    void rejectDeliveredWhenStockInsufficient() {
+        org.mockito.Mockito.when(offlineInventoryStockClient.checkAvailableStock(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(BigDecimal.ZERO);
+
+        CustomerDto customer = createTestCustomer(new BigDecimal("100000.00"), 30);
+        CreateOfflineOrderRequest request = new CreateOfflineOrderRequest();
+        request.setCustomerId(customer.getId());
+        request.setOrderType("WHOLESALE");
+        request.setOrderStatus("CONFIRMED");
+        request.setPaymentMethod("CREDIT");
+        request.setImmediatePaidAmount(BigDecimal.ZERO);
+
+        OfflineOrderItemRequest item = new OfflineOrderItemRequest();
+        item.setProductName("Jaggery insufficient stock");
+        item.setSku("RR-JAG-NOSTOCK-1KG");
+        item.setUnitPrice(new BigDecimal("140.00"));
+        item.setQuantity(10);
+        item.setUnitWeightKg(BigDecimal.ONE);
+        request.setItems(List.of(item));
+
+        OfflineOrderDto order = offlineOrderService.createOfflineOrder(request, "admin@rrjaggery.com");
+
+        UpdateOfflineOrderRequest deliveredReq = new UpdateOfflineOrderRequest();
+        deliveredReq.setOrderStatus("DELIVERED");
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+                offlineOrderService.updateOfflineOrder(order.getId(), deliveredReq));
+        assertTrue(ex.getMessage().contains("The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it delivered"));
+    }
+
+    @Test
+    @DisplayName("Cancelling a dispatched offline order queues restoration after its deduction")
+    void dispatchedOfflineOrderCancellationDependsOnSaleCommand() {
+        org.mockito.Mockito.when(offlineInventoryStockClient.checkAvailableStock(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new BigDecimal("100.000"));
+
         CustomerDto customer = createTestCustomer(new BigDecimal("100000.00"), 30);
         CreateOfflineOrderRequest request = new CreateOfflineOrderRequest();
         request.setCustomerId(customer.getId());
@@ -228,9 +272,16 @@ class OfflineOrderServiceTest {
         request.setItems(List.of(item));
 
         OfflineOrderDto order = offlineOrderService.createOfflineOrder(request, "admin@rrjaggery.com");
-        UpdateOfflineOrderRequest cancel = new UpdateOfflineOrderRequest();
-        cancel.setOrderStatus("CANCELLED");
-        offlineOrderService.updateOfflineOrder(order.getId(), cancel);
+
+        // Transition to DISPATCHED (deducts stock)
+        UpdateOfflineOrderRequest dispatch = new UpdateOfflineOrderRequest();
+        dispatch.setOrderStatus("DISPATCHED");
+        offlineOrderService.updateOfflineOrder(order.getId(), dispatch);
+
+        // Roll back to CONFIRMED (restores stock)
+        UpdateOfflineOrderRequest rollback = new UpdateOfflineOrderRequest();
+        rollback.setOrderStatus("CONFIRMED");
+        offlineOrderService.updateOfflineOrder(order.getId(), rollback);
 
         var commands = stockOutboxRepository.findAll().stream()
                 .filter(command -> command.getReferenceId().startsWith(order.getOrderNumber() + ":"))

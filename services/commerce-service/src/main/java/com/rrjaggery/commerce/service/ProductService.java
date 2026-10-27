@@ -127,7 +127,10 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
 
-        product.setCategoryId(request.getCategoryId());
+        UUID categoryId = request.getCategoryId();
+        if (categoryId != null && categoryRepository.existsById(categoryId)) {
+            product.setCategoryId(categoryId);
+        }
         product.setName(request.getName().trim());
         product.setDescription(request.getDescription());
         product.setGrade(request.getGrade());

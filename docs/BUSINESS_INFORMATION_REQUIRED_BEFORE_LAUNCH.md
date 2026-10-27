@@ -14,7 +14,7 @@
 | **Business Type** | `Jaggery Manufacturing` | Manufacturing unit |
 | **GST Registration** | **NOT GST REGISTERED** | **CRITICAL:** Do NOT display GSTIN anywhere. No GSTIN: NA, no fake GSTIN, no GST claims. Zero GST charged on orders. |
 | **FSSAI Number** | None available | Do NOT invent or display any FSSAI number |
-| **Registered Business Address** | `Vallurupallem, Thotlavalluru, Andhra Pradesh, PIN 521163` | PIN is exactly `521163` |
+| **Registered Business Address** | `Kankipadu, Andhra Pradesh, PIN 521163` | PIN is exactly `521163` |
 | **Legal Jurisdiction** | `Krishna District / Vijayawada, Andhra Pradesh` | District court jurisdiction |
 
 ---
@@ -24,9 +24,9 @@
 | Item | Authoritative Value | Notes |
 | :--- | :--- | :--- |
 | **Support Email** | `rrjaggery@gmail.com` | Official support email |
-| **Support Phone** | `9948533315` | Helpline phone & WhatsApp |
+| **Support Phone** | `7207063315` | Helpline phone & WhatsApp |
 | **Support Hours** | `10:00 AM – 6:00 PM` | Monday – Saturday |
-| **Grievance Officer** | `CH Padma` | Mandated under Indian IT Rules |
+| **Grievance Officer** | `CH Venkata Ramesh` | Mandated under Indian IT Rules |
 
 ---
 

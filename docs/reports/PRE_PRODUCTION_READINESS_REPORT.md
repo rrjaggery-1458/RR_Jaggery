@@ -99,7 +99,7 @@ Added dedicated public legal and policy pages accessible without authentication 
 5. **Contact Us** (`ContactPage`)
 6. **About Us** (`AboutPage`)
 - All legal pages are responsive, use RR Jaggery branding, and contain **NO fabricated company data**.
-- All placeholder business information replaced with authoritative data: business name, address (PIN 521163), email, phone, grievance officer CH Padma. No GSTIN (not registered). No FSSAI (not available).
+- All placeholder business information replaced with authoritative data: business name, address (PIN 521163), email, phone, grievance officer CH Venkata Ramesh. No GSTIN (not registered). No FSSAI (not available).
 - See `docs/BUSINESS_INFORMATION_REQUIRED_BEFORE_LAUNCH.md` for the authoritative business record.
 
 ### 3.9 Dependency Security

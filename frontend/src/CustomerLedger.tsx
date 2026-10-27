@@ -298,8 +298,8 @@ export function CustomerDirectoryPage({
               id={`filter-${type.toLowerCase()}`}
               onClick={() => setFilterType(type)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 ${filterType === type
-                  ? 'bg-emerald-600 text-gray-900 shadow-md shadow-emerald-500/20 font-bold'
-                  : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
+                ? 'bg-emerald-600 text-gray-900 shadow-md shadow-emerald-500/20 font-bold'
+                : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200'
                 }`}
             >
               {type === 'ALL' ? 'All Customers' : type.replace('_', ' ')}
@@ -405,10 +405,10 @@ export function CustomerDirectoryPage({
                         <div>
                           <span
                             className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${c.customerType === 'REGISTERED_WHOLESALE'
-                                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                : c.customerType === 'OFFLINE_WHOLESALE'
-                                  ? 'bg-emerald-50 text-amber-700 border-emerald-500/20'
-                                  : 'bg-emerald-50 text-gray-500 border-gray-300'
+                              ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                              : c.customerType === 'OFFLINE_WHOLESALE'
+                                ? 'bg-emerald-50 text-amber-700 border-emerald-500/20'
+                                : 'bg-emerald-50 text-gray-500 border-gray-300'
                               }`}
                           >
                             {c.customerType.replace('_', ' ')}
@@ -1472,10 +1472,10 @@ export function LedgerStatementModal({
                           <td className="py-2.5 px-3">
                             <span
                               className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-sans ${e.transactionType === 'INVOICE_DEBIT'
-                                  ? 'bg-emerald-50 text-amber-700 border border-emerald-500/20'
-                                  : e.transactionType === 'PAYMENT_CREDIT'
-                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                    : 'bg-emerald-50 text-gray-500'
+                                ? 'bg-emerald-50 text-amber-700 border border-emerald-500/20'
+                                : e.transactionType === 'PAYMENT_CREDIT'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                  : 'bg-emerald-50 text-gray-500'
                                 }`}
                             >
                               {e.transactionType}
@@ -1752,8 +1752,8 @@ export function OfflineInvoiceModal({
           <div className="flex flex-col sm:flex-row justify-between gap-4 border-b border-gray-200 pb-5">
             <div>
               <div className="font-extrabold text-xl text-gray-900 tracking-tight">RR JAGGERY TRADERS</div>
-              <div className="text-gray-500 text-[11px] mt-1">Vallurupallem, Thotlavalluru, Andhra Pradesh – 521163</div>
-              <div className="text-gray-500 text-[11px]">Phone: +91 9948533315 | Email: rrjaggery@gmail.com</div>
+              <div className="text-gray-500 text-[11px] mt-1">Kankipadu,Andhra Pradesh – 521163</div>
+              <div className="text-gray-500 text-[11px]">Phone: +91 7207063315 | Email: rrjaggery@gmail.com</div>
               <div className="text-gray-500 text-[11px]">Commercial invoice; GST is not included in the amounts shown.</div>
             </div>
             <div className="sm:text-right space-y-1">
@@ -1806,7 +1806,7 @@ export function OfflineInvoiceModal({
           {/* Financial Totals */}
           <div className="flex flex-col sm:flex-row justify-between items-start border-t border-gray-200 pt-4 gap-4">
             <div className="text-[11px] text-gray-500 space-y-1">
-              <div>Bank: State Bank of India • Thotlavalluru Branch</div>
+              <div>Bank: State Bank of India •  Branch</div>
               <div>A/C No: 12345678901 • IFSC: SBIN0001234</div>
             </div>
             <div className="sm:text-right space-y-1.5 w-full sm:w-64">

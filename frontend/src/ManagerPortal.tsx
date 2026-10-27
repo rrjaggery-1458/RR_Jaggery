@@ -583,6 +583,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
   const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<any | null>(null);
   const [orderEditType, setOrderEditType] = useState<'wholesale' | 'manual_retail' | 'online'>('wholesale');
+  const [editOrderError, setEditOrderError] = useState<string | null>(null);
   const [editOrderForm, setEditOrderForm] = useState({
     status: '',
     paymentStatus: '',
@@ -1853,25 +1854,34 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     }
 
     const catId = productForm.categoryId || (categories[0]?.id || '00000000-0000-0000-0000-000000000001');
+    const finalSku = productForm.sku.trim() || ('RR-' + productForm.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + Math.floor(100 + Math.random() * 900));
+
+    // Pre-flight duplicate SKU check
+    const existingSku = products.find(p => p.sku.toUpperCase() === finalSku.toUpperCase() && p.id !== editingProduct?.id);
+    if (existingSku) {
+      setErrorMsg(`Product SKU "${finalSku}" is already used by "${existingSku.name}". Please provide a unique SKU.`);
+      return;
+    }
 
     const payload = {
       categoryId: catId,
       name: productForm.name.trim(),
-      sku: productForm.sku.trim() || ('RR-' + productForm.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + Math.floor(100 + Math.random() * 900)),
-      slug: productForm.slug.trim() || productForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      sku: finalSku,
+      slug: productForm.slug.trim() || productForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       description: productForm.description,
-      grade: productForm.grade,
-      packageType: productForm.packageType,
-      unitWeightKg: Number(productForm.unitWeightKg),
+      grade: productForm.grade || 'GRADE_A_TRADITIONAL',
+      packageType: productForm.packageType || 'BOX',
+      unitWeightKg: Number(productForm.unitWeightKg) || 1,
       unit: productForm.unit || 'kg',
-      retailPrice: Number(productForm.retailPrice),
-      wholesalePrice: Number(productForm.wholesalePrice),
-      wholesaleMoq: Number(productForm.wholesaleMoq),
+      retailPrice: Number(productForm.retailPrice) || 0,
+      wholesalePrice: Number(productForm.wholesalePrice) || 0,
+      wholesaleMoq: Number(productForm.wholesaleMoq) || 1,
       imageUrl: productForm.imageUrl,
       featured: false,
       active: productForm.active,
     };
 
+    setSubmittingKey('save-product');
     try {
       const url = editingProduct
         ? `${COMMERCE_URL}/admin/products/${editingProduct.id}`
@@ -1885,8 +1895,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || 'Failed to save product.');
+        throw new Error(await getResponseErrorMessage(res, 'Failed to save product.'));
       }
 
       setSuccessMsg(editingProduct ? 'Product updated successfully.' : 'Product added successfully.');
@@ -1909,7 +1918,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         method: 'DELETE',
         headers: getHeaders(),
       });
-      if (!res.ok) throw new Error('Failed to deactivate product.');
+      if (!res.ok) throw new Error(await getResponseErrorMessage(res, 'Failed to deactivate product.'));
       setSuccessMsg(`Product "${name}" deactivated successfully.`);
       loadData(false);
     } catch (err: any) {
@@ -1942,7 +1951,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         headers: getHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error('Failed to update product status.');
+      if (!res.ok) throw new Error(await getResponseErrorMessage(res, 'Failed to update product status.'));
       setSuccessMsg(`Product "${product.name}" is now ${!product.active ? 'Active' : 'Archived'}.`);
       loadData(false);
     } catch (err: any) {
@@ -2121,13 +2130,13 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       creditDays: Number(newWholesaler.creditDays) || 30,
       billingAddress: {
         street: newWholesaler.street || 'Main Road',
-        city: newWholesaler.city || 'Thotlavalluru',
+        city: newWholesaler.city || '',
         state: newWholesaler.state || 'Andhra Pradesh',
         postalCode: newWholesaler.postalCode || '521163',
       },
       shippingAddress: {
         street: newWholesaler.street || 'Main Road',
-        city: newWholesaler.city || 'Thotlavalluru',
+        city: newWholesaler.city || '',
         state: newWholesaler.state || 'Andhra Pradesh',
         postalCode: newWholesaler.postalCode || '521163',
       }
@@ -2179,6 +2188,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
   const handleOpenEditOrder = (order: any, type: 'wholesale' | 'manual_retail' | 'online') => {
     setSelectedOrderForEdit(order);
     setOrderEditType(type);
+    setEditOrderError(null);
     setEditOrderForm({
       status: order.orderStatus || order.status || (type === 'online' ? 'PENDING' : 'DELIVERED'),
       paymentStatus: order.paymentStatus || 'PENDING',
@@ -2192,6 +2202,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
     if (!selectedOrderForEdit) return;
 
     try {
+      setEditOrderError(null);
       if (orderEditType === 'online') {
         // Direct support for updating online delivery status and payment status (e.g. COD orders)
         const res = await fetch(`${COMMERCE_URL}/admin/orders/${selectedOrderForEdit.id}/status`, {
@@ -2204,7 +2215,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || errData.error?.message || 'Failed to update online order status');
+          throw new Error(errData.error?.message || errData.message || 'The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it delivered.');
         }
       } else {
         // Direct support for updating offline wholesale or manual retail orders
@@ -2220,7 +2231,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || errData.error?.message || 'Failed to update order');
+          throw new Error(errData.error?.message || errData.message || 'The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it delivered.');
         }
       }
 
@@ -2231,7 +2242,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
       }
       loadData(false);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error updating order.');
+      const msg = err.message || 'Error updating order.';
+      setEditOrderError(msg);
+      setErrorMsg(msg);
+      alert(msg);
     }
   };
 
@@ -2399,6 +2413,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           wastageQuantity: Number(dailyProduction.wastageKg) || 0,
           status: 'COMPLETED',
           scheduledDate: dailyProduction.date,
+          unitOfMeasure: dailyProduction.unitOfMeasure || 'KG',
           notes: dailyProduction.notes,
         }),
       });
@@ -2415,7 +2430,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
         await submitSupplementalForm('PRODUCTION', 'PRODUCTION', batchData.data.id, productionCustomAnswers, 'production');
       }
 
-      setSuccessMsg(`Today's production recorded: ${qty} KG of ${targetName}`);
+      setSuccessMsg(`Today's production recorded: ${qty} ${dailyProduction.unitOfMeasure || 'KG'} of ${targetName}`);
       setShowRecordProductionModal(false);
       setDailyProduction(prev => ({
         ...prev,
@@ -3727,8 +3742,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "overview"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
@@ -3742,8 +3757,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "wholesale"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <ShoppingBag className="w-4 h-4" />
@@ -3757,8 +3772,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "products"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <Package className="w-4 h-4" />
@@ -3772,8 +3787,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "production"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <Factory className="w-4 h-4" />
@@ -3787,8 +3802,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "purchases_expenses"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <Boxes className="w-4 h-4" />
@@ -3802,8 +3817,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "staff"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <Users className="w-4 h-4" />
@@ -3817,8 +3832,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setIsSidebarOpen(false);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "reports"
-                    ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                    : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                  : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                   }`}
               >
                 <FileText className="w-4 h-4" />
@@ -3839,8 +3854,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       setIsSidebarOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "settings" && settingsSubTab === "form_builder"
-                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                      ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                      : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                       }`}
                   >
                     <FileText className="w-4 h-4 text-emerald-600" />
@@ -3856,8 +3871,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       setIsSidebarOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "settings" && settingsSubTab !== "form_builder"
-                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                      ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                      : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                       }`}
                   >
                     <Sliders className="w-4 h-4" />
@@ -3871,8 +3886,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       setIsSidebarOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "users"
-                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                      ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                      : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                       }`}
                   >
                     <Users className="w-4 h-4" />
@@ -3886,8 +3901,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       setIsSidebarOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === "system_health"
-                        ? "bg-emerald-700 text-white font-semibold shadow-sm"
-                        : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
+                      ? "bg-emerald-700 text-white font-semibold shadow-sm"
+                      : "text-gray-600 hover:bg-emerald-50 hover:text-emerald-800"
                       }`}
                   >
                     <Activity className="w-4 h-4 text-emerald-600" />
@@ -3947,8 +3962,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-overview"
             onClick={() => setCurrentTab('overview')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'overview'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <LayoutDashboard className="w-4 h-4" />
@@ -3959,8 +3974,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-wholesale"
             onClick={() => setCurrentTab('wholesale')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'wholesale'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <ShoppingBag className="w-4 h-4" />
@@ -3971,8 +3986,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-products"
             onClick={() => setCurrentTab('products')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'products'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <Package className="w-4 h-4" />
@@ -3983,8 +3998,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-production"
             onClick={() => setCurrentTab('production')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'production'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <Factory className="w-4 h-4" />
@@ -3995,8 +4010,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-purchases-expenses"
             onClick={() => setCurrentTab('purchases_expenses')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'purchases_expenses'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <Boxes className="w-4 h-4" />
@@ -4007,8 +4022,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-staff"
             onClick={() => setCurrentTab('staff')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'staff'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <Users className="w-4 h-4" />
@@ -4019,8 +4034,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             id="nav-reports"
             onClick={() => setCurrentTab('reports')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'reports'
-                ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+              ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+              : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
               }`}
           >
             <FileText className="w-4 h-4" />
@@ -4040,8 +4055,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   loadFormDefinition(formBuilderActiveForm);
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'settings' && settingsSubTab === 'form_builder'
-                    ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                  ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+                  : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                   }`}
               >
                 <FileText className="w-4 h-4 text-emerald-600" />
@@ -4055,8 +4070,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setSettingsSubTab('production_cost');
                 }}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'settings' && settingsSubTab !== 'form_builder'
-                    ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                  ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+                  : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                   }`}
               >
                 <Sliders className="w-4 h-4" />
@@ -4067,8 +4082,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 id="nav-users"
                 onClick={() => setCurrentTab('users')}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'users'
-                    ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                  ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+                  : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                   }`}
               >
                 <Users className="w-4 h-4" />
@@ -4079,8 +4094,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 id="nav-system-health"
                 onClick={() => setCurrentTab('system_health')}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${currentTab === 'system_health'
-                    ? 'bg-emerald-700 text-white font-semibold shadow-sm'
-                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                  ? 'bg-emerald-700 text-white font-semibold shadow-sm'
+                  : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                   }`}
               >
                 <Activity className="w-4 h-4 text-emerald-600" />
@@ -4224,8 +4239,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('overview')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'overview'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <LayoutDashboard className="w-3.5 h-3.5" />
@@ -4234,8 +4249,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('wholesale')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'wholesale'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <ShoppingBag className="w-3.5 h-3.5" />
@@ -4244,8 +4259,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('products')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'products'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <Package className="w-3.5 h-3.5" />
@@ -4254,8 +4269,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('production')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'production'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <Factory className="w-3.5 h-3.5" />
@@ -4264,8 +4279,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('purchases_expenses')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'purchases_expenses'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <Boxes className="w-3.5 h-3.5" />
@@ -4274,8 +4289,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('staff')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'staff'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -4284,8 +4299,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
           <button
             onClick={() => setCurrentTab('reports')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'reports'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
               }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -4300,8 +4315,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   loadFormDefinition(formBuilderActiveForm);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'settings' && settingsSubTab === 'form_builder'
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
                   }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -4313,8 +4328,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   setSettingsSubTab('production_cost');
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'settings' && settingsSubTab !== 'form_builder'
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
                   }`}
               >
                 <Sliders className="w-3.5 h-3.5" />
@@ -4323,8 +4338,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <button
                 onClick={() => setCurrentTab('users')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'users'
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
                   }`}
               >
                 <Users className="w-3.5 h-3.5" />
@@ -4333,8 +4348,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               <button
                 onClick={() => setCurrentTab('system_health')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${currentTab === 'system_health'
-                    ? 'bg-emerald-700 text-white shadow-sm'
-                    : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-emerald-50/70 text-gray-700 hover:bg-emerald-100'
                   }`}
               >
                 <Activity className="w-3.5 h-3.5" />
@@ -4808,8 +4823,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setWholesaleSubTab('wholesale_orders')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${wholesaleSubTab === 'wholesale_orders'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     Wholesale B2B Orders ({wholesaleOrders.filter(o => o.orderType !== 'MANUAL_RETAIL').length})
@@ -4817,8 +4832,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setWholesaleSubTab('manual_retail_orders')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${wholesaleSubTab === 'manual_retail_orders'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     Manual Retail Orders ({wholesaleOrders.filter(o => o.orderType === 'MANUAL_RETAIL').length})
@@ -4826,8 +4841,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setWholesaleSubTab('retail_orders')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${wholesaleSubTab === 'retail_orders'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     Retail Online Orders ({retailOrders.length})
@@ -4922,8 +4937,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 <td className="p-3.5 font-bold text-gray-900">₹{Number(order.totalAmount).toLocaleString()}</td>
                                 <td className="p-3.5">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${order.paymentStatus === 'PAID'
-                                      ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                      : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                    : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
                                     }`}>
                                     {order.paymentStatus}
                                   </span>
@@ -5040,8 +5055,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 font-bold text-gray-900 whitespace-nowrap">₹{Number(order.totalAmount).toLocaleString()}</td>
                               <td className="p-3.5">
                                 <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${order.paymentStatus === 'PAID'
-                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-300'
                                   }`}>
                                   {order.paymentStatus}
                                 </span>
@@ -5139,8 +5154,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 <td className={`p-3.5 font-bold ${isCancelled ? 'text-gray-400 line-through' : 'text-gray-900'}`}>₹{Number(order.totalAmount).toLocaleString()}</td>
                                 <td className="p-3.5">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${isCancelled
-                                      ? 'bg-rose-100 text-rose-700 border border-rose-300'
-                                      : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                    ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                                    : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
                                     }`}>
                                     {order.status}
                                   </span>
@@ -5148,10 +5163,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 <td className="p-3.5">
                                   <div className="flex flex-col gap-0.5">
                                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${order.paymentStatus === 'PAID'
-                                        ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                        : order.paymentStatus === 'REFUNDED'
-                                          ? 'bg-gray-100 text-gray-500 border border-gray-300'
-                                          : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                      : order.paymentStatus === 'REFUNDED'
+                                        ? 'bg-gray-100 text-gray-500 border border-gray-300'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
                                       }`}>
                                       {order.paymentStatus}
                                     </span>
@@ -5278,8 +5293,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           {/* Stock Availability Badge */}
                           <div className="absolute top-2.5 right-2.5">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shadow-md ${stockQty > 0
-                                ? 'bg-emerald-500 text-gray-900'
-                                : 'bg-rose-500/90 text-white'
+                              ? 'bg-emerald-500 text-gray-900'
+                              : 'bg-rose-500/90 text-white'
                               }`}>
                               Available: {stockQty} KG
                             </span>
@@ -5325,8 +5340,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="text-gray-500">Catalogue Status:</span>
                               <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${prod.active
-                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                  : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
                                 }`}>
                                 {prod.active ? 'Active (Live)' : 'Archived (Hidden)'}
                               </span>
@@ -5364,8 +5379,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 onClick={() => prod.active ? handleDeleteProduct(prod.id, prod.name) : handleToggleProductActive(prod)}
                                 disabled={submittingKey === `toggle-prod-${prod.id}` || submittingKey === `delete-prod-${prod.id}`}
                                 className={`py-1.5 rounded-lg text-xs font-semibold border transition flex items-center justify-center gap-1 ${prod.active
-                                    ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
-                                    : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                  ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
+                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                                   }`}
                               >
                                 {(submittingKey === `toggle-prod-${prod.id}` || submittingKey === `delete-prod-${prod.id}`) ? (
@@ -5398,8 +5413,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setPurchasesExpensesSubTab('supplier_bills')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${purchasesExpensesSubTab === 'supplier_bills'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     A. Supplier Bills & Payables ({suppliers.filter(s => (Number(s.currentOutstanding) || 0) > 0).length})
@@ -5407,8 +5422,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setPurchasesExpensesSubTab('expenses')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${purchasesExpensesSubTab === 'expenses'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     B. Expenses & Purchases ({expenses.length})
@@ -5417,8 +5432,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <button
                       onClick={() => setPurchasesExpensesSubTab('investments')}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition ${purchasesExpensesSubTab === 'investments'
-                          ? 'bg-violet-500 text-white shadow'
-                          : 'text-gray-500 hover:text-gray-900'
+                        ? 'bg-violet-500 text-white shadow'
+                        : 'text-gray-500 hover:text-gray-900'
                         }`}
                     >
                       C. Capital Investments ({investments.filter(i => i.status !== 'VOIDED').length})
@@ -5788,8 +5803,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             type="button"
                             onClick={() => setSugarcaneExpenseFilter('all')}
                             className={`px-3 py-1 rounded-lg font-medium transition text-xs ${sugarcaneExpenseFilter === 'all'
-                                ? 'bg-emerald-700 text-white shadow-xs font-bold'
-                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                              ? 'bg-emerald-700 text-white shadow-xs font-bold'
+                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                               }`}
                           >
                             All Expenses ({expenses.length})
@@ -5798,8 +5813,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             type="button"
                             onClick={() => setSugarcaneExpenseFilter('sugarcane')}
                             className={`px-3 py-1 rounded-lg font-medium transition text-xs flex items-center gap-1 ${sugarcaneExpenseFilter === 'sugarcane'
-                                ? 'bg-amber-600 text-white shadow-xs font-bold'
-                                : 'bg-white text-amber-800 hover:bg-amber-50 border border-amber-200'
+                              ? 'bg-amber-600 text-white shadow-xs font-bold'
+                              : 'bg-white text-amber-800 hover:bg-amber-50 border border-amber-200'
                               }`}
                           >
                             <span>🌾 Sugarcane ({sugarcaneExpensesList.length})</span>
@@ -5808,8 +5823,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             type="button"
                             onClick={() => setSugarcaneExpenseFilter('jaggery')}
                             className={`px-3 py-1 rounded-lg font-medium transition text-xs flex items-center gap-1 ${sugarcaneExpenseFilter === 'jaggery'
-                                ? 'bg-emerald-700 text-white shadow-xs font-bold'
-                                : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200'
+                              ? 'bg-emerald-700 text-white shadow-xs font-bold'
+                              : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200'
                               }`}
                           >
                             <span>📦 Outside Jaggery ({jaggeryExpensesList.length})</span>
@@ -5818,8 +5833,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             type="button"
                             onClick={() => setSugarcaneExpenseFilter('other')}
                             className={`px-3 py-1 rounded-lg font-medium transition text-xs ${sugarcaneExpenseFilter === 'other'
-                                ? 'bg-gray-800 text-white shadow-xs font-bold'
-                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                              ? 'bg-gray-800 text-white shadow-xs font-bold'
+                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                               }`}
                           >
                             ⚡ Factory Operations ({otherExpensesList.length})
@@ -5828,8 +5843,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             type="button"
                             onClick={() => setSugarcaneExpenseFilter('unpaid')}
                             className={`px-3 py-1 rounded-lg font-medium transition text-xs flex items-center gap-1 ${sugarcaneExpenseFilter === 'unpaid'
-                                ? 'bg-rose-600 text-white shadow-xs font-bold'
-                                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
+                              ? 'bg-rose-600 text-white shadow-xs font-bold'
+                              : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
                               }`}
                           >
                             <span>⏳ Unpaid Bills ({unpaidExpensesList.length})</span>
@@ -6239,10 +6254,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               </td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${batch.status === 'COMPLETED'
-                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                    : batch.status === 'CANCELLED'
-                                      ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                                      : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                  : batch.status === 'CANCELLED'
+                                    ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                    : 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
                                   }`}>
                                   {batch.status === 'COMPLETED' && <Check className="w-3 h-3" />}
                                   {batch.status}
@@ -6281,8 +6296,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setStaffSubTab('directory')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${staffSubTab === 'directory'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     Workers Directory ({employees.length})
@@ -6290,8 +6305,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setStaffSubTab('attendance')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${staffSubTab === 'attendance'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     Attendance & Overtime
@@ -6299,8 +6314,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <button
                     onClick={() => setStaffSubTab('payroll')}
                     className={`px-4 py-2 rounded-lg text-xs font-bold transition ${staffSubTab === 'payroll'
-                        ? 'bg-emerald-700 text-white shadow'
-                        : 'text-gray-500 hover:text-gray-900'
+                      ? 'bg-emerald-700 text-white shadow'
+                      : 'text-gray-500 hover:text-gray-900'
                       }`}
                   >
                     Wage Payments ({payrollRecords.length})
@@ -6537,14 +6552,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                           <div
                             key={emp.id}
                             className={`p-4 rounded-xl border transition flex flex-col justify-between space-y-3 ${sundayOff
-                                ? 'bg-amber-50 border-amber-300'
-                                : isMarked
-                                  ? rec.status === 'PRESENT'
-                                    ? 'bg-white border-emerald-500/30'
-                                    : rec.status === 'HALF_DAY'
-                                      ? 'bg-white border-emerald-200'
-                                      : 'bg-white border-rose-500/30'
-                                  : 'bg-white border-gray-200 hover:border-gray-300'
+                              ? 'bg-amber-50 border-amber-300'
+                              : isMarked
+                                ? rec.status === 'PRESENT'
+                                  ? 'bg-white border-emerald-500/30'
+                                  : rec.status === 'HALF_DAY'
+                                    ? 'bg-white border-emerald-200'
+                                    : 'bg-white border-rose-500/30'
+                                : 'bg-white border-gray-200 hover:border-gray-300'
                               }`}
                           >
                             <div className="flex items-start justify-between">
@@ -6558,10 +6573,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 </span>
                               ) : isMarked ? (
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.status === 'PRESENT'
-                                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                    : rec.status === 'HALF_DAY'
-                                      ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                      : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                  : rec.status === 'HALF_DAY'
+                                    ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
                                   }`}>
                                   {rec.status}
                                 </span>
@@ -6597,10 +6612,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   setShowRecordAttendanceModal(true);
                                 }}
                                 className={`px-3 py-1 rounded-lg text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-70 ${sundayOff
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                    : isMarked
-                                      ? 'bg-emerald-50/60 hover:bg-gray-200 text-gray-800 border border-gray-300'
-                                      : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : isMarked
+                                    ? 'bg-emerald-50/60 hover:bg-gray-200 text-gray-800 border border-gray-300'
+                                    : 'bg-emerald-700 hover:bg-emerald-600 text-white shadow'
                                   }`}
                               >
                                 {sundayOff ? 'Sunday Off' : isMarked ? 'Edit' : 'Mark'}
@@ -6651,10 +6666,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   <td className="p-3.5 text-gray-700">{emp?.designation || 'Staff'}</td>
                                   <td className="p-3.5">
                                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${att.status === 'PRESENT'
-                                        ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
-                                        : att.status === 'HALF_DAY'
-                                          ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
-                                          : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                      ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                                      : att.status === 'HALF_DAY'
+                                        ? 'bg-emerald-700/10 text-emerald-700 border border-emerald-200'
+                                        : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
                                       }`}>
                                       {att.status}
                                     </span>
@@ -6767,8 +6782,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('sales')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'sales'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <ShoppingBag className="w-3.5 h-3.5" />
@@ -6778,8 +6793,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('production')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'production'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <Factory className="w-3.5 h-3.5" />
@@ -6789,8 +6804,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('inventory')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'inventory'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <Boxes className="w-3.5 h-3.5" />
@@ -6800,8 +6815,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('suppliers')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'suppliers'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <Truck className="w-3.5 h-3.5" />
@@ -6811,8 +6826,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('expenses')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'expenses'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
@@ -6822,8 +6837,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('payroll')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'payroll'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <Users className="w-3.5 h-3.5" />
@@ -6833,8 +6848,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('wholesale')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'wholesale'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
@@ -6844,8 +6859,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setReportsSubTab('spending_pnl')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${reportsSubTab === 'spending_pnl'
-                      ? 'bg-emerald-700 text-white shadow'
-                      : 'text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   <TrendingUp className="w-3.5 h-3.5" />
@@ -7998,8 +8013,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     loadFormDefinition(formBuilderActiveForm);
                   }}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'form_builder'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -8010,8 +8025,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   id="subtab-production-cost"
                   onClick={() => setSettingsSubTab('production_cost')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'production_cost'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <Factory className="w-3.5 h-3.5" />
@@ -8022,8 +8037,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   id="subtab-expense-categories"
                   onClick={() => setSettingsSubTab('expense_categories')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'expense_categories'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <Receipt className="w-3.5 h-3.5" />
@@ -8034,8 +8049,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   id="subtab-payment-methods"
                   onClick={() => setSettingsSubTab('payment_methods')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'payment_methods'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <DollarSign className="w-3.5 h-3.5" />
@@ -8046,8 +8061,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   id="subtab-deduction-types"
                   onClick={() => setSettingsSubTab('deduction_types')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'deduction_types'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <AlertCircle className="w-3.5 h-3.5" />
@@ -8058,8 +8073,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   id="subtab-advance-types"
                   onClick={() => setSettingsSubTab('advance_types')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'advance_types'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <Users className="w-3.5 h-3.5" />
@@ -8070,8 +8085,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   id="subtab-payroll-rules"
                   onClick={() => setSettingsSubTab('payroll_rules')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${settingsSubTab === 'payroll_rules'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-emerald-50 hover:text-emerald-800'
                     }`}
                 >
                   <Calendar className="w-3.5 h-3.5" />
@@ -8151,8 +8166,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               </td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cm.active
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                   }`}>
                                   {cm.active ? 'Active' : 'Inactive'}
                                 </span>
@@ -8246,8 +8261,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 text-gray-500">{cat.description || '—'}</td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cat.active
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                   }`}>
                                   {cat.active ? 'Active' : 'Inactive'}
                                 </span>
@@ -8336,8 +8351,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 text-gray-500">{pm.description || '—'}</td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${pm.active
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                   }`}>
                                   {pm.active ? 'Active' : 'Inactive'}
                                 </span>
@@ -8426,8 +8441,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 text-gray-500">{dt.description || '—'}</td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${dt.active
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                   }`}>
                                   {dt.active ? 'Active' : 'Inactive'}
                                 </span>
@@ -8516,8 +8531,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               <td className="p-3.5 text-gray-500">{at.description || '—'}</td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${at.active
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                   }`}>
                                   {at.active ? 'Active' : 'Inactive'}
                                 </span>
@@ -8622,8 +8637,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               </td>
                               <td className="p-3.5">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${pr.active
-                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                   }`}>
                                   {pr.active ? 'Active' : 'Inactive'}
                                 </span>
@@ -8689,8 +8704,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             loadFormDefinition(domain.key);
                           }}
                           className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-2 ${isSelected
-                              ? 'bg-emerald-700/10 border-emerald-600/50 text-emerald-900 ring-1 ring-amber-500/30 shadow-lg'
-                              : 'bg-white border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-300'
+                            ? 'bg-emerald-700/10 border-emerald-600/50 text-emerald-900 ring-1 ring-amber-500/30 shadow-lg'
+                            : 'bg-white border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-300'
                             }`}
                         >
                           <div className="flex items-center justify-between">
@@ -8722,8 +8737,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             </span>
                           )}
                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${currentFormDefinition?.active !== false
-                              ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                             }`}>
                             {currentFormDefinition?.active !== false ? 'Active' : 'Inactive'}
                           </span>
@@ -8821,8 +8836,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   </td>
                                   <td className="p-3.5">
                                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${field.required
-                                        ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
-                                        : 'bg-emerald-50/60 text-gray-500'
+                                      ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                                      : 'bg-emerald-50/60 text-gray-500'
                                       }`}>
                                       {field.required ? 'Mandatory *' : 'Optional'}
                                     </span>
@@ -8836,8 +8851,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                               <span
                                                 key={opt.id || opt.value}
                                                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${opt.active !== false
-                                                    ? 'bg-emerald-50/60 text-gray-800 border-gray-300'
-                                                    : 'bg-rose-950/30 text-rose-600 border-rose-900/40 line-through'
+                                                  ? 'bg-emerald-50/60 text-gray-800 border-gray-300'
+                                                  : 'bg-rose-950/30 text-rose-600 border-rose-900/40 line-through'
                                                   }`}
                                               >
                                                 {opt.label}
@@ -8875,8 +8890,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                   </td>
                                   <td className="p-3.5">
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${field.active !== false
-                                        ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                        : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                      : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                       }`}>
                                       {field.active !== false ? 'Active' : 'Inactive'}
                                     </span>
@@ -8894,8 +8909,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     <button
                                       onClick={() => handleToggleFieldStatus(field)}
                                       className={`px-2.5 py-1 rounded-lg text-[11px] transition ${field.active !== false
-                                          ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600'
-                                          : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700'
+                                        ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600'
+                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700'
                                         }`}
                                     >
                                       {field.active !== false ? 'Deactivate' : 'Activate'}
@@ -9067,8 +9082,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                 <td className="p-3.5 text-gray-500">{u.phone || '—'}</td>
                                 <td className="p-3.5">
                                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${u.enabled
-                                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                      : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                    : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                                     }`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${u.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
                                     {u.enabled ? 'Active' : 'Disabled'}
@@ -9096,10 +9111,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                                     disabled={submittingKey === `toggle-user-${u.id}` || isUserAdmin}
                                     title={isUserAdmin ? "Cannot disable master admin" : "Toggle account active status"}
                                     className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${isUserAdmin
-                                        ? 'opacity-40 cursor-not-allowed bg-emerald-50/60 text-gray-400 border-gray-300'
-                                        : u.enabled
-                                          ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
-                                          : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                      ? 'opacity-40 cursor-not-allowed bg-emerald-50/60 text-gray-400 border-gray-300'
+                                      : u.enabled
+                                        ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border-rose-500/30'
+                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                                       }`}
                                   >
                                     {submittingKey === `toggle-user-${u.id}` ? (
@@ -9220,8 +9235,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <button
                       onClick={() => setSystemHealthAutoRefresh(!systemHealthAutoRefresh)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${systemHealthAutoRefresh
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                          : 'bg-gray-100 text-gray-600 border-gray-300'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-gray-100 text-gray-600 border-gray-300'
                         }`}
                       title="Toggle 15-second automatic health refresh"
                     >
@@ -9249,18 +9264,18 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
 
                 {/* ── Overall Status Banner ───────────────────────────────────── */}
                 <div className={`rounded-2xl p-5 border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${overall === 'HEALTHY'
-                    ? 'bg-emerald-50/80 border-emerald-300'
-                    : overall === 'DEGRADED'
-                      ? 'bg-amber-50/80 border-amber-300'
-                      : overall === 'DOWN'
-                        ? 'bg-rose-50/80 border-rose-300'
-                        : 'bg-gray-50 border-gray-200'
+                  ? 'bg-emerald-50/80 border-emerald-300'
+                  : overall === 'DEGRADED'
+                    ? 'bg-amber-50/80 border-amber-300'
+                    : overall === 'DOWN'
+                      ? 'bg-rose-50/80 border-rose-300'
+                      : 'bg-gray-50 border-gray-200'
                   }`}>
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${overall === 'HEALTHY' ? 'bg-emerald-200 text-emerald-800'
-                        : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-800'
-                          : overall === 'DOWN' ? 'bg-rose-200 text-rose-800'
-                            : 'bg-gray-200 text-gray-600'
+                      : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-800'
+                        : overall === 'DOWN' ? 'bg-rose-200 text-rose-800'
+                          : 'bg-gray-200 text-gray-600'
                       }`}>
                       {overall === 'HEALTHY' && <CheckCircle2 className="w-6 h-6" />}
                       {overall === 'DEGRADED' && <AlertTriangle className="w-6 h-6" />}
@@ -9271,9 +9286,9 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Overall System Status:</span>
                         <span className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-black tracking-wide uppercase ${overall === 'HEALTHY' ? 'bg-emerald-200 text-emerald-900 border border-emerald-400'
-                            : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-900 border border-amber-400'
-                              : overall === 'DOWN' ? 'bg-rose-200 text-rose-900 border border-rose-400'
-                                : 'bg-gray-200 text-gray-800'
+                          : overall === 'DEGRADED' ? 'bg-amber-200 text-amber-900 border border-amber-400'
+                            : overall === 'DOWN' ? 'bg-rose-200 text-rose-900 border border-rose-400'
+                              : 'bg-gray-200 text-gray-800'
                           }`}>
                           <span className={`w-2 h-2 rounded-full ${overall === 'HEALTHY' ? 'bg-emerald-600' : overall === 'DEGRADED' ? 'bg-amber-600' : 'bg-rose-600'
                             }`} />
@@ -9296,8 +9311,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         key={svc.name}
                         title={`${svc.displayName}: ${svc.status}`}
                         className={`inline-block w-3 h-3 rounded-full cursor-pointer transition transform hover:scale-125 ${svc.status === 'UP' ? 'bg-emerald-500 shadow-[0_0_6px_1px_#10b981]'
-                            : svc.status === 'DOWN' ? 'bg-rose-500'
-                              : 'bg-gray-300 animate-pulse'
+                          : svc.status === 'DOWN' ? 'bg-rose-500'
+                            : 'bg-gray-300 animate-pulse'
                           }`}
                         onClick={() => setSelectedHealthServiceModal(svc)}
                       />
@@ -9390,21 +9405,21 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         key={svc.name}
                         onClick={() => setSelectedHealthServiceModal(svc)}
                         className={`bg-white border rounded-xl p-4 flex flex-col gap-2.5 transition cursor-pointer hover:shadow-md hover:border-emerald-400 ${svc.status === 'UP' ? 'border-emerald-200'
-                            : svc.status === 'DOWN' ? 'border-rose-300 bg-rose-50/20'
-                              : 'border-gray-200'
+                          : svc.status === 'DOWN' ? 'border-rose-300 bg-rose-50/20'
+                            : 'border-gray-200'
                           }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${svc.status === 'UP' ? 'bg-emerald-500 shadow-[0_0_6px_1px_#10b981]'
-                                : svc.status === 'DOWN' ? 'bg-rose-500'
-                                  : 'bg-gray-300 animate-pulse'
+                              : svc.status === 'DOWN' ? 'bg-rose-500'
+                                : 'bg-gray-300 animate-pulse'
                               }`} />
                             <span className="text-xs font-bold text-gray-900">{svc.displayName}</span>
                           </div>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${svc.status === 'UP' ? 'bg-emerald-100 text-emerald-800'
-                              : svc.status === 'DOWN' ? 'bg-rose-100 text-rose-800'
-                                : 'bg-gray-100 text-gray-500'
+                            : svc.status === 'DOWN' ? 'bg-rose-100 text-rose-800'
+                              : 'bg-gray-100 text-gray-500'
                             }`}>
                             {svc.status === 'LOADING' ? '…' : `● ${svc.status}`}
                           </span>
@@ -9423,8 +9438,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gray-400" /> Latency</span>
                               <span className={`font-mono font-bold ${svc.responseTimeMs < 200 ? 'text-emerald-700'
-                                  : svc.responseTimeMs < 500 ? 'text-amber-600'
-                                    : 'text-rose-600'
+                                : svc.responseTimeMs < 500 ? 'text-amber-600'
+                                  : 'text-rose-600'
                                 }`}>{svc.responseTimeMs} ms</span>
                             </div>
                           )}
@@ -9806,8 +9821,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         <div className="flex items-center justify-between p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
                           <span className="font-semibold text-gray-700">Service Status</span>
                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedHealthServiceModal.status === 'UP'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
                             }`}>
                             ● {selectedHealthServiceModal.status}
                           </span>
@@ -9886,12 +9901,18 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   value={productForm.name}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setProductForm(f => ({
-                      ...f,
-                      name: val,
-                      slug: editingProduct ? f.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-                      sku: editingProduct ? f.sku : (val ? 'RR-' + val.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + (f.packageType ? f.packageType.substring(0, 3) : 'PKG') : f.sku)
-                    }));
+                    setProductForm(f => {
+                      const slug = editingProduct ? f.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      let sku = f.sku;
+                      if (!editingProduct) {
+                        const baseSku = val ? 'RR-' + val.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6) + '-' + (f.packageType ? f.packageType.substring(0, 3) : 'PKG') : '';
+                        if (baseSku) {
+                          const exists = products.some(p => p.sku.toUpperCase() === baseSku);
+                          sku = exists ? `${baseSku}-${Math.floor(100 + Math.random() * 900)}` : baseSku;
+                        }
+                      }
+                      return { ...f, name: val, slug, sku };
+                    });
                   }}
                   placeholder="e.g. Traditional Organic Jaggery Block"
                   className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
@@ -9923,17 +9944,34 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-700 font-medium mb-1">Category</label>
-                <select
-                  value={productForm.categoryId}
-                  onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
-                  className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
-                >
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Category *</label>
+                  <select
+                    value={productForm.categoryId || categories[0]?.id || ''}
+                    onChange={(e) => setProductForm({ ...productForm, categoryId: e.target.value })}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
+                  >
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium mb-1">Grade</label>
+                  <select
+                    value={productForm.grade || 'GRADE_A_TRADITIONAL'}
+                    onChange={(e) => setProductForm(f => ({ ...f, grade: e.target.value }))}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 focus:border-emerald-700 focus:outline-none"
+                  >
+                    <option value="GRADE_A_TRADITIONAL">Grade A Traditional</option>
+                    <option value="PREMIUM_POWDER">Premium Powder</option>
+                    <option value="EXPORT_CUBES">Export Cubes</option>
+                    <option value="ORGANIC_LIQUID">Organic Liquid</option>
+                    <option value="COMMERCIAL_BULK">Commercial Bulk</option>
+                    <option value="SPECIALTY_AYURVEDIC">Specialty Ayurvedic</option>
+                  </select>
+                </div>
               </div>
 
               {/* Product Image Upload Section */}
@@ -10864,17 +10902,20 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-1">Unit</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value="KG"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-500 font-semibold"
-                  />
+                  <select
+                    value={dailyProduction.unitOfMeasure}
+                    onChange={(e) => setDailyProduction({ ...dailyProduction, unitOfMeasure: e.target.value })}
+                    className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-gray-900 font-semibold focus:border-emerald-700 focus:outline-none"
+                  >
+                    <option value="KG">KG — Kilograms</option>
+                    <option value="L">L — Litres</option>
+                    <option value="PCS">PCS — Pieces</option>
+                  </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-gray-700 font-medium mb-1">Wastage / Scrap (KG)</label>
+                <label className="block text-gray-700 font-medium mb-1">Wastage / Scrap ({dailyProduction.unitOfMeasure})</label>
                 <input
                   type="number"
                   min="0"
@@ -11155,8 +11196,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       unitOfMeasure: 'Tons',
                     })}
                     className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${sugarcanePurchaseForm.purchaseType === 'Sugarcane Purchase'
-                        ? 'border-amber-500 bg-amber-50/80 text-amber-950 font-bold ring-2 ring-amber-500/20 shadow-xs'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium'
+                      ? 'border-amber-500 bg-amber-50/80 text-amber-950 font-bold ring-2 ring-amber-500/20 shadow-xs'
+                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium'
                       }`}
                   >
                     <span className="text-xl">🌾</span>
@@ -11174,8 +11215,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       unitOfMeasure: 'Kg',
                     })}
                     className={`p-3 rounded-xl border text-left transition flex items-center gap-2.5 ${sugarcanePurchaseForm.purchaseType === 'Finished Jaggery (Outside Purchase)'
-                        ? 'border-emerald-500 bg-emerald-50/80 text-emerald-950 font-bold ring-2 ring-emerald-500/20 shadow-xs'
-                        : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium'
+                      ? 'border-emerald-500 bg-emerald-50/80 text-emerald-950 font-bold ring-2 ring-emerald-500/20 shadow-xs'
+                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium'
                       }`}
                   >
                     <span className="text-xl">📦</span>
@@ -11201,8 +11242,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       type="button"
                       onClick={() => setSugarcanePurchaseForm(prev => ({ ...prev, supplierMode: 'select' }))}
                       className={`px-2 py-0.5 rounded-md font-medium transition ${sugarcanePurchaseForm.supplierMode === 'select'
-                          ? 'bg-blue-600 text-white font-bold'
-                          : 'text-gray-600 hover:text-gray-900 bg-white border border-gray-200'
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'text-gray-600 hover:text-gray-900 bg-white border border-gray-200'
                         }`}
                     >
                       Existing Supplier
@@ -11211,8 +11252,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       type="button"
                       onClick={() => setSugarcanePurchaseForm(prev => ({ ...prev, supplierMode: 'new', supplierId: '' }))}
                       className={`px-2 py-0.5 rounded-md font-medium transition ${sugarcanePurchaseForm.supplierMode === 'new'
-                          ? 'bg-blue-600 text-white font-bold'
-                          : 'text-gray-600 hover:text-gray-900 bg-white border border-gray-200'
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'text-gray-600 hover:text-gray-900 bg-white border border-gray-200'
                         }`}
                     >
                       + New Supplier / Farmer
@@ -11399,8 +11440,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     value={sugarcanePurchaseForm.paymentStatus}
                     onChange={(e) => setSugarcanePurchaseForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
                     className={`w-full border rounded-xl px-3 py-2 font-bold focus:outline-none ${sugarcanePurchaseForm.paymentStatus === 'PAID'
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                        : 'bg-amber-50 border-amber-300 text-amber-800'
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                      : 'bg-amber-50 border-amber-300 text-amber-800'
                       }`}
                   >
                     <option value="PAID">✓ Paid — Bill already settled</option>
@@ -11515,8 +11556,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     <span className="text-[11px] text-gray-500">Toggle whether this expense has been paid or remains pending</span>
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${editExpenseForm.paymentStatus === 'PAID'
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : 'bg-amber-100 text-amber-800 border border-amber-300'
                     }`}>
                     {editExpenseForm.paymentStatus === 'PAID' ? '✓ Currently PAID' : '⏳ Currently UNPAID'}
                   </span>
@@ -11527,8 +11568,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     type="button"
                     onClick={() => setEditExpenseForm(prev => ({ ...prev, paymentStatus: 'PAID' }))}
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${editExpenseForm.paymentStatus === 'PAID'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300'
                       }`}
                   >
                     <Check className="w-4 h-4" />
@@ -11538,8 +11579,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                     type="button"
                     onClick={() => setEditExpenseForm(prev => ({ ...prev, paymentStatus: 'UNPAID' }))}
                     className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${editExpenseForm.paymentStatus === 'UNPAID'
-                        ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-amber-50 hover:border-amber-300'
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-amber-50 hover:border-amber-300'
                       }`}
                   >
                     <span>⏳ Unpaid (Pay Later)</span>
@@ -12106,8 +12147,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             }
                           }}
                           className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition border text-xs select-none ${isSelected
-                              ? 'bg-emerald-50/90 border-emerald-400 text-gray-900 shadow-xs'
-                              : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100/70'
+                            ? 'bg-emerald-50/90 border-emerald-400 text-gray-900 shadow-xs'
+                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100/70'
                             }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -12133,10 +12174,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                               </span>
                             ) : rec ? (
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${rec.status === 'PRESENT'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : rec.status === 'HALF_DAY'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-rose-100 text-rose-800'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : rec.status === 'HALF_DAY'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
                                 }`}>
                                 {rec.status === 'PRESENT' ? 'Present' : rec.status === 'HALF_DAY' ? 'Half Day' : 'Absent'}
                               </span>
@@ -12459,8 +12500,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
             <div className="flex items-start justify-between border-b border-gray-200 pb-4">
               <div>
                 <h2 className="text-xl font-black text-emerald-900 tracking-tight">RR JAGGERY</h2>
-                <p className="text-gray-600 mt-0.5">Vallurupallem, Thotlavalluru, Andhra Pradesh – 521163</p>
-                <p className="text-gray-500 text-[11px]">Phone: +91 9948533315 | Email: rrjaggery@gmail.com</p>
+                <p className="text-gray-600 mt-0.5">Kankipadu,Andhra Pradesh – 521163</p>
+                <p className="text-gray-500 text-[11px]">Phone: +91 7207063315 | Email: rrjaggery@gmail.com</p>
               </div>
               <div className="text-right">
                 <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-900 font-bold text-xs uppercase tracking-wider">
@@ -12587,10 +12628,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isWholesale
-                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                      : isManual
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                    : isManual
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-blue-100 text-blue-800 border border-blue-200'
                     }`}>
                     {isWholesale ? 'Wholesale B2B' : isManual ? 'Manual Retail' : 'Online Storefront'}
                   </span>
@@ -12609,10 +12650,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Fulfillment Status</span>
                   <div>
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${orderStatus === 'DELIVERED'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : orderStatus === 'CANCELLED'
-                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                          : 'bg-blue-100 text-blue-800 border border-blue-300'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : orderStatus === 'CANCELLED'
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : 'bg-blue-100 text-blue-800 border border-blue-300'
                       }`}>
                       {orderStatus}
                     </span>
@@ -12623,8 +12664,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Payment Status</span>
                   <div>
                     <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${paymentStatus === 'PAID'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border border-amber-300'
                       }`}>
                       {paymentStatus}
                     </span>
@@ -12662,12 +12703,12 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                         {typeof o.shippingAddress === 'string'
                           ? o.shippingAddress
                           : [
-                              o.shippingAddress.apartmentName || o.shippingAddress.apartment,
-                              o.shippingAddress.streetAddress || o.shippingAddress.street,
-                              o.shippingAddress.city,
-                              o.shippingAddress.state ? `${o.shippingAddress.state} - ${o.shippingAddress.postalCode || ''}` : o.shippingAddress.postalCode,
-                              o.shippingAddress.nearestLandmark ? `(Near: ${o.shippingAddress.nearestLandmark})` : ''
-                            ].filter(Boolean).join(', ')}
+                            o.shippingAddress.apartmentName || o.shippingAddress.apartment,
+                            o.shippingAddress.streetAddress || o.shippingAddress.street,
+                            o.shippingAddress.city,
+                            o.shippingAddress.state ? `${o.shippingAddress.state} - ${o.shippingAddress.postalCode || ''}` : o.shippingAddress.postalCode,
+                            o.shippingAddress.nearestLandmark ? `(Near: ${o.shippingAddress.nearestLandmark})` : ''
+                          ].filter(Boolean).join(', ')}
                       </p>
                     ) : cust?.shippingAddress ? (
                       <p className="text-gray-700 mt-0.5 leading-relaxed">
@@ -12898,6 +12939,17 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
               )}
 
               <form onSubmit={handleUpdateOrder} className="space-y-4">
+                {/* Stock Shortage Warning / Error Display */}
+                {editOrderError && (
+                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-bold text-rose-900">Cannot Update Order Status</p>
+                      <p className="mt-0.5 font-medium leading-relaxed">{editOrderError}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Order / Delivery Status */}
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">
@@ -12905,7 +12957,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                   </label>
                   <select
                     value={editOrderForm.status}
-                    onChange={e => setEditOrderForm(prev => ({ ...prev, status: e.target.value }))}
+                    onChange={e => {
+                      setEditOrderForm(prev => ({ ...prev, status: e.target.value }));
+                      setEditOrderError(null);
+                    }}
                     className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     required
                   >
@@ -12928,6 +12983,38 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                       </>
                     )}
                   </select>
+
+                  {/* Dynamic Inline Live Stock Check Warning */}
+                  {(() => {
+                    const currentStatus = o.orderStatus || o.status || '';
+                    const isTargetingFulfillment = ['DISPATCHED', 'DELIVERED'].includes(editOrderForm.status);
+                    const isAlreadyFulfilled = ['DISPATCHED', 'DELIVERED'].includes(currentStatus);
+                    if (isTargetingFulfillment && !isAlreadyFulfilled) {
+                      const items = o.items || [];
+                      for (const it of items) {
+                        const unitWt = Number(it.unitWeightKg) > 0 ? Number(it.unitWeightKg) : 1;
+                        const reqQty = (Number(it.quantity) || 1) * unitWt;
+                        const invItem = inventoryItems.find((inv: any) => inv.sku === it.sku);
+                        const availQty = invItem ? Number(invItem.currentQuantity) || 0 : 0;
+                        if (availQty < reqQty) {
+                          const actionWord = editOrderForm.status === 'DELIVERED' ? 'delivered' : 'dispatched';
+                          return (
+                            <div className="mt-2 p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                              <div>
+                                <span className="font-bold">Insufficient Stock: </span>
+                                The quantity of this product in the order is more than what we have in our stock kindly add production then try again to mark it {actionWord}.
+                                <div className="text-[11px] text-amber-700 font-mono mt-0.5">
+                                  Product: "{it.productName || it.sku}" (SKU: {it.sku}, Needed: {reqQty} KG, In Stock: {availQty} KG)
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                      }
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 {/* Payment Status */}
@@ -13426,10 +13513,10 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                             </td>
                             <td className="py-2.5">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${isInbound
-                                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                                  : isOutbound
-                                    ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                                    : 'bg-emerald-100/60 text-gray-700 border-gray-300'
+                                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                                : isOutbound
+                                  ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                  : 'bg-emerald-100/60 text-gray-700 border-gray-300'
                                 }`}>
                                 {typeLabel}
                               </span>
@@ -14615,8 +14702,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setNotificationsFilter('all')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition ${notificationsFilter === 'all'
-                      ? 'bg-emerald-700 text-white font-bold'
-                      : 'bg-emerald-50/60 text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white font-bold'
+                    : 'bg-emerald-50/60 text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   All ({notifications.length})
@@ -14624,8 +14711,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({ token, user, onLog
                 <button
                   onClick={() => setNotificationsFilter('unread')}
                   className={`px-3 py-1.5 rounded-lg font-medium transition ${notificationsFilter === 'unread'
-                      ? 'bg-emerald-700 text-white font-bold'
-                      : 'bg-emerald-50/60 text-gray-500 hover:text-gray-900'
+                    ? 'bg-emerald-700 text-white font-bold'
+                    : 'bg-emerald-50/60 text-gray-500 hover:text-gray-900'
                     }`}
                 >
                   Unread Only ({unreadNotificationsCount})

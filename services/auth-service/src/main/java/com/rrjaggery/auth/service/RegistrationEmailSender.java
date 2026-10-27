@@ -196,10 +196,10 @@ public class RegistrationEmailSender {
                         RR Jaggery &bull; Jaggery Manufacturing &amp; Wholesale
                       </p>
                       <p style="margin: 0 0 4px 0; font-size: 12px; color: #4b5563; line-height: 1.5;">
-                        &#128205; Vallurupallem, Thotlavalluru, Andhra Pradesh &ndash; 521163
+                        &#128205; Kankipadu, Andhra Pradesh &ndash; 521163
                       </p>
                       <p style="margin: 0 0 4px 0; font-size: 12px; color: #4b5563; line-height: 1.5;">
-                        &#128222; +91 9948533315 &nbsp;|&nbsp; &#9993;&#65039; <a href="mailto:rrjaggery@gmail.com" style="color: #047857; text-decoration: none; font-weight: 600;">rrjaggery@gmail.com</a>
+                        &#128222; +91 7207063315 &nbsp;|&nbsp; &#9993;&#65039; <a href="mailto:rrjaggery@gmail.com" style="color: #047857; text-decoration: none; font-weight: 600;">rrjaggery@gmail.com</a>
                       </p>
                       <p style="margin: 0 0 10px 0; font-size: 12px; color: #6b7280; line-height: 1.5;">
                         &#128345; Support Hours: 10:00 AM &ndash; 6:00 PM (Mon&ndash;Sat) &nbsp;|&nbsp; Serving Vijayawada, Guntur &amp; beyond

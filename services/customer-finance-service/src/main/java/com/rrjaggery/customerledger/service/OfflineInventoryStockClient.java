@@ -10,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -40,8 +41,34 @@ public class OfflineInventoryStockClient {
                 "Idempotent finished-goods restoration for cancelled offline order.");
     }
 
+    /**
+     * Returns the current available quantity for the given SKU from the inventory service.
+     * Returns BigDecimal.ZERO if the item is not found (no inventory item registered yet).
+     */
+    public BigDecimal checkAvailableStock(String sku) {
+        HttpHeaders headers = buildAuthHeaders();
+        try {
+            ResponseEntity<ApiResponse<Map<String, Object>>> response = restTemplate.exchange(
+                    inventoryBaseUrl + "/api/v1/inventory/items/sku/" + sku,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<ApiResponse<Map<String, Object>>>() {});
+            if (response.getStatusCode().is2xxSuccessful()
+                    && response.getBody() != null
+                    && response.getBody().getData() != null) {
+                Object qty = response.getBody().getData().get("currentQuantity");
+                if (qty != null) {
+                    return new BigDecimal(qty.toString());
+                }
+            }
+            return BigDecimal.ZERO;
+        } catch (HttpClientErrorException.NotFound e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
     private void postStockCommand(String endpoint, String sku, BigDecimal quantityKg,
-                                  String referenceId, String notes) {
+                                   String referenceId, String notes) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("sku", sku);
         payload.put("quantity", quantityKg);
@@ -50,11 +77,7 @@ public class OfflineInventoryStockClient {
         payload.put("actor", "customer-finance-service");
         payload.put("notes", notes);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(jwtTokenProvider.generateToken(
-                "customer-finance-service", "customer-finance-service@internal",
-                List.of("ROLE_MANAGER", "ROLE_ADMIN"), "INTERNAL"));
+        HttpHeaders headers = buildAuthHeaders();
         ResponseEntity<ApiResponse<Void>> response = restTemplate.exchange(
                 inventoryBaseUrl + endpoint,
                 HttpMethod.POST,
@@ -65,5 +88,14 @@ public class OfflineInventoryStockClient {
                 || !response.getBody().isSuccess()) {
             throw new IllegalStateException("Inventory service rejected stock command for SKU " + sku);
         }
+    }
+
+    private HttpHeaders buildAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(jwtTokenProvider.generateToken(
+                "customer-finance-service", "customer-finance-service@internal",
+                List.of("ROLE_MANAGER", "ROLE_ADMIN"), "INTERNAL"));
+        return headers;
     }
 }

@@ -157,7 +157,7 @@ async function runVerification() {
   const createProdRes = await postJson('http://localhost/api/v1/commerce/admin/products', {
     categoryId: defaultCatId,
     name: 'Artisanal Jaggery Moulds ' + Date.now(),
-    description: 'Pure artisanal jaggery blocks freshly molded in Thotlavalluru.',
+    description: 'Pure artisanal jaggery blocks freshly molded in .',
     sku: testProductSku,
     retailPrice: 135.00,
     wholesalePrice: 110.00,

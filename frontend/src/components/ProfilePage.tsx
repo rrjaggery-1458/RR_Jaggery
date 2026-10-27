@@ -94,12 +94,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="flex items-center gap-2 mt-2">
                   <span
                     className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${isAdmin
-                        ? 'bg-purple-50 text-purple-800 border-purple-200'
-                        : isManager
-                          ? 'bg-blue-50 text-blue-800 border-blue-200'
-                          : isWholesale
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                      : isManager
+                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                        : isWholesale
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       }`}
                   >
                     {isAdmin
@@ -287,7 +287,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <div>
                     <span className="font-bold text-gray-900 block">Default Delivery Region</span>
                     <span className="text-[11px] text-gray-600 block mt-0.5">
-                      Direct Mill dispatch from Vallurupallem, Andhra Pradesh across all Indian pincodes via express logistics.
+                      Direct Mill dispatch from Kankipadu, Andhra Pradesh across all Indian pincodes via express logistics.
                     </span>
                   </div>
                 </div>
@@ -298,7 +298,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
                 <div className="flex items-center justify-between py-1.5">
                   <span className="text-gray-500">Dispatch Timeline</span>
-                  <span className="font-semibold text-emerald-700">Within 24–48 hours</span>
+                  <span className="font-semibold text-emerald-700">Within 48-60 hours</span>
                 </div>
               </div>
             )}
@@ -320,7 +320,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
             <div>
               <span className="text-[10px] text-gray-500 font-medium block">Order Helpline</span>
-              <span className="font-bold text-gray-900 block">+91 9948533315</span>
+              <span className="font-bold text-gray-900 block">+91 7207063315</span>
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
             <div>
               <span className="text-[10px] text-gray-500 font-medium block">Mill Location</span>
-              <span className="font-bold text-gray-900 block">Vallurupallem, AP</span>
+              <span className="font-bold text-gray-900 block">Kankipadu,Andhra Pradesh</span>
             </div>
           </div>
         </div>
@@ -354,10 +354,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-gray-900 block">
-              100% Pure, Naturally Clarified Sugarcane Jaggery
+              100% Pure, Naturally Clarified Organic Sugarcane Jaggery
             </span>
             <span className="text-[11px] text-gray-600 block mt-0.5">
-              Zero refined sugar, zero chemicals, zero artificial preservatives. Laboratory tested purity.
+              Zero refined sugar, zero chemicals, zero artificial preservatives.
             </span>
           </div>
         </div>

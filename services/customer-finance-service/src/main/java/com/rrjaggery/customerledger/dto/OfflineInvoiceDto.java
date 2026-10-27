@@ -18,8 +18,8 @@ public class OfflineInvoiceDto {
     private String sellerName = "RR Jaggery";
     // This DTO represents commercial invoices; seller tax registration data is not
     // supplied here.
-    private String sellerAddress = "Vallurupallem, Thotlavalluru, Andhra Pradesh - 521163";
-    private String sellerContact = "+91 9948533315 | rrjaggery@gmail.com";
+    private String sellerAddress = "Kankipadu,Andhra Pradesh - 521163";
+    private String sellerContact = "+91 7207063315 | rrjaggery@gmail.com";
 
     // Buyer Info
     private UUID customerId;
