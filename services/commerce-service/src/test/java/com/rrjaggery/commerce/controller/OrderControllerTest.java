@@ -11,6 +11,7 @@ import com.rrjaggery.commerce.entity.Product;
 import com.rrjaggery.commerce.repository.ProductRepository;
 import com.rrjaggery.commerce.repository.StockOutboxRepository;
 import com.rrjaggery.commerce.service.InventoryStockClient;
+import com.rrjaggery.commerce.service.RazorpayPaymentService;
 import com.rrjaggery.common.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,9 @@ public class OrderControllerTest {
     @MockBean
     private InventoryStockClient inventoryStockClient;
 
+    @MockBean
+    private RazorpayPaymentService razorpayService;
+
     private String customerToken;
     private String adminToken;
     private UUID customerId;
@@ -79,12 +83,17 @@ public class OrderControllerTest {
         testProduct = productRepository.findAll().stream().findFirst().orElseThrow();
         org.mockito.Mockito.when(inventoryStockClient.checkAvailableStock(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(new BigDecimal("100.000"));
+        org.mockito.Mockito.when(razorpayService.isEnabled()).thenReturn(true);
+        org.mockito.Mockito.when(razorpayService.verifyPaymentSignature(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
     }
 
     @Test
     void testCheckoutWithEmptyCartFails() throws Exception {
         AddressDto address = new AddressDto("Test Buyer", "+91 9999988888", "Blue House", "123 Main St", "Mandya", "Karnataka", "571401", "Near market");
-        CheckoutRequest req = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Quick delivery");
+        CheckoutRequest req = new CheckoutRequest(address, PaymentMethod.CASH_ON_DELIVERY, "Quick delivery");
 
         mockMvc.perform(post("/api/v1/commerce/orders/checkout")
                         .header("Authorization", customerToken)
@@ -103,9 +112,10 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(addReq)))
                 .andExpect(status().isCreated());
 
-        // 2. Checkout
+        // 2. Checkout via verified Razorpay
         AddressDto address = new AddressDto("Buyer Ramesh", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
-        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Fragile jaggery blocks");
+        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.RAZORPAY, "Fragile jaggery blocks",
+                "order_rzp_123", "pay_rzp_456", "sig_rzp_789");
 
         MvcResult result = mockMvc.perform(post("/api/v1/commerce/orders/checkout")
                         .header("Authorization", customerToken)
@@ -261,7 +271,8 @@ public class OrderControllerTest {
                 .andExpect(status().isCreated());
 
         AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
-        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Test order");
+        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.RAZORPAY, "Test order",
+                "order_rzp_123", "pay_rzp_456", "sig_rzp_789");
         MvcResult checkout = mockMvc.perform(post("/api/v1/commerce/orders/checkout")
                         .header("Authorization", customerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -301,7 +312,8 @@ public class OrderControllerTest {
                 .andExpect(status().isCreated());
 
         AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
-        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.TEST_PAYMENT, "Test rollback");
+        CheckoutRequest checkoutReq = new CheckoutRequest(address, PaymentMethod.RAZORPAY, "Test rollback",
+                "order_rzp_123", "pay_rzp_456", "sig_rzp_789");
         MvcResult checkout = mockMvc.perform(post("/api/v1/commerce/orders/checkout")
                         .header("Authorization", customerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -344,5 +356,133 @@ public class OrderControllerTest {
                 org.mockito.ArgumentMatchers.eq(new BigDecimal("1.000")),
                 org.mockito.ArgumentMatchers.startsWith(orderNumber + ":"),
                 org.mockito.ArgumentMatchers.eq("COMMERCE"));
+    }
+
+    @Test
+    void testCheckoutWithRemovedTestPaymentFails() throws Exception {
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 1);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        String rawJson = """
+            {
+                "shippingAddress": {
+                    "recipientName": "Buyer",
+                    "phone": "+91 9888877777",
+                    "apartmentName": "Farm House",
+                    "streetAddress": "Farm House 4",
+                    "city": "Mandya",
+                    "state": "Karnataka",
+                    "postalCode": "571401"
+                },
+                "paymentMethod": "TEST_PAYMENT"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCheckoutWithMissingPaymentMethodFails() throws Exception {
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 1);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        String rawJson = """
+            {
+                "shippingAddress": {
+                    "recipientName": "Buyer",
+                    "phone": "+91 9888877777",
+                    "apartmentName": "Farm House",
+                    "streetAddress": "Farm House 4",
+                    "city": "Mandya",
+                    "state": "Karnataka",
+                    "postalCode": "571401"
+                }
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testCheckoutRazorpayMissingSignatureFails() throws Exception {
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 1);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
+        CheckoutRequest req = new CheckoutRequest(address, PaymentMethod.RAZORPAY, "Notes");
+
+        mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_PARAMETERS"));
+    }
+
+    @Test
+    void testCheckoutRazorpayInvalidSignatureFails() throws Exception {
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 1);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        org.mockito.Mockito.when(razorpayService.verifyPaymentSignature(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(false);
+
+        AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
+        CheckoutRequest req = new CheckoutRequest(address, PaymentMethod.RAZORPAY, "Notes", "order_1", "pay_1", "invalid_sig");
+
+        mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("SIGNATURE_MISMATCH"));
+    }
+
+    @Test
+    void testCheckoutRazorpayDisabledFails() throws Exception {
+        AddToCartRequest addReq = new AddToCartRequest(testProduct.getId(), 1);
+        mockMvc.perform(post("/api/v1/commerce/cart/items")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addReq)))
+                .andExpect(status().isCreated());
+
+        org.mockito.Mockito.when(razorpayService.isEnabled()).thenReturn(false);
+
+        AddressDto address = new AddressDto("Buyer", "+91 9888877777", "Farm House", "Farm House 4", "Mandya", "Karnataka", "571401", "Near temple");
+        CheckoutRequest req = new CheckoutRequest(address, PaymentMethod.RAZORPAY, "Notes", "order_1", "pay_1", "sig_1");
+
+        mockMvc.perform(post("/api/v1/commerce/orders/checkout")
+                        .header("Authorization", customerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("RAZORPAY_DISABLED"));
     }
 }

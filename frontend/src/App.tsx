@@ -137,7 +137,7 @@ interface Order {
   totalAmount: number;
   status: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'DISPATCHED' | 'DELIVERED' | 'CANCELLED';
   paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
-  paymentMethod: 'TEST_PAYMENT' | 'CASH_ON_DELIVERY' | 'UPI' | 'BANK_TRANSFER' | 'RAZORPAY';
+  paymentMethod: 'CASH_ON_DELIVERY' | 'RAZORPAY';
   shippingAddress: Address;
   notes?: string;
   items: OrderItem[];
@@ -1148,7 +1148,7 @@ function CheckoutModal({
     postalCode: '',
     nearestLandmark: '',
   });
-  const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'CASH_ON_DELIVERY' | 'TEST_PAYMENT'>('RAZORPAY');
+  const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'CASH_ON_DELIVERY'>('CASH_ON_DELIVERY');
   const [locationLink, setLocationLink] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1254,8 +1254,21 @@ function CheckoutModal({
 
     if (paymentMethod === 'RAZORPAY') {
       // ── Razorpay Payment Flow ──
-      const rzpKey = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_live_Sygkkdt4sA85ne';
+      // Key is read exclusively from the Vite env variable; no hardcoded fallback.
+      const rzpKey = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || '';
+
+      // Task B: Validate public key before attempting any network call.
+      if (!rzpKey) {
+        setError('Online payment is not configured. Please select Cash on Delivery or contact support.');
+        setLoading(false);
+        return;
+      }
+
+      // Task A: Create a Razorpay server-side order. The order ID is mandatory —
+      // we must NOT open the SDK without it because signature verification
+      // requires razorpay_order_id to be present.
       let rzpOrderId = '';
+      let createOrderOk = false;
 
       try {
         const orderRes = await fetch(`${COMMERCE_BASE}/payments/razorpay/create-order`, {
@@ -1265,17 +1278,56 @@ function CheckoutModal({
             amount: currentCart.totalAmount.toString(),
           }),
         });
-        if (orderRes.ok) {
-          const orderData = await orderRes.json();
-          if (orderData?.success && orderData.data?.razorpayOrderId) {
-            rzpOrderId = orderData.data.razorpayOrderId;
-          }
-          if (orderData?.data?.keyId && orderData.data.keyId !== 'PENDING') {
-            // Can optionally use authoritative public key from backend
-          }
+
+        if (!orderRes.ok) {
+          // Non-2xx response: backend rejected the request.
+          let errMsg = `Payment gateway returned an error (HTTP ${orderRes.status}). Please try again or use Cash on Delivery.`;
+          try {
+            const errBody = await orderRes.json();
+            if (errBody?.error?.message) errMsg = errBody.error.message;
+          } catch { /* ignore parse failure on error body */ }
+          setError(errMsg);
+          setLoading(false);
+          return;
         }
+
+        // 2xx response — parse JSON.
+        let orderData: any = null;
+        try {
+          orderData = await orderRes.json();
+        } catch {
+          setError('Unexpected response from payment gateway. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        // Guard: backend explicitly signals the gateway is disabled.
+        if (orderData?.data?.status === 'RAZORPAY_DISABLED') {
+          setError('Online payment is not available at this time. Please select Cash on Delivery.');
+          setLoading(false);
+          return;
+        }
+
+        // Extract the mandatory server-side order ID.
+        if (orderData?.success && orderData.data?.razorpayOrderId) {
+          rzpOrderId = orderData.data.razorpayOrderId;
+          createOrderOk = true;
+        }
+        // Note: backend also returns keyId — reserved for future key-authority use.
       } catch (err) {
-        console.warn('Backend Razorpay order creation warning:', err);
+        // Network failure or other unexpected error.
+        setError('Could not reach the payment gateway. Please check your connection and try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Task A: Require a non-empty server-created order ID before opening the SDK.
+      // Without it, Razorpay proceeds in orderless mode, making signature
+      // verification impossible and defeating the server-side payment check.
+      if (!createOrderOk || !rzpOrderId) {
+        setError('Payment gateway did not return a valid order reference. Please try again or use Cash on Delivery.');
+        setLoading(false);
+        return;
       }
 
       if (typeof (window as any).Razorpay === 'undefined') {
@@ -1336,6 +1388,9 @@ function CheckoutModal({
                 shippingAddress: address,
                 paymentMethod: 'RAZORPAY',
                 notes: orderNotes,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
               }),
             });
             let body: any = null;
@@ -1372,7 +1427,7 @@ function CheckoutModal({
       return;
     }
 
-    // ── COD or TEST_PAYMENT Flow ──
+    // ── COD Flow ──
     try {
       const res = await fetch(`${COMMERCE_BASE}/orders/checkout`, {
         method: 'POST',
@@ -1667,7 +1722,7 @@ function CheckoutModal({
           {/* Payment Method */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">2. Payment Method</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label
                 id="payment-method-razorpay"
                 className={`p-3.5 rounded-2xl border cursor-pointer flex flex-col justify-between gap-2 transition ${paymentMethod === 'RAZORPAY' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
@@ -1714,32 +1769,6 @@ function CheckoutModal({
                 <div>
                   <div className="text-xs font-bold text-gray-900">Cash on Delivery</div>
                   <div className="text-[10px] text-gray-500 leading-tight mt-0.5">Pay upon mill delivery / weighment receipt</div>
-                </div>
-              </label>
-
-              <label
-                id="payment-method-test"
-                className={`p-3.5 rounded-2xl border cursor-pointer flex flex-col justify-between gap-2 transition ${paymentMethod === 'TEST_PAYMENT' ? 'bg-emerald-700/10 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="TEST_PAYMENT"
-                      checked={paymentMethod === 'TEST_PAYMENT'}
-                      onChange={() => setPaymentMethod('TEST_PAYMENT')}
-                      className="text-emerald-700 focus:ring-emerald-600"
-                    />
-                    <Sparkles className="h-4 w-4 text-emerald-700" />
-                  </div>
-                  <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
-                    Test
-                  </span>
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-gray-900">Test Payment</div>
-                  <div className="text-[10px] text-gray-500 leading-tight mt-0.5">Instant simulation without gateway</div>
                 </div>
               </label>
             </div>

@@ -83,10 +83,13 @@ public class OrderService {
         order.setNearestLandmark(addr.getNearestLandmark());
         order.setNotes(request.getNotes());
 
-        PaymentMethod paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.TEST_PAYMENT;
+        PaymentMethod paymentMethod = request.getPaymentMethod();
+        if (paymentMethod == null) {
+            throw new IllegalArgumentException("Payment method is required");
+        }
         order.setPaymentMethod(paymentMethod);
 
-        if (paymentMethod == PaymentMethod.TEST_PAYMENT || paymentMethod == PaymentMethod.RAZORPAY) {
+        if (paymentMethod == PaymentMethod.RAZORPAY) {
             order.setPaymentStatus(PaymentStatus.PAID);
             order.setStatus(OrderStatus.CONFIRMED);
         } else {

@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS commerce_schema.orders (
     total_amount NUMERIC(12, 2) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     payment_status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
-    payment_method VARCHAR(50) NOT NULL DEFAULT 'TEST_PAYMENT',
+    payment_method VARCHAR(50) NOT NULL,
     recipient_name VARCHAR(255) NOT NULL,
     phone VARCHAR(50) NOT NULL,
     street_address TEXT NOT NULL,

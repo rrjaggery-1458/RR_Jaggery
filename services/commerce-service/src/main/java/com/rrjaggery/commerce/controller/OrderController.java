@@ -4,7 +4,9 @@ import com.rrjaggery.commerce.config.CustomerSecurityUtils;
 import com.rrjaggery.commerce.dto.CheckoutRequest;
 import com.rrjaggery.commerce.dto.InvoiceDto;
 import com.rrjaggery.commerce.dto.OrderDto;
+import com.rrjaggery.commerce.entity.PaymentMethod;
 import com.rrjaggery.commerce.service.OrderService;
+import com.rrjaggery.commerce.service.RazorpayPaymentService;
 import com.rrjaggery.common.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,10 +24,14 @@ public class OrderController {
 
     private final OrderService orderService;
     private final CustomerSecurityUtils securityUtils;
+    private final RazorpayPaymentService razorpayService;
 
-    public OrderController(OrderService orderService, CustomerSecurityUtils securityUtils) {
+    public OrderController(OrderService orderService,
+                           CustomerSecurityUtils securityUtils,
+                           RazorpayPaymentService razorpayService) {
         this.orderService = orderService;
         this.securityUtils = securityUtils;
+        this.razorpayService = razorpayService;
     }
 
     @PostMapping("/checkout")
@@ -33,6 +39,33 @@ public class OrderController {
             @Valid @RequestBody CheckoutRequest req,
             HttpServletRequest request
     ) {
+        if (req.getPaymentMethod() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Payment method is required.", "MISSING_PAYMENT_METHOD"));
+        }
+        if (req.getPaymentMethod() == PaymentMethod.RAZORPAY) {
+            if (!razorpayService.isEnabled()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Online payment via Razorpay is currently disabled.", "RAZORPAY_DISABLED"));
+            }
+            String rzpOrderId = req.getRazorpayOrderId();
+            String rzpPaymentId = req.getRazorpayPaymentId();
+            String rzpSignature = req.getRazorpaySignature();
+
+            if (rzpOrderId == null || rzpOrderId.isBlank() ||
+                rzpPaymentId == null || rzpPaymentId.isBlank() ||
+                rzpSignature == null || rzpSignature.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Missing required Razorpay payment verification parameters.", "INVALID_PARAMETERS"));
+            }
+
+            boolean valid = razorpayService.verifyPaymentSignature(rzpOrderId, rzpPaymentId, rzpSignature);
+            if (!valid) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Payment verification failed. Invalid payment signature.", "SIGNATURE_MISMATCH"));
+            }
+        }
+
         CustomerSecurityUtils.AuthenticatedCustomer customer = securityUtils.getAuthenticatedCustomer(request);
         OrderDto order = orderService.checkout(
                 customer.getUserId(),

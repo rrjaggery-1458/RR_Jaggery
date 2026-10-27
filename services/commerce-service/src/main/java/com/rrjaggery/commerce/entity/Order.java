@@ -61,7 +61,7 @@ public class Order {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false, length = 50)
-    private PaymentMethod paymentMethod = PaymentMethod.TEST_PAYMENT;
+    private PaymentMethod paymentMethod = PaymentMethod.CASH_ON_DELIVERY;
 
     @Column(name = "recipient_name", nullable = false)
     private String recipientName;
