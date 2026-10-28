@@ -70,3 +70,8 @@ management:
   endpoint:
     health:
       show-details: always
+
+bootstrap:
+  admin:
+    username: ${BOOTSTRAP_ADMIN_USERNAME:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
