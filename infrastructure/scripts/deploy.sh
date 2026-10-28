@@ -4,16 +4,22 @@
 # Sprint 10 — OVHcloud VPS Deployment
 # ==============================================================================
 # Run as: bash deploy.sh
-# Run from: /opt/rr-jaggery (repo root, on the VPS)
+# Run from: /home/ubuntu/RR_Jaggery (repo root, on the VPS)
 # ==============================================================================
 set -euo pipefail
 
 COMPOSE_FILE="compose.production.yaml"
-PROJECT_DIR="/opt/rr-jaggery"
+PROJECT_DIR="${PROJECT_DIR:-/home/ubuntu/RR_Jaggery}"
 LOG_FILE="/var/log/rr-jaggery/deploy.log"
 
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+
 log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+  local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+  echo "$msg"
+  if [ -w "$(dirname "$LOG_FILE")" ] || [ -w "$LOG_FILE" ]; then
+    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
+  fi
 }
 
 log "======================================================================"
@@ -45,28 +51,43 @@ log "[PRE-FLIGHT] .env secrets validated."
 # ------------------------------------------------------------------
 # Record baseline
 # ------------------------------------------------------------------
-COMMIT=$(git rev-parse --short HEAD)
-BRANCH=$(git branch --show-current)
+COMMIT="${DEPLOY_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')}"
+BRANCH="${DEPLOY_BRANCH:-$(git branch --show-current 2>/dev/null || echo 'unknown')}"
 log "[GIT] Branch: $BRANCH | Commit: $COMMIT"
 
 # ------------------------------------------------------------------
 # 1. Build frontend
 # ------------------------------------------------------------------
-log "[1/5] Building frontend production bundle..."
-cd frontend
-npm ci --prefer-offline 2>&1 | tail -5
-npm run build 2>&1 | tail -10
-cd ..
-log "[1/5] Frontend build complete. Output in frontend/dist/"
+if [ -f "frontend/dist/index.html" ]; then
+  log "[1/5] Pre-built frontend bundle detected (frontend/dist/index.html). Skipping on-host build."
+else
+  log "[1/5] Building frontend production bundle on host..."
+  cd frontend
+  npm ci --prefer-offline 2>&1 | tail -5
+  npm run build 2>&1 | tail -10
+  cd ..
+  log "[1/5] Frontend build complete. Output in frontend/dist/"
+fi
 
 # ------------------------------------------------------------------
 # 2. Build backend JARs
 # ------------------------------------------------------------------
-log "[2/5] Packaging backend JARs..."
-cd services
-mvn -B clean package -DskipTests 2>&1 | tail -20
-cd ..
-log "[2/5] Backend JARs built."
+PREBUILT_JARS=0
+for s in auth-service commerce-service customer-finance-service inventory-procurement-service production-service; do
+  if compgen -G "services/${s}/target/*.jar" > /dev/null 2>&1; then
+    PREBUILT_JARS=$((PREBUILT_JARS + 1))
+  fi
+done
+
+if [ "$PREBUILT_JARS" -eq 5 ]; then
+  log "[2/5] All 5 pre-built service JARs detected in services/*/target/. Skipping on-host Maven build."
+else
+  log "[2/5] Packaging backend JARs via Maven on host..."
+  cd services
+  mvn -B clean package -DskipTests 2>&1 | tail -20
+  cd ..
+  log "[2/5] Backend JARs built."
+fi
 
 # ------------------------------------------------------------------
 # 3. Verify 7-container architecture (no Redis, no legacy services)

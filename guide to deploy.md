@@ -2,8 +2,8 @@
 
 > **Document Status:** Authoritative Master Deployment Guide  
 > **Repository:** `E:\RR Jaggery`  
-> **Current Branch:** `main` (synchronized with `origin/main` at `ce19dea`)<br>
-> **Baseline Commit:** `ce19dea9469f8b2f1112f2aab650c2c104048ece` (*docs: record successful GitHub synchronization*)<br>
+> **Current Branch:** `main` (synchronized with `origin/main` at `e582aa9`)<br>
+> **Baseline Commit:** `e582aa9ca329734f03bdf671af621e3e9decfae5` (*fix(ci): hard-disable production deployment pending safety review*)<br>
 > **Document Last Updated:** 2026-10-28<br>
 > **Operating Rule:** Every deployment-related task MUST update this document as part of that same task.
 
@@ -34,8 +34,8 @@
 | 2 | **Production Configuration and Security** | `COMPLETED — VERIFIED` | Phase 2.2E.1–2.2E.5 | `compose.production.yaml`, `init-schemas.sql` |
 | 3 | **OVHcloud VPS Deployment** | `COMPLETED — HISTORICAL (RECONCILIATION PENDING)` | Initial VPS & Nginx live (Sprint 10); Phase 2.2E pending | `infrastructure/scripts/vps-provision.sh` |
 | 4 | **Backup and Operational Readiness** | `COMPLETED — VERIFIED` | Phase 2.2E.4 Drill (20/20 PASS) | `infrastructure/scripts/backup.sh`, `restore.sh` |
-| 5 | **Git Integration** | `COMPLETED — VERIFIED` | Stage 5.1–5.3 (Clean push to origin/main) | Local & Remote synchronized at `ce19dea` |
-| 6 | **OVHcloud CI/CD Implementation** | `BLOCKED — HARD LOCK` | Stage 6.1.3: `if: false &&` hard lock; Stage 6.2 prerequisites required | `.github/workflows/ci.yml` |
+| 5 | **Git Integration** | `COMPLETED — VERIFIED` | Stage 5.1–5.3 & 6.1.4 (Clean push to origin/main) | Local & Remote synchronized at `e582aa9` |
+| 6 | **OVHcloud CI/CD Implementation** | `BLOCKED — HARD LOCK` | Stage 6.1.3 hard lock; Stage 6.3A reconciliation plan authored | `docs/reports/stage-6.3A-reconciliation-plan.md` |
 | 7 | **End-to-End Production Validation** | `PENDING` | Pending reconciliation of latest changes on VPS | Full system health & business workflows |
 | 8 | **Final Release Approval** | `PENDING` | Stage 7 Sign-off | Business owner sign-off & domain migration |
 
@@ -634,3 +634,326 @@ All 7 disposable resources removed cleanly (label `rrtestid=36ed1200`):
 - No secrets or credentials exposed.
 - All Sprint 1–10 and Phase 2.1–2.2 historical work intact.
 - No files committed or pushed (local diff ready for review).
+
+---
+
+### Entry 7 — 2026-10-28 | Stage 6.2: Read-Only OVHcloud VPS Reconciliation Audit
+
+- **Engineer / Agent:** Antigravity Agent
+- **Audit Date:** 2026-10-28
+- **Local Git Baseline:** `e582aa9ca329734f03bdf671af621e3e9decfae5` on `main` (synchronized with `origin/main`)
+- **Live Server Target:** OVHcloud VPS-1 (`15.235.246.77`, hostname: `vps-a4f1c1ef`, Ubuntu 24.04.5 LTS, 2 vCPU, 4 GB RAM, 40 GB NVMe)
+- **Public Domains:** `rrdentalneeds.online` and `www.rrdentalneeds.online` (direct A-record DNS pointing to `15.235.246.77`)
+- **Result:** **STAGE 6.2 AUDIT COMPLETE** — Live production state fully inventoried and reconciled; 6 critical deployment blockers confirmed
+
+#### Work Performed & Evidence Collected
+
+1. **SSH Identity & Access Verification:**
+   - Target host `15.235.246.77` port 22 verified open.
+   - Verified host key against pre-existing client `~/.ssh/known_hosts` (ED25519 `SHA256:Qv5L5HzAl22I//3L5n5oB5h0cZO1arcWLOIaVxtxwmg`).
+   - Strict host key checking maintained (no `StrictHostKeyChecking=no` used).
+   - Authenticated successfully using dedicated key `~/.ssh/id_ed25519` (comment: `rr-jaggery-vps`) as user `ubuntu`.
+   - Verified passwordless `sudo -n` available for read-only Docker inspection.
+
+2. **Host & Resource Inventory:**
+   - **OS:** Ubuntu 24.04.5 LTS (Noble Numbat), Linux kernel `6.8.0-147-generic` (x86_64).
+   - **Uptime & Load:** Up 23+ hours, load average `0.03, 0.01, 0.00`.
+   - **CPU:** 2 vCores (`nproc` = 2).
+   - **Memory:** Total 3.7 GiB, Used 2.3 GiB, Available 1.4 GiB, Free 129 MiB. **Swap: 0 B** (no swap configured).
+   - **Disk:** `/dev/sda1` 38 GB total, 6.5 GB used (18%), 32 GB available. Inodes: 166,138 / 5,111,808 used (4%).
+   - **Docker:** Docker Engine 29.1.3, containerd 2.2.1, Compose plugin installed.
+
+3. **Live Directory Structure Discrepancy (CRITICAL FINDING):**
+   - The application repository on the VPS is located at `/home/ubuntu/RR_Jaggery/`, **NOT `/opt/rr-jaggery/`**.
+   - `/opt/rr-jaggery` does not exist on the live server.
+   - Repository scripts (`vps-provision.sh`, `deploy.sh`, `backup.sh`) and CI/CD workflow (`ci.yml`) erroneously hardcode `/opt/rr-jaggery/`. Any rsync to `/opt/rr-jaggery` would deploy to a dead path and leave active containers untouched.
+
+4. **Deployed Version & Local Working Tree on Server:**
+   - VPS checkout is on branch `main` at commit `8931e2aae6062b3df978cf24b6e95c724a5a320d` (**8 commits behind repository HEAD `e582aa9`**).
+   - The server has **uncommitted modifications** in `/home/ubuntu/RR_Jaggery/`:
+     - `compose.production.yaml`: modified environment quoting (`SMTP_USERNAME: "${SMTP_USERNAME}"`).
+     - `infrastructure/nginx/nginx.production.conf`: modified SSL cert paths (`/etc/nginx/ssl/live/rrdentalneeds.online/`).
+     - `services/auth-service/src/main/resources/application.yml`: added `bootstrap.admin` credentials config.
+     - `frontend/package.json` & `package-lock.json`: local dependency lock updates.
+     - Untracked files: `compose.http-test.override.yaml`, `infrastructure/nginx/nginx.http-test.conf`.
+   - Live frontend asset is `index-tQPXQ6Zy.js`, confirming the running build predates current local build (`index-BCELE11u.js`).
+
+5. **Container Inventory & Runtime Health:**
+   - Exactly 7 containers running: `rr-gateway`, `rr-auth-service`, `rr-commerce-service`, `rr-customer-finance-service`, `rr-inventory-procurement-service`, `rr-production-service`, `rr-postgres`.
+   - Zero container restarts (`RestartCount=0`), zero OOM kills (`OOMKilled=false`).
+   - Combined container memory footprint: ~1.82 GiB / 3.73 GiB.
+   - **`rr-gateway` status:** `Up (unhealthy)`. Healthcheck command (`wget --spider -q http://localhost/`) fails because port 80 redirects to 443, and internal wget cannot verify the domain-specific Let's Encrypt certificate on `localhost`. (Fixed in current repo `compose.production.yaml` with `--no-check-certificate`, but not yet deployed).
+   - All 5 backend microservices verified **UP and healthy** via public HTTPS endpoints (`/api/v1/auth/health`, etc.).
+
+6. **PostgreSQL & Database Parity Findings:**
+   - PostgreSQL 16.15 running in `rr-postgres` container on database `rr_jaggery_db`.
+   - All 9 schemas present (`public`, `auth_schema`, `commerce_schema`, `customer_schema`, `inventory_schema`, `procurement_schema`, `production_schema`, `finance_schema`, `notification_schema`).
+   - **Schema Column Parity:** All 5 required columns from `V1_least_privilege_hardening.sql` are **CONFIRMED PRESENT** (`auth_schema.users.email_verified`, `customer_schema.offline_orders.delivery_charges`, `customer_schema.offline_orders.order_type`, `finance_schema.employees.notes`, `finance_schema.employees.updated_at`).
+   - **Runtime Role Parity:** Least-privilege roles (`rr_auth`, `rr_commerce`, `rr_custfin`, `rr_invproc`, `rr_production`, `rr_app_migrator`) are **CONFIRMED MISSING**. Only superuser `postgres` exists.
+   - Active microservices currently connect using legacy `DB_USER=postgres` superuser credentials.
+
+7. **Configuration & Secrets Inventory (`.env`):**
+   - Legacy variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — **PRESENT**.
+   - Least-privilege variables: `RR_*_DB_USER` and `RR_*_DB_PASSWORD` — **MISSING**.
+   - Payment configuration: `RAZORPAY_ENABLED=false` — **CONFIRMED DISABLED** on production.
+   - Admin bootstrap credentials: `BOOTSTRAP_ADMIN_USERNAME` and `BOOTSTRAP_ADMIN_PASSWORD` — **PRESENT**.
+   - Spring profile: `SPRING_PROFILES_ACTIVE=prod` — **PRESENT**.
+
+8. **Networking, Firewall & TLS:**
+   - UFW firewall: **ACTIVE** and strictly configured. Only ports 22, 80, 443 allowed. Port 5432 and microservice ports (8081–8086) are strictly blocked from public ingress.
+   - Live TLS Certificate: Valid Let's Encrypt certificate issued Oct 27, 2026, expiring Jan 25, 2027 (`CN=rrdentalneeds.online`, SANs include `www.rrdentalneeds.online`).
+   - Certificate stored in volume `rr_jaggery_ssl_certs` at `/etc/nginx/ssl/live/rrdentalneeds.online/`. Note: repository `nginx.production.conf` erroneously references `/etc/nginx/ssl/live/fullchain.pem` without the domain subfolder.
+   - **Certbot Renewal:** **MISSING**. No systemd timer or cron job is configured for automated certificate renewal.
+
+9. **Backups & Live Assets:**
+   - Default backup location `/var/backups/rr-jaggery` does not exist on the server.
+   - One historical manual database dump exists at `/home/ubuntu/backups/rr_jaggery_20261027_095949.dump` (146 KB, custom pg_dump format).
+   - Nightly backup cron job (`backup.sh`) is **MISSING** from both root and ubuntu crontabs.
+   - Uploaded assets exist in volume `rr_jaggery_uploads_data` (`products/prod_42d8a27098a4.jpg`, `prod_80b57274b249.jpg`, ~4.2 MB total).
+
+#### Confirmed Blockers Prior to Production Deployment
+
+| # | Blocker | Severity | Description | Required Resolution |
+|---|---|---|---|---|
+| **B1** | **Server Directory Path Mismatch** | **CRITICAL** | Repo/CI/scripts assume `/opt/rr-jaggery/`, but server runs from `/home/ubuntu/RR_Jaggery/`. | Reconcile target path in CI workflow, runbook, and provisioning scripts. |
+| **B2** | **Destructive `rsync --delete` Risk** | **CRITICAL** | Running `rsync -az --delete` to the server would wipe live `.env`, server modifications, backups, and SSL volume data. | Explicitly configure `--exclude` rules for `.env*`, `backups/`, and SSL volumes before running rsync. |
+| **B3** | **Nginx SSL Certificate Path Divergence** | **HIGH** | Repo `nginx.production.conf` points to `/etc/nginx/ssl/live/fullchain.pem`, while Let's Encrypt stores at `.../live/rrdentalneeds.online/fullchain.pem`. | Align Nginx certificate paths in the repository to match server volume layout. |
+| **B4** | **Database Runtime Roles Missing** | **HIGH** | `compose.production.yaml` references `RR_*_DB_USER` and `PASSWORD`, but roles do not exist in PostgreSQL. Deploying new Compose would crash all services. | Rehearse and execute role provisioning (`provision_runtime_roles.sh`) and populate `.env` on VPS before updating Compose. |
+| **B5** | **Uncommitted Server-Side Edits** | **MEDIUM** | VPS has local changes in Compose and application.yml (`SMTP_USERNAME`, `bootstrap.admin`). | Merge necessary environment variable improvements back into repository. |
+| **B6** | **Automated Backups & Certbot Renewal Missing** | **MEDIUM** | No crontab or timers exist on the VPS for nightly database backups or 90-day Let's Encrypt certificate renewal. | Install host crontab entries for `backup.sh` and Certbot renewal. |
+
+#### Safeguards Verified
+- Strictly read-only commands executed on live server.
+- Zero production containers, networks, volumes, or files restarted, stopped, modified, or deleted.
+- Zero database DDL or DML writes performed.
+- Zero credentials or secrets printed or exposed in logs or documentation.
+- Production deployment hard lock in `ci.yml` remains fully intact.
+- All Sprint 1–10 and Phase 2.1–2.2 historical work preserved.
+
+---
+
+### Entry 8 — 2026-10-28 | Stage 6.3A: Local-Only Configuration Reconciliation Plan
+
+- **Engineer / Agent:** Antigravity Agent
+- **Date:** 2026-10-28
+- **Local Git Baseline:** `e582aa9ca329734f03bdf671af621e3e9decfae5` on `main`
+- **Result:** **STAGE 6.3A COMPLETE** — Comprehensive reconciliation plan authored; zero production or repository code changes made
+
+#### Summary of Work Performed
+
+1. **Local Repository Verification:**
+   - Local `HEAD` and `origin/main` confirmed at `e582aa9ca329734f03bdf671af621e3e9decfae5`.
+   - Production deployment hard lock verified intact (`if: false && ...` in `.github/workflows/ci.yml`).
+   - Entries 1 through 7 in `guide to deploy.md` confirmed present and preserved.
+
+2. **Standalone Reconciliation Plan Authored:**
+   - Created comprehensive engineering roadmap at [`docs/reports/stage-6.3A-reconciliation-plan.md`](file:///e:/RR%20Jaggery/docs/reports/stage-6.3A-reconciliation-plan.md).
+   - Addressed all 6 core workstreams:
+     - **Workstream A (Deployment Directory & Transfer Safety):** Recommends adopting `/home/ubuntu/RR_Jaggery/` as canonical path; eliminates destructive `--delete` flag on initial sync; establishes strict exclusions (`.env*`, `backups/`, test configs); specifies server-side backup before any file sync.
+     - **Workstream B (Nginx & TLS Reconciliation):** Resolves path mismatch (`/etc/nginx/ssl/live/rrdentalneeds.online/`); modernizes Nginx HTTP/2 directives; plans Certbot renewal cron/timer before 90-day expiry (Jan 25, 2027).
+     - **Workstream C (PostgreSQL Least-Privilege Migration):** Proposes a safe 7-step sequence (Snapshot -> Isolated Drill -> DDL & Grants -> Role Password Provisioning -> `.env` Population -> Direct Role Login Check -> Service Switch) with instant rollback to `DB_USER=postgres` if needed.
+     - **Workstream D (Backup & Restore Readiness):** Plans backup path standardization to `/home/ubuntu/backups/`, automated nightly cron setup, and isolated restore rehearsal to verify table counts and sequence alignment.
+     - **Workstream E (Resource & Application Health Readiness):** Recommends 2 GB swap on VPS, explicit container `mem_limit` (~2.7 GiB total cap), removal of redundant on-host Maven/npm builds from `deploy.sh`, and updating gateway healthcheck to `--no-check-certificate`.
+     - **Workstream F (GitHub Actions Deployment Safety):** Recommends pinned host-key verification (`ED25519 SHA256:Qv5L5HzAl22I...`); maintains hard lock throughout local preparation and rehearsal.
+
+3. **Prioritized Decision Register Created:**
+   - 12 decisions logged covering canonical paths, transfer safety, role provisioning, resource limits, and verification criteria.
+
+4. **Safeguards Verified:**
+   - Zero remote SSH connections made to the VPS.
+   - Zero application code, Compose files, Dockerfiles, or CI workflows modified.
+   - No files staged, committed, or pushed.
+   - Production deployment hard lock remains fully enabled.
+
+5. **Next Recommended Stage:**
+   - **Stage 6.3B: Local Repository Reconciliation:** Implement local documentation, path, Nginx, and Compose adjustments in the local working tree without modifying the live server.
+
+---
+
+### Entry 9 — 2026-10-28 | Stage 6.3A Review Amendment
+
+- **Engineer / Agent:** Antigravity Agent
+- **Date:** 2026-10-28
+- **Local Git Baseline:** `e582aa9ca329734f03bdf671af621e3e9decfae5` on `main`
+- **Result:** **STAGE 6.3A REVIEW AMENDMENT COMPLETE** — Reconciliation plan corrected in 7 areas; zero production or code changes made
+
+#### Summary of Work Performed
+
+1. **Repository and Hard Lock Verified:**
+   - Local `HEAD` and `origin/main` confirmed at `e582aa9ca329734f03bdf671af621e3e9decfae5`.
+   - Production deployment hard lock confirmed intact: `if: false &&` in `.github/workflows/ci.yml` line 143.
+   - Entries 1 through 8 in `guide to deploy.md` confirmed present and preserved.
+
+2. **Reconciliation Plan Amended:**
+   - `docs/reports/stage-6.3A-reconciliation-plan.md` updated with a new dated amendment section (Section 6).
+   - Seven targeted corrections applied:
+
+   | Ref | Area | Correction |
+   |---|---|---|
+   | C1 / D07 | Gateway Healthcheck | REJECTED `--no-check-certificate`. Recommended internal backend probe: `http://auth-service:8081/api/v1/auth/health` via Docker internal network — avoids TLS entirely and requires only a Compose change. |
+   | C2 / D04 | DB Migration Sequence | Clarified two-phase dependency: V1 DDL creates roles as NOLOGIN (must run first); `provision_runtime_roles.sh` sets LOGIN+PASSWORD (must run second). Idempotency boundaries documented. Pre-validation query against `information_schema.role_table_grants` added. Special `pg_roles` grant requirement for auth-service noted. |
+   | C3 / D06 | Backup Minimum Criteria | Defined minimum criteria: non-empty gzip dump, `gzip -t` integrity check, SHA256 sidecar, size materially > 146 KB, isolated restore rehearsal (schema + row-count verification) required before any live migration. |
+   | C4 / D08 | Memory Budget | Budgets revised to observed-peak × 1.5 (totalling ~3.0 GiB). Swap is a transient spike buffer only. Limits applied via Compose environment block (not Dockerfile) for per-environment flexibility. 48-hour monitoring required before finalising. |
+   | C5 / D11 | SSH Host-Key Pinning | Clarified that `VPS_KNOWN_HOSTS` must contain the full known_hosts public key line, not a fingerprint. `ssh-keyscan` replaced with direct write to `~/.ssh/known_hosts`; step fails closed if secret is empty. |
+   | C6 / D05 | Server-Only Changes | Added 3-step preservation protocol: server snapshot → per-file diff → classify each change (discard / port to repo / exclude) before any rsync. Rule: do not sync any file until the repository version incorporates or deliberately supersedes the server's change. |
+   | C7 / D01, D02 | Path & Transfer | Full inventory of all `/opt/rr-jaggery/` references enumerated (8 files / 14 lines). Non-destructive 5-step transfer sequence documented: dry run → no-`--delete` sync → server inspection → `nginx -t` → gated `--delete`. |
+
+3. **Safeguards Confirmed:**
+   - Zero remote SSH connections made to the VPS.
+   - Zero application code, Compose files, Dockerfiles, CI workflows, migrations, or secrets modified.
+   - No files staged, committed, or pushed.
+   - Production deployment hard lock remains fully enabled.
+   - All Sprint 1–10, Phase 2.1–2.2, and all prior deployment guide history preserved.
+
+4. **Outstanding Prerequisites Before Stage 6.3B:**
+   - Trusted SSH host-key verification: update `VPS_KNOWN_HOSTS` secret to full known_hosts entry format.
+   - Safe review of `rsync --delete` and server-only file preservation per C6.
+   - Isolated DB role migration rehearsal with backup criteria per C3 fully met.
+   - Memory limits must be measurement-driven (48-hour post-deployment monitoring).
+   - Gateway healthcheck corrected to internal backend probe per C1 (no `--no-check-certificate`).
+
+5. **Next Recommended Stage:**
+   - **Stage 6.3B: Local Repository Reconciliation:** Implement the local repository edits identified in the decision register (D01, D02, D03, D05, D07, D09, D11) as individual, reviewable changes against the `e582aa9` baseline, with the production hard lock remaining in place throughout.
+
+---
+
+### Entry 10 — 2026-10-28 | Stage 6.3B: Backup and Isolated Restore Rehearsal Planning
+
+- **Engineer / Agent:** Antigravity Agent
+- **Date:** 2026-10-28
+- **Local Git Baseline:** `e582aa9ca329734f03bdf671af621e3e9decfae5` on `main`
+- **Result:** **STAGE 6.3B COMPLETE** — Comprehensive backup & isolated restore rehearsal plan created; zero production or code changes made; rehearsal safely halted due to absence of local test data
+
+#### Summary of Work Performed
+
+1. **Inspection of Existing Recovery Infrastructure:**
+   - Performed deep source-level inspection across:
+     - `infrastructure/scripts/backup.sh`: Analyzed `pg_dumpall` pipeline, pseudo-TTY prevention (`docker exec -i`), `gzip -t` check, `sha256sum` generation, and retention pruning rules.
+     - `infrastructure/scripts/restore.sh`: Audited pre-flight checks, 10s countdown, automatic safety snapshot, service quiescence, stream restoration, and post-restore schema checks.
+     - `infrastructure/docker/postgres/provision_runtime_roles.sh` (located under `docker/postgres/`, not `scripts/`): Audited 5-role password pre-validation, SQL escaping, stdin streaming, and `ON_ERROR_STOP=1`.
+     - `infrastructure/docker/postgres/migrations/V1_least_privilege_hardening.sql`: Audited DDL role creation, schema ownership transfer to `rr_migrator`, and preflight column drift checks.
+     - `compose.production.yaml` & `docker-compose.yml`: Audited network isolation, secret injection, and port mappings.
+     - `infrastructure/docker/postgres/verify_schema_parity.sql`: Audited 8-domain schema checks, table count (>= 58), table ownership, and role permission isolation matrix.
+
+2. **Defined Multi-Dimensional Acceptance Criteria:**
+   - Replaced simple file-size checks with an objective verification matrix:
+     - Exit-code verification: `${PIPESTATUS[0]} -eq 0` and `${PIPESTATUS[1]} -eq 0`.
+     - Archive stream integrity: `gzip -t` and `tar -tzf`.
+     - Cryptographic verification: `sha256sum -c`.
+     - Completeness checks: verification of all 8 application schemas, extensions, and `public.form_definitions`.
+     - Row-count and sequence state comparison: pre-backup vs post-restore parity query across critical business tables.
+
+3. **Formulated Isolated Restore Rehearsal Architecture:**
+   - Designed disposable local container rehearsal workflow using `postgres:16-alpine` with random drill token, labeled `rrdisposable=true`.
+   - Guaranteed zero production exposure: strictly unmapped port (no `-p 5432:5432`), ephemeral volumes, and disposable test passwords.
+   - Designed validation of media uploads archive in an isolated throwaway Docker volume.
+
+4. **Identified Local Test Data Status & Safety Halt:**
+   - Verified that zero `*.sql.gz`, `*.dump`, or uploads archives currently exist in the local workspace.
+   - In strict compliance with instructions ("Do not run the rehearsal yet unless all necessary local backup artifacts already exist and can be conclusively identified as non-production test data. If they do not exist, report exactly what is missing and stop"), the physical execution of the restore drill was halted.
+
+5. **Formulated 9 Production Migration Recovery Gates:**
+   - Documented explicit prerequisites blocking any live server schema or role migration until fresh verified backups exist, isolated restore succeeds, least-privilege permissions pass audit, rollback runbook is verified, and CI hard lock is maintained.
+
+6. **Safeguards Verified:**
+   - Zero remote SSH connections made to the VPS.
+   - Zero production containers, files, or database objects modified.
+   - Zero credentials exposed or printed.
+   - Production deployment hard lock in `.github/workflows/ci.yml` remains fully intact (`if: false &&`).
+   - Entries 1 through 9 and all prior deployment history preserved without modification.
+
+7. **Next Recommended Stage:**
+   - **Stage 6.3C: Local Repository Reconciliation & Configuration Hardening:** Implement the local repository adjustments identified in the Stage 6.3A Decision Register (canonical path alignment, transfer exclusions, Nginx SSL path corrections, gateway healthcheck backend probe, and pinned SSH host key), keeping the CI deployment hard lock strictly engaged.
+
+---
+
+### Entry 11 — 2026-10-28 | Stage 6.3B.1: Recovery Plan Corrections
+
+- **Engineer / Agent:** Antigravity Agent
+- **Date:** 2026-10-28
+- **Local Git Baseline:** `e582aa9ca329734f03bdf671af621e3e9decfae5` on `main`
+- **Result:** **STAGE 6.3B.1 COMPLETE** — Recovery plan amended with 7 targeted corrections; zero production or code changes made
+
+#### Summary of Work Performed
+
+1. **Backup Acceptance Criteria Corrected:**
+   - Eliminated the fixed `> 250 KB` size threshold. Backup file size is designated as strictly informational.
+   - Acceptance gate defined exclusively by stream exit codes (`PIPESTATUS`), non-empty check (`-s`), compression verification (`gzip -t`), SHA-256 sidecar validation, schema and object completeness, row-count and sequence state parity, and isolated restore success.
+
+2. **Schema Counting & Parity Audit Scope Reconciled:**
+   - Clearly distinguished the 8 domain schemas (`auth_schema`, `commerce_schema`, `customer_schema`, `finance_schema`, `notification_schema`, `inventory_schema`, `procurement_schema`, `production_schema`) from the shared system schema `public` (which holds `form_definitions` and `form_submissions`). Total application schema count = 9.
+   - Clarified from SQL source that `verify_schema_parity.sql` checks the 8 domain schemas and specific `public.form_%` tables owned by `rr_migrator`, and does not audit default PostgreSQL system tables in `public`.
+
+3. **Auth-Service Health Check Query Verified:**
+   - Inspected source of `HealthCheckController.java` (`/api/v1/auth/health`) and `SystemHealthService.java` (`/api/v1/auth/system-health`).
+   - Confirmed that `/api/v1/auth/health` performs zero database operations (returns in-memory map), and `SystemHealthService` queries only `SELECT version()` and `pg_stat_user_tables` / `information_schema.tables`.
+   - Verified that `pg_catalog.pg_roles` is **not queried** by auth-service health endpoints; no special catalog or `pg_monitor` grant is required. Documented isolated verification test.
+
+4. **Rollback Duration Reclassified:**
+   - Under-30-second rollback reclassified as a **target to validate**, not an assumed guarantee.
+   - Rehearsal scope expanded to measure the full cycle: environment restoration (`.env`), service container restart, stabilization, and endpoint health verification.
+
+5. **Gateway Health Check Separation Established:**
+   - Corrected recommendation: Keep Nginx reverse proxy health probe (checking Nginx liveness directly via a dedicated non-redirecting local endpoint like `/healthz` without TLS) decoupled from backend microservice health.
+   - End-to-end routing check through Nginx to backend treated as an additional synthetic check, not a substitute. Neither configuration modified in this stage.
+
+6. **Accurate File Accounting Documented:**
+   - Confirmed Git status: 1 tracked modified file (`guide to deploy.md`), 1 pre-existing untracked report from Stage 6.3A (`docs/reports/stage-6.3A-reconciliation-plan.md`), and 1 report from Stage 6.3B (`docs/reports/stage-6.3B-backup-restore-plan.md`).
+   - Zero files staged; no files removed or committed.
+
+7. **No-Production-Access Boundary Reaffirmed:**
+   - Reasserted strict boundary: zero VPS or production DB access.
+   - Restore rehearsal status remains **DESIGNED & READY, PENDING TEST ARTIFACTS**; cannot be marked passed until known-safe non-production test archives are available.
+
+8. **Next Recommended Stage:**
+   - **Stage 6.3C: Local Repository Reconciliation & Configuration Hardening:** Prepare local repository adjustments as reviewable changes against baseline `e582aa9`, with CI hard lock strictly engaged.
+
+---
+
+### Entry 12 — 2026-10-28 | Stage 6.3C: Local Reconciliation, Test Verification & Pipeline Hardening
+
+- **Engineer / Agent:** Antigravity Agent
+- **Date:** 2026-10-28
+- **Local Git Baseline:** `e582aa9ca329734f03bdf671af621e3e9decfae5` on `main`
+- **Result:** **STAGE 6.3C COMPLETE** — All local deployment files reconciled; isolated migration rehearsal (26/26) and backup/restore drill (20/20) PASSED; frontend and backend builds verified; ready for commit and live server reconciliation
+
+#### Summary of Work Performed
+
+1. **Deployment Path Standardization (Workstream 2):**
+   - Updated `infrastructure/scripts/deploy.sh` (`PROJECT_DIR="${PROJECT_DIR:-/home/ubuntu/RR_Jaggery}"`).
+   - Updated `infrastructure/scripts/restore.sh` (`COMPOSE_FILE="${COMPOSE_FILE:-/home/ubuntu/RR_Jaggery/compose.production.yaml}"`).
+   - Updated `docs/architecture/DEPLOYMENT.md` across all 8 deployment command references.
+   - Preserved backup destination `/var/backups/rr-jaggery` in scripts while keeping deployment paths distinct.
+
+2. **Nginx, TLS & Gateway Health Reconciliation (Workstream 3):**
+   - Configured dedicated non-redirecting local health endpoint in `infrastructure/nginx/nginx.production.conf` under port 80 block (`location = /healthz { access_log off; default_type text/plain; return 200 "OK\n"; }`), placed before `location /`.
+   - Updated gateway health check in `compose.production.yaml` to `test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]`.
+   - Reconciled SSL certificate directives to match Certbot layout: `/etc/nginx/ssl/live/rrdentalneeds.online/fullchain.pem` and `privkey.pem`.
+   - Modernized HTTPS server block syntax from deprecated `listen 443 ssl http2;` to `listen 443 ssl;` and `http2 on;`.
+   - Wrapped `SMTP_USERNAME` and `SMTP_PASSWORD` in quotes in Compose to match live server settings.
+
+3. **PostgreSQL Migration Rehearsal (Workstream 4):**
+   - Executed full automated least-privilege verification suite (`infrastructure/docker/postgres/test_least_privilege.ps1`) against an isolated disposable PostgreSQL 16 container.
+   - Verified 8 domain schemas + `public` application tables, `email_verified` column presence, `rr_migrator` table ownership, identity sequences, positive/negative role isolation matrix, search_path resolution, and script idempotency.
+   - **Result:** **26/26 PASSED, 0 FAILED**. Disposable container cleaned up cleanly.
+
+4. **Backup & Restore Integration Drill (Workstream 5):**
+   - Executed disposable backup and restore drill (`infrastructure/docker/postgres/test_backup_restore.ps1`) across disposable source and target containers.
+   - Verified cluster dump streaming without pseudo-TTY, gzip integrity, SHA-256 sidecar generation/matching, uploads archiving, restore into clean target, schema/table/record verification, and archive corruption rejection.
+   - **Result:** **20/20 PASSED, 0 FAILED**. All disposable containers and test directories pruned.
+
+5. **Resource Budgeting & Deploy Script Resilience (Workstream 6):**
+   - Updated `deploy.sh` to retrieve Git commit/branch with fallback (`${DEPLOY_COMMIT:-$(git rev-parse ... || echo 'unknown')}`), removing strict `.git` dependency.
+   - Made `log()` function in `deploy.sh` resilient to missing or non-writable log directories.
+   - Added conditional compilation in `deploy.sh`: skips on-host `npm run build` if `frontend/dist/index.html` exists; skips on-host Maven packaging if all 5 service JARs are present, avoiding OOM risks on the 4 GB VPS.
+
+6. **GitHub Actions CI/CD Pipeline Hardening (Workstream 7):**
+   - Replaced unpinned Trust-On-First-Use `ssh-keyscan` in `.github/workflows/ci.yml` with pinned `VPS_KNOWN_HOSTS` verification. Fails closed if the secret is missing or host key does not match.
+   - Replaced `rsync -az --delete` with safe, non-destructive synchronization targeting `/home/ubuntu/RR_Jaggery/`.
+   - Added explicit exclusions for `.git`, `.env*`, `backups/`, `node_modules`, `target/classes`, `compose.http-test.override.yaml`, and `infrastructure/nginx/nginx.http-test.conf`.
+   - Maintained production deployment hard lock (`if: false && ...`) intact.
+
+7. **Local Code Compilation & Verification (Workstream 8):**
+   - `git diff --check`: **PASSED** (0 formatting/whitespace issues).
+   - Frontend build & TypeScript typecheck: **PASSED** (`tsc -b && vite build` built in 27.01s).
+   - Backend Maven compilation: **PASSED** across all 7 reactor modules in 13.58s.

@@ -162,6 +162,7 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           if [ -z "${VPS_HOST:-}" ]; then
             echo "::error::VPS_HOST secret is missing or empty in environment 'production'."
@@ -169,6 +170,10 @@ jobs:
           fi
           if [ -z "${VPS_SSH_KEY:-}" ]; then
             echo "::error::VPS_SSH_KEY secret is missing or empty in environment 'production'."
+            exit 1
+          fi
+          if [ -z "${VPS_KNOWN_HOSTS:-}" ]; then
+            echo "::error::VPS_KNOWN_HOSTS secret is missing or empty in environment 'production'."
             exit 1
           fi
 
@@ -179,27 +184,27 @@ jobs:
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # Retrieve presented host key with an explicit timeout
-          # Note: ssh-keyscan only fetches the presented host key over the network; it does NOT verify server authenticity. Verified, pinned host-key trust remains an unresolved prerequisite.
-          if ! ssh-keyscan -T 10 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || [ ! -s ~/.ssh/known_hosts ]; then
-            echo "::error::Failed to retrieve presented SSH host key from VPS_HOST within timeout."
-            exit 1
-          fi
+          # Write pinned verified host key (fails closed if presented key does not match)
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Sync repo to VPS
         run: |
-          rsync -az --delete \
+          # Non-destructive sync: omit --delete on initial sync, exclude environment and backups
+          rsync -az \
             --exclude '.git' \
+            --exclude '.env*' \
+            --exclude 'backups/' \
             --exclude 'node_modules' \
             --exclude 'services/*/target/classes' \
-            --exclude '.env' \
-            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/rr-jaggery/
+            --exclude 'compose.http-test.override.yaml' \
+            --exclude 'infrastructure/nginx/nginx.http-test.conf' \
+            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/ubuntu/RR_Jaggery/
 
       - name: Run production deploy on VPS
         run: |
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-            "cd /opt/rr-jaggery && bash infrastructure/scripts/deploy.sh"
+            "cd /home/ubuntu/RR_Jaggery && bash infrastructure/scripts/deploy.sh"
 
       - name: Post-deploy health check
         run: |
@@ -215,9 +220,10 @@ jobs:
 #   VPS_HOST          — OVHcloud VPS public IP address
 #   VPS_USER          — SSH user (e.g., deploy)
 #   VPS_SSH_KEY       — Private SSH key for deploy user (PEM format)
+#   VPS_KNOWN_HOSTS   — Verified host public key line (e.g. 15.235.246.77 ssh-ed25519 ...)
 #   PRODUCTION_DOMAIN — Production domain (e.g., rrdentalneeds.online)
 #
 # Note: Production .env secrets (DB_PASSWORD, JWT_SECRET, etc.)
-# must be placed on the VPS directly at /opt/rr-jaggery/.env
+# must be placed on the VPS directly at /home/ubuntu/RR_Jaggery/.env
 # They must NOT be stored in GitHub secrets or committed to git.
 # ────────────────────────────────────────────────────────────────

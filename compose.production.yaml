@@ -58,8 +58,8 @@ services:
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
       SMTP_AUTH: ${SMTP_AUTH:-true}
       SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
       CONTACT_EMAIL_FROM: "${CONTACT_EMAIL_FROM:-${SMTP_USERNAME:-}}"
@@ -132,8 +132,8 @@ services:
       INVENTORY_SERVICE_URL: http://inventory-procurement-service:8084
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
       SMTP_AUTH: ${SMTP_AUTH:-true}
       SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
       CONTACT_EMAIL_FROM: "${CONTACT_EMAIL_FROM:-${SMTP_USERNAME:-}}"
@@ -228,7 +228,7 @@ services:
     networks:
       - rr-network
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

@@ -10,7 +10,7 @@
 #   TARGET_CONTAINER       (default: rr-postgres)
 #   TARGET_DB_USER         (default: postgres)
 #   TARGET_DB_NAME         (default: rr_jaggery_db)
-#   COMPOSE_FILE           (default: /opt/rr-jaggery/compose.production.yaml)
+#   COMPOSE_FILE           (default: /home/ubuntu/RR_Jaggery/compose.production.yaml)
 #   SKIP_SAFETY_SNAPSHOT   (default: false)
 #   RESTORE_FORCE          (default: false)
 #   BACKUP_DIR             (default: /var/backups/rr-jaggery)
@@ -24,7 +24,7 @@ UPLOADS_FILE="${2:-}"
 TARGET_CONTAINER="${TARGET_CONTAINER:-rr-postgres}"
 TARGET_DB_USER="${TARGET_DB_USER:-postgres}"
 TARGET_DB_NAME="${TARGET_DB_NAME:-rr_jaggery_db}"
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/rr-jaggery/compose.production.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-/home/ubuntu/RR_Jaggery/compose.production.yaml}"
 SKIP_SAFETY_SNAPSHOT="${SKIP_SAFETY_SNAPSHOT:-false}"
 RESTORE_FORCE="${RESTORE_FORCE:-false}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/rr-jaggery}"

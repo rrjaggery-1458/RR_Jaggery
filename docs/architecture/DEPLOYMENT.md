@@ -43,7 +43,7 @@
 Run the provisioning script as root or sudo user on the target VPS:
 
 ```bash
-sudo bash /opt/rr-jaggery/infrastructure/scripts/vps-provision.sh
+sudo bash /home/ubuntu/RR_Jaggery/infrastructure/scripts/vps-provision.sh
 ```
 
 Or manually:
@@ -87,8 +87,8 @@ sudo usermod -aG docker $USER
 On the production server, create the secure project directory:
 
 ```bash
-mkdir -p /opt/rr-jaggery
-cd /opt/rr-jaggery
+mkdir -p /home/ubuntu/RR_Jaggery
+cd /home/ubuntu/RR_Jaggery
 ```
 
 Clone the repository and prepare `.env`:
@@ -172,9 +172,9 @@ docker ps | grep redis   # Must return empty
    - Set encryption mode to **Full (Strict)** or **Full**.
 3. Origin Certificates (Option A - Recommended):
    - In Cloudflare Dashboard → SSL/TLS → Origin Server → Create Certificate.
-   - Save certificate to `/opt/rr-jaggery/infrastructure/nginx/ssl/fullchain.pem`.
-   - Save private key to `/opt/rr-jaggery/infrastructure/nginx/ssl/privkey.pem`.
-   - Set file permissions: `chmod 600 /opt/rr-jaggery/infrastructure/nginx/ssl/*.pem`.
+   - Save certificate to `/home/ubuntu/RR_Jaggery/infrastructure/nginx/ssl/fullchain.pem`.
+   - Save private key to `/home/ubuntu/RR_Jaggery/infrastructure/nginx/ssl/privkey.pem`.
+   - Set file permissions: `chmod 600 /home/ubuntu/RR_Jaggery/infrastructure/nginx/ssl/*.pem`.
 4. Option B (Certbot Let's Encrypt):
    - Run Certbot with webroot `/var/www/certbot` as configured in `nginx.production.conf`.
 
@@ -206,10 +206,10 @@ curl -s https://rrdentalneeds.online/api/v1/production/health | python3 -m json.
 
 Install cron job on the host:
 ```bash
-chmod +x /opt/rr-jaggery/infrastructure/scripts/backup.sh
+chmod +x /home/ubuntu/RR_Jaggery/infrastructure/scripts/backup.sh
 crontab -e
 # Add:
-0 2 * * * /opt/rr-jaggery/infrastructure/scripts/backup.sh >> /var/log/rr-jaggery/backup.log 2>&1
+0 2 * * * /home/ubuntu/RR_Jaggery/infrastructure/scripts/backup.sh >> /var/log/rr-jaggery/backup.log 2>&1
 ```
 
 The backup script:
@@ -223,7 +223,7 @@ The backup script:
 
 ```bash
 # Usage: bash restore.sh /path/to/backup.sql.gz
-bash /opt/rr-jaggery/infrastructure/scripts/restore.sh \
+bash /home/ubuntu/RR_Jaggery/infrastructure/scripts/restore.sh \
   /var/backups/rr-jaggery/rr_jaggery_backup_YYYYMMDD_HHMMSS.sql.gz
 ```
 
