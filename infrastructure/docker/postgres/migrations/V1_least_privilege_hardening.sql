@@ -34,28 +34,28 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_auth') THEN
-        CREATE ROLE rr_auth WITH LOGIN PASSWORD 'rr_auth_dev_password';
-        RAISE NOTICE 'Created role: rr_auth (LOGIN)';
+        CREATE ROLE rr_auth NOLOGIN;
+        RAISE NOTICE 'Created role: rr_auth (NOLOGIN)';
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_commerce') THEN
-        CREATE ROLE rr_commerce WITH LOGIN PASSWORD 'rr_commerce_dev_password';
-        RAISE NOTICE 'Created role: rr_commerce (LOGIN)';
+        CREATE ROLE rr_commerce NOLOGIN;
+        RAISE NOTICE 'Created role: rr_commerce (NOLOGIN)';
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_custfin') THEN
-        CREATE ROLE rr_custfin WITH LOGIN PASSWORD 'rr_custfin_dev_password';
-        RAISE NOTICE 'Created role: rr_custfin (LOGIN)';
+        CREATE ROLE rr_custfin NOLOGIN;
+        RAISE NOTICE 'Created role: rr_custfin (NOLOGIN)';
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_invproc') THEN
-        CREATE ROLE rr_invproc WITH LOGIN PASSWORD 'rr_invproc_dev_password';
-        RAISE NOTICE 'Created role: rr_invproc (LOGIN)';
+        CREATE ROLE rr_invproc NOLOGIN;
+        RAISE NOTICE 'Created role: rr_invproc (NOLOGIN)';
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_production') THEN
-        CREATE ROLE rr_production WITH LOGIN PASSWORD 'rr_production_dev_password';
-        RAISE NOTICE 'Created role: rr_production (LOGIN)';
+        CREATE ROLE rr_production NOLOGIN;
+        RAISE NOTICE 'Created role: rr_production (NOLOGIN)';
     END IF;
 END $$;
 
@@ -122,9 +122,13 @@ CREATE TABLE IF NOT EXISTS auth_schema.users (
     business_name VARCHAR(255),
     gstin VARCHAR(50),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    email_verified BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Ensure email_verified column exists if auth_schema.users already existed
+ALTER TABLE auth_schema.users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE TABLE IF NOT EXISTS auth_schema.user_roles (
     user_id UUID NOT NULL REFERENCES auth_schema.users(id) ON DELETE CASCADE,
@@ -322,10 +326,16 @@ CREATE TABLE IF NOT EXISTS customer_schema.offline_orders (
     status VARCHAR(50) NOT NULL DEFAULT 'CONFIRMED',
     payment_status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     payment_method VARCHAR(50) NOT NULL DEFAULT 'CREDIT',
+    delivery_charges NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    order_type VARCHAR(50) NOT NULL DEFAULT 'WHOLESALE',
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Ensure delivery_charges and order_type exist if table already existed
+ALTER TABLE customer_schema.offline_orders ADD COLUMN IF NOT EXISTS delivery_charges NUMERIC(12, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE customer_schema.offline_orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(50) NOT NULL DEFAULT 'WHOLESALE';
 
 CREATE TABLE IF NOT EXISTS customer_schema.offline_order_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -428,8 +438,14 @@ CREATE TABLE IF NOT EXISTS finance_schema.employees (
     rate_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     joining_date DATE DEFAULT CURRENT_DATE,
     active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    notes VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Ensure notes and updated_at exist if table already existed
+ALTER TABLE finance_schema.employees ADD COLUMN IF NOT EXISTS notes VARCHAR(500);
+ALTER TABLE finance_schema.employees ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
 
 CREATE TABLE IF NOT EXISTS finance_schema.attendance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -609,11 +625,23 @@ CREATE TABLE IF NOT EXISTS inventory_schema.inventory_items (
     warehouse_zone VARCHAR(60),
     storage_location VARCHAR(100),
     unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    current_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0.000,
+    minimum_stock_level NUMERIC(14, 3) NOT NULL DEFAULT 0.000,
+    reserved_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0.000,
+    batch_lot VARCHAR(100),
+    source_reference VARCHAR(255),
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_inventory_item_status ON inventory_schema.inventory_items(status);
+
+-- Ensure columns exist if table already existed
+ALTER TABLE inventory_schema.inventory_items ADD COLUMN IF NOT EXISTS current_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0.000;
+ALTER TABLE inventory_schema.inventory_items ADD COLUMN IF NOT EXISTS minimum_stock_level NUMERIC(14, 3) NOT NULL DEFAULT 0.000;
+ALTER TABLE inventory_schema.inventory_items ADD COLUMN IF NOT EXISTS reserved_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0.000;
+ALTER TABLE inventory_schema.inventory_items ADD COLUMN IF NOT EXISTS batch_lot VARCHAR(100);
+ALTER TABLE inventory_schema.inventory_items ADD COLUMN IF NOT EXISTS source_reference VARCHAR(255);
 
 CREATE TABLE IF NOT EXISTS inventory_schema.stock_movements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1091,6 +1119,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA production_schema T
 -- Read-only cross-schema grant to procurement_schema.purchase_order_lines for costing calculations
 GRANT USAGE ON SCHEMA procurement_schema TO rr_production;
 GRANT SELECT ON TABLE procurement_schema.purchase_order_lines TO rr_production;
+
+-- Role-Level Default Search Paths
+ALTER ROLE rr_auth SET search_path = auth_schema, public;
+ALTER ROLE rr_commerce SET search_path = commerce_schema, public;
+ALTER ROLE rr_custfin SET search_path = customer_schema, finance_schema, notification_schema, public;
+ALTER ROLE rr_invproc SET search_path = inventory_schema, procurement_schema, public;
+ALTER ROLE rr_production SET search_path = production_schema, procurement_schema, public;
 
 -- -----------------------------------------------------------------------------
 -- 8. DEFAULT PRIVILEGES CONFIGURATION

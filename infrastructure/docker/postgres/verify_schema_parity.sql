@@ -69,6 +69,22 @@ BEGIN
         RAISE NOTICE ' [PASS] All 58 application tables confirmed present (Found: %).', table_count;
     END IF;
 
+    -- 3a. Check Specific Critical Column Parity
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'auth_schema'
+          AND table_name = 'users'
+          AND column_name = 'email_verified'
+          AND data_type = 'boolean'
+          AND is_nullable = 'NO'
+          AND column_default LIKE '%true%'
+    ) THEN
+        RAISE EXCEPTION 'Parity Failure: auth_schema.users.email_verified column missing or invalid (expected BOOLEAN NOT NULL DEFAULT true)';
+    ELSE
+        RAISE NOTICE ' [PASS] Column auth_schema.users.email_verified verified (BOOLEAN NOT NULL DEFAULT true).';
+    END IF;
+
     -- 4. Check Table Ownership
     SELECT COUNT(*) INTO unowned_table_count
     FROM pg_tables

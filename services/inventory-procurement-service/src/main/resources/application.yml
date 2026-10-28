@@ -15,7 +15,7 @@ spring:
     lazy-initialization: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rr_jaggery_db}}
-    username: ${DB_USER:postgres}
+    username: ${DB_USER:rr_invproc}
     password: ${DB_PASSWORD:postgres_dev_password}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -27,7 +27,7 @@ spring:
       auto-commit: false
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect

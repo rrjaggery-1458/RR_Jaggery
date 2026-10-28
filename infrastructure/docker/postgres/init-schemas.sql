@@ -18,26 +18,25 @@ BEGIN
         CREATE ROLE rr_migrator NOLOGIN;
     END IF;
 
-    -- Service-Specific Runtime Roles (LOGIN)
-    -- In production, passwords are provided via environment secrets
+    -- Service-Specific Runtime Roles (NOLOGIN: fail-closed until passwords provisioned)
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_auth') THEN
-        CREATE ROLE rr_auth WITH LOGIN PASSWORD 'rr_auth_dev_password';
+        CREATE ROLE rr_auth NOLOGIN;
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_commerce') THEN
-        CREATE ROLE rr_commerce WITH LOGIN PASSWORD 'rr_commerce_dev_password';
+        CREATE ROLE rr_commerce NOLOGIN;
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_custfin') THEN
-        CREATE ROLE rr_custfin WITH LOGIN PASSWORD 'rr_custfin_dev_password';
+        CREATE ROLE rr_custfin NOLOGIN;
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_invproc') THEN
-        CREATE ROLE rr_invproc WITH LOGIN PASSWORD 'rr_invproc_dev_password';
+        CREATE ROLE rr_invproc NOLOGIN;
     END IF;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rr_production') THEN
-        CREATE ROLE rr_production WITH LOGIN PASSWORD 'rr_production_dev_password';
+        CREATE ROLE rr_production NOLOGIN;
     END IF;
 END $$;
 
@@ -78,6 +77,7 @@ CREATE TABLE IF NOT EXISTS auth_schema.users (
     business_name VARCHAR(255),
     gstin VARCHAR(50),
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    email_verified BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
@@ -296,6 +296,8 @@ CREATE TABLE IF NOT EXISTS customer_schema.offline_orders (
     status VARCHAR(50) NOT NULL DEFAULT 'CONFIRMED',
     payment_status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
     payment_method VARCHAR(50) NOT NULL DEFAULT 'CREDIT',
+    delivery_charges NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    order_type VARCHAR(50) NOT NULL DEFAULT 'WHOLESALE',
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -412,7 +414,9 @@ CREATE TABLE IF NOT EXISTS finance_schema.employees (
     rate_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     joining_date DATE DEFAULT CURRENT_DATE,
     active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    notes VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS finance_schema.attendance (
@@ -614,6 +618,11 @@ CREATE TABLE IF NOT EXISTS inventory_schema.inventory_items (
     warehouse_zone VARCHAR(60),
     storage_location VARCHAR(100),
     unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    current_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0.000,
+    minimum_stock_level NUMERIC(14, 3) NOT NULL DEFAULT 0.000,
+    reserved_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0.000,
+    batch_lot VARCHAR(100),
+    source_reference VARCHAR(255),
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -1093,6 +1102,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA production_schema T
 -- Read-only access to procurement_schema.purchase_order_lines for costing
 GRANT USAGE ON SCHEMA procurement_schema TO rr_production;
 GRANT SELECT ON TABLE procurement_schema.purchase_order_lines TO rr_production;
+
+-- Role-Level Default Search Paths
+ALTER ROLE rr_auth SET search_path = auth_schema, public;
+ALTER ROLE rr_commerce SET search_path = commerce_schema, public;
+ALTER ROLE rr_custfin SET search_path = customer_schema, finance_schema, notification_schema, public;
+ALTER ROLE rr_invproc SET search_path = inventory_schema, procurement_schema, public;
+ALTER ROLE rr_production SET search_path = production_schema, procurement_schema, public;
 
 -- =============================================================================
 -- STAGE 4: DEFAULT PRIVILEGES CONFIGURATION

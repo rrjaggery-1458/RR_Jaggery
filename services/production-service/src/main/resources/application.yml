@@ -11,12 +11,12 @@ spring:
     lazy-initialization: true
   datasource:
     url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rr_jaggery_db}?currentSchema=production_schema}
-    username: ${DB_USER:postgres}
+    username: ${DB_USER:rr_production}
     password: ${DB_PASSWORD:postgres_dev_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${HIBERNATE_DDL_AUTO:update}
     properties:
       hibernate:
         default_schema: production_schema

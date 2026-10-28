@@ -48,8 +48,10 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rr_jaggery_db}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
+      DB_USER: ${RR_AUTH_DB_USER:-rr_auth}
+      DB_PASSWORD: ${RR_AUTH_DB_PASSWORD:?RR_AUTH_DB_PASSWORD must be provided}
+      HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
@@ -83,8 +85,10 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rr_jaggery_db}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
+      DB_USER: ${RR_COMMERCE_DB_USER:-rr_commerce}
+      DB_PASSWORD: ${RR_COMMERCE_DB_PASSWORD:?RR_COMMERCE_DB_PASSWORD must be provided}
+      HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
       # Points to consolidated inventory-procurement-service (port 8084)
       INVENTORY_SERVICE_URL: http://inventory-procurement-service:8084
@@ -118,8 +122,10 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rr_jaggery_db}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
+      DB_USER: ${RR_CUSTFIN_DB_USER:-rr_custfin}
+      DB_PASSWORD: ${RR_CUSTFIN_DB_PASSWORD:?RR_CUSTFIN_DB_PASSWORD must be provided}
+      HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
       COMMERCE_SERVICE_URL: http://commerce-service:8082
       # Points to consolidated inventory-procurement-service (port 8084)
@@ -155,8 +161,10 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rr_jaggery_db}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
+      DB_USER: ${RR_INVPROC_DB_USER:-rr_invproc}
+      DB_PASSWORD: ${RR_INVPROC_DB_PASSWORD:?RR_INVPROC_DB_PASSWORD must be provided}
+      HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://rrdentalneeds.online,https://www.rrdentalneeds.online}
       SPRING_PROFILES_ACTIVE: prod
@@ -180,8 +188,10 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rr_jaggery_db}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
+      DB_USER: ${RR_PRODUCTION_DB_USER:-rr_production}
+      DB_PASSWORD: ${RR_PRODUCTION_DB_PASSWORD:?RR_PRODUCTION_DB_PASSWORD must be provided}
+      HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
       # Points to consolidated inventory-procurement-service (port 8084)
       INVENTORY_SERVICE_URL: http://inventory-procurement-service:8084
