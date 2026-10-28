@@ -2,9 +2,10 @@
 
 > **Document Status:** Authoritative Master Deployment Guide  
 > **Repository:** `E:\RR Jaggery`  
-> **Current Branch:** `main` (ahead of `origin/main` by 3 commits: `0040e63`, `2d902e1`, `a97321d`)  
-> **Baseline Commit:** `a97321d` (*feat(infra): implement PostgreSQL least-privilege migration infrastructure*)  
-> **Document Last Updated:** 2026-10-28  
+> **Current Branch:** `main` (synchronized with `origin/main` at `901d824`)<br>
+> **Baseline Commit:** `a97321d` (*feat(infra): implement PostgreSQL least-privilege migration infrastructure*)<br>
+> **Latest Synchronized Commit:** `901d824` (*docs: update operational runbook and deployment guide*)<br>
+> **Document Last Updated:** 2026-10-28<br>
 > **Operating Rule:** Every deployment-related task MUST update this document as part of that same task.
 
 ---
@@ -34,8 +35,8 @@
 | 2 | **Production Configuration and Security** | `COMPLETED — VERIFIED` | Phase 2.2E.1–2.2E.5 | `compose.production.yaml`, `init-schemas.sql` |
 | 3 | **OVHcloud VPS Deployment** | `BLOCKED` | VPS Purchase, DNS, SSL | `infrastructure/scripts/vps-provision.sh` |
 | 4 | **Backup and Operational Readiness** | `COMPLETED — VERIFIED` | Phase 2.2E.4 Drill (20/20 PASS) | `infrastructure/scripts/backup.sh`, `restore.sh` |
-| 5 | **Git Integration** | `READY TO START` | Phase 2.2E.5 completion ✅ | Working tree (15 modified, 5 untracked) |
-| 6 | **OVHcloud CI/CD Implementation** | `PENDING` | Stages 3 & 5 | `.github/workflows/ci.yml` |
+| 5 | **Git Integration** | `COMPLETED — VERIFIED` | Stage 5.1–5.3 (Clean push to origin/main) | Local & Remote synchronized at `901d824` |
+| 6 | **OVHcloud CI/CD Implementation** | `PENDING` | Stage 5 complete; awaiting CI review & approval | `.github/workflows/ci.yml` |
 | 7 | **End-to-End Production Validation** | `PENDING` | Live VPS Deployment (Stage 3) | Full system health & business workflows |
 | 8 | **Final Release Approval** | `PENDING` | Stage 7 Sign-off | Business owner sign-off & domain migration |
 
@@ -178,7 +179,7 @@
 ---
 
 ### Stage 5: Git Integration
-- **Status:** `IN PROGRESS`
+- **Status:** `COMPLETED — VERIFIED` (Stage 5.1 audit, Stage 5.2 three atomic commits, Stage 5.3 push & sync verified)
 - **Scope & Objectives:**
   - Audit working tree diffs, whitespace, and untracked files.
   - Verify that no secrets or temporary credentials exist in modified files.
@@ -187,36 +188,26 @@
   - Push branch `main` to `origin/main` and verify remote synchronization.
 - **Completed Tasks:**
   - [x] Verify `origin` remote URL: `https://github.com/rrjaggery-1458/RR_Jaggery.git`.
-  - [x] Verify local commits ahead of remote: 3 commits (`0040e63`, `2d902e1`, `a97321d`).
-  - [x] Run `git diff --check`: Exit code 0 (zero whitespace or syntax violations).
-  - [x] Identify and protect all 4 untracked operational scripts:
-    - `infrastructure/docker/postgres/provision_runtime_roles.ps1`
-    - `infrastructure/docker/postgres/provision_runtime_roles.sh`
-    - `infrastructure/docker/postgres/test_backup_restore.ps1`
-    - `infrastructure/docker/postgres/test_services_startup.ps1`
-  - [x] Confirm no secrets, `.env`, or sensitive tokens are staged or tracked.
+  - [x] Stage 5.1: Perform read-only repository audit of 15 modified files and 5 untracked files with 0 secrets found and `git diff --check` exit code 0.
+  - [x] Stage 5.2: Create atomic Commit A (`49ba2b3`): `feat(db): least-privilege runtime roles, schema parity, and DDL validation` (11 files).
+  - [x] Stage 5.2: Create atomic Commit B (`c2bc613`): `feat(ops): harden backup and restore, role provisioning, and validation` (7 files).
+  - [x] Stage 5.2: Create atomic Commit C (`901d824`): `docs: update operational runbook and deployment guide` (2 files).
+  - [x] Stage 5.3: Push 6 commits (`0040e63`, `2d902e1`, `a97321d`, `49ba2b3`, `c2bc613`, `901d824`) to `origin/main`.
+  - [x] Stage 5.3: Verify clean working tree and identical commit hashes on local and remote (`git status --short --branch` -> `## main...origin/main`).
 - **Remaining Tasks:**
-  - [ ] Review final working tree `git diff` — confirm all 15 modified files are intended changes with no stray edits.
-  - [ ] Confirm `git diff --check` exits 0 (no whitespace violations beyond LF→CRLF warnings).
-  - [ ] Stage and commit Phase 2.2E changes in logical atomic commits:
-    - `feat(db): least-privilege runtime roles, schema hardening, and column parity fixes (Phase 2.2E.1–2.2E.3)`
-    - `test(db): isolated 5-service startup validation suite and provisioning scripts (Phase 2.2E.5)`
-    - `docs: update deployment guide and BACKUP_AND_ROLLBACK runbook`
-  - [ ] Push local `main` commits to `origin/main` (`git push origin main`).
-  - [ ] Verify `git log origin/main -n 5` matches local `main`.
+  - None. Stage 5 Git Integration is complete and verified.
 - **Evidence & Verification Required:**
-  - `git status` clean after commit.
-  - `git push origin main` successful exit.
-  - `git log origin/main -n 5` matching local `main`.
+  - `git status --short --branch` clean at `## main...origin/main`.
+  - Commit hashes match: `901d824617d53509557c677b0af550d66ca0e83f` on local `main` and `origin/main`.
 - **Blockers & Dependencies:**
-  - None. Phase 2.2E.5 is complete (21/21 PASSED, 2026-10-28). Stage 5 is ready to start.
+  - None. Stage 5 is complete.
 - **Next Action:**
-  - Review `git diff`, stage files, commit in logical atomic groups, and push to `origin/main`.
+  - Proceed to Stage 6: OVHcloud CI/CD Implementation preparation (review `.github/workflows/ci.yml` and required repository secrets; requires separate review and approval before any deployment actions begin).
 
 ---
 
 ### Stage 6: OVHcloud CI/CD Implementation
-- **Status:** `PENDING` / `BLOCKED` (Pending Stage 5 Git push and VPS GitHub Secrets)
+- **Status:** `PENDING` (Stage 5 Git push completed; awaiting CI pipeline review, secret configuration, and authorization)
 - **Scope & Objectives:**
   - Automated CI pipeline on GitHub Actions (`.github/workflows/ci.yml`).
   - Automated jobs:
@@ -461,3 +452,61 @@ All 7 disposable resources removed cleanly (label `rrtestid=36ed1200`):
 - **Next Recommended Action:**
   - **Stage 5 Git Integration** — Review `git diff` for all 15 modified files, confirm no secrets, create logical atomic commits for Phase 2.2E work, and push to `origin/main`.
 
+---
+
+### Entry 4 — 2026-10-28 | Stage 5 Git Integration & Remote Synchronization COMPLETE
+
+- **Engineer / Agent:** Antigravity Agent
+- **Git Branch:** `main` (synchronized with `origin/main` at `901d824617d53509557c677b0af550d66ca0e83f`)
+- **Remote Repository:** `https://github.com/rrjaggery-1458/RR_Jaggery.git`
+- **Result:** **STAGE 5 COMPLETE & VERIFIED** — 6 commits pushed, working tree clean, local and remote in full parity
+
+#### Work Performed
+
+1. **Stage 5.1 — Read-Only Git Integration Audit:**
+   - Evaluated working tree: 15 modified tracked files and 5 untracked operational files.
+   - Performed strict pattern search for secrets, tokens, private keys, or passwords across all files: 0 findings/blockers.
+   - Confirmed `git diff --check` passed cleanly (exit code 0).
+   - Confirmed staging index was empty and isolated development containers were completely unaffected.
+
+2. **Stage 5.2 — Three Atomic Local Commits Created:**
+   - **Commit A (`49ba2b3`):** `feat(db): least-privilege runtime roles, schema parity, and DDL validation` (11 files)
+     - Hardened `.env.example`, `compose.production.yaml`, `init-schemas.sql` (`NOLOGIN` roles, column parity), `V1_least_privilege_hardening.sql`, `verify_schema_parity.sql`, all 5 service `application.yml` files (parameterized `ddl-auto`, default role users, `default_schema: public` for customer-finance), and restricted JPA entity scanning in `InventoryProcurementApplication.java`.
+   - **Commit B (`c2bc613`):** `feat(ops): harden backup and restore, role provisioning, and validation` (7 files)
+     - `backup.sh`, `restore.sh`, `test_least_privilege.ps1`, `provision_runtime_roles.ps1`, `provision_runtime_roles.sh`, `test_backup_restore.ps1`, and `test_services_startup.ps1`.
+   - **Commit C (`901d824`):** `docs: update operational runbook and deployment guide` (2 files)
+     - `BACKUP_AND_ROLLBACK.md` and initial commit of `guide to deploy.md`.
+
+3. **Stage 5.3 — Push and Remote Synchronization Verified:**
+   - Successfully pushed all 6 commits to `origin/main`:
+     1. `0040e63` (*fix(payment): harden Razorpay checkout and remove TEST_PAYMENT*)
+     2. `2d902e1` (*fix(security): harden CORS and forwarded headers*)
+     3. `a97321d` (*feat(infra): implement PostgreSQL least-privilege migration infrastructure*)
+     4. `49ba2b3` (*feat(db): least-privilege runtime roles, schema parity, and DDL validation*)
+     5. `c2bc613` (*feat(ops): harden backup and restore, role provisioning, and validation*)
+     6. `901d824` (*docs: update operational runbook and deployment guide*)
+   - Executed `git status --short --branch` verifying `## main...origin/main` with clean working tree.
+   - Verified commit hash on both local HEAD and remote `origin/main`: `901d824617d53509557c677b0af550d66ca0e83f`.
+
+#### Safeguards Verified
+- No VPS or production server accessed or modified.
+- No claim of OVHcloud purchase, provisioning, or deployment made.
+- No secrets, tokens, or environment files committed or exposed.
+- All Sprint 1–10 and Phase 2.1–2.2 historical work intact.
+
+#### Stage Status Changes
+
+| Stage | Previous | Updated |
+|---|---|---|
+| Stage 5 (Git Integration) | `READY TO START` | **`COMPLETED — VERIFIED`** |
+| Stage 6 (OVHcloud CI/CD Implementation) | `PENDING / BLOCKED` | **`PENDING (READY FOR PREPARATION)`** |
+
+- **Commands & Tests Run:**
+  - `git branch --show-current` → `main`
+  - `git status --short --branch` → `## main...origin/main`
+  - `git log -6 --oneline --decorate`
+  - `git rev-parse HEAD` & `git rev-parse origin/main` → `901d824617d53509557c677b0af550d66ca0e83f`
+  - `git diff --check` → Exit code 0
+
+- **Next Recommended Action:**
+  - **Stage 6 OVHcloud CI/CD Implementation Preparation:** Conduct read-only review of `.github/workflows/ci.yml`, verify automated validation and build stages, and document required GitHub Actions repository secrets (`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, etc.). Requires explicit review and approval before any deployment actions begin.
