@@ -109,6 +109,64 @@ interface Address {
   nearestLandmark: string;
 }
 
+const INDIAN_STATES_AND_UTS = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+];
+
+interface PostalOffice {
+  State?: string;
+  District?: string;
+  Block?: string;
+  Name?: string;
+  BranchType?: string;
+}
+
+interface PostalLookupResponse {
+  Status: string;
+  PostOffice: PostalOffice[] | null;
+}
+
+function isPostalLookupResponse(value: unknown): value is PostalLookupResponse[] {
+  return Array.isArray(value)
+    && typeof value[0]?.Status === 'string'
+    && (Array.isArray(value[0]?.PostOffice) || value[0]?.PostOffice === null);
+}
+
 interface OrderItem {
   id: string;
   productId: string;
@@ -1159,6 +1217,99 @@ function CheckoutModal({
     message: string;
   } | null>(null);
   const [error, setError] = useState('');
+  const [postalLookup, setPostalLookup] = useState<{
+    status: 'idle' | 'loading' | 'success' | 'error';
+    message: string;
+    postalCode: string;
+    state: string;
+  }>({ status: 'idle', message: '', postalCode: '', state: '' });
+
+  useEffect(() => {
+    if (!/^\d{6}$/.test(address.postalCode) || !address.state) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const updatePostalLookup = (status: 'success' | 'error', message: string) => {
+      setPostalLookup({
+        status,
+        message,
+        postalCode: address.postalCode,
+        state: address.state,
+      });
+    };
+    const normalizeState = (state: string) => {
+      const normalized = state.toLowerCase().replace(/[^a-z]/g, '');
+      return normalized === 'orissa' ? 'odisha' : normalized;
+    };
+
+    async function lookupPostalCode() {
+      try {
+        const response = await fetch(
+          `https://api.postalpincode.in/pincode/${address.postalCode}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) {
+          throw new Error(`PIN lookup returned HTTP ${response.status}`);
+        }
+
+        const payload: unknown = await response.json();
+        if (!isPostalLookupResponse(payload)) {
+          throw new Error('PIN lookup returned an unexpected response');
+        }
+
+        const result = payload[0];
+        const offices = result.Status === 'Success' ? result.PostOffice ?? [] : [];
+        const matchingOffice = offices.find(
+          office => office.State
+            && normalizeState(office.State) === normalizeState(address.state)
+            && /head|sub/i.test(office.BranchType ?? ''),
+        ) ?? offices.find(
+          office => office.State && normalizeState(office.State) === normalizeState(address.state),
+        );
+
+        if (!matchingOffice) {
+          setAddress(current => ({ ...current, city: '' }));
+          updatePostalLookup(
+            'error',
+            offices.length
+              ? 'This PIN code does not match the selected state.'
+              : 'No post office was found for this PIN code.',
+          );
+          return;
+        }
+
+        const city = matchingOffice.Name?.replace(/\s+(H\.O\.|S\.O\.|B\.O\.)$/i, '').trim()
+          || matchingOffice.Block
+          || matchingOffice.District;
+        if (!city) {
+          throw new Error('PIN lookup did not include a city or village');
+        }
+
+        setAddress(current => ({ ...current, city }));
+        updatePostalLookup('success', 'City / village filled from the PIN code.');
+      } catch (lookupError) {
+        if (controller.signal.aborted) return;
+        updatePostalLookup(
+          'error',
+          'Could not look up this PIN code. Please check your connection or enter the city / village manually.',
+        );
+        console.error('PIN code lookup failed:', lookupError);
+      }
+    }
+
+    void lookupPostalCode();
+    return () => controller.abort();
+  }, [address.postalCode, address.state]);
+
+  const currentPostalLookup = postalLookup.postalCode === address.postalCode
+    && postalLookup.state === address.state
+    ? postalLookup
+    : null;
+  const postalLookupStatus = currentPostalLookup?.status
+    ?? (/^\d{6}$/.test(address.postalCode) ? 'loading' : 'idle');
+  const postalLookupMessage = currentPostalLookup?.message
+    ?? (postalLookupStatus === 'loading' ? 'Looking up PIN code…' : '');
 
   if (!isOpen || !cart) return null;
 
@@ -1639,15 +1790,19 @@ function CheckoutModal({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-gray-500 font-semibold">State</label>
-                  <input
+                  <select
                     id="checkout-state"
-                    type="text"
                     required
                     value={address.state}
-                    onChange={e => setAddress(a => ({ ...a, state: e.target.value }))}
-                    placeholder="Your state"
+                    onChange={e => {
+                      setAddress(a => ({ ...a, state: e.target.value, city: '', postalCode: '' }));
+                    }}
                     className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
-                  />
+                  >
+                    {INDIAN_STATES_AND_UTS.map(state => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-gray-500 font-semibold">PIN Code</label>
@@ -1660,12 +1815,31 @@ function CheckoutModal({
                     maxLength={6}
                     title="Enter a 6-digit PIN code."
                     value={address.postalCode}
-                    onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))}
+                    onChange={e => setAddress(a => ({
+                      ...a,
+                      postalCode: e.target.value.replace(/\D/g, '').slice(0, 6),
+                      city: '',
+                    }))}
                     placeholder="Your 6-digit PIN code"
                     className="w-full mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-900 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
+              {postalLookupMessage && (
+                <p
+                  role={postalLookupStatus === 'error' ? 'alert' : 'status'}
+                  aria-live="polite"
+                  className={`sm:col-span-2 text-[10px] ${
+                    postalLookupStatus === 'error'
+                      ? 'text-red-600'
+                      : postalLookupStatus === 'success'
+                        ? 'text-emerald-700'
+                        : 'text-gray-500'
+                  }`}
+                >
+                  {postalLookupMessage}
+                </p>
+              )}
 
               {/* Google Maps / Delivery Location Link Input */}
               <div className="sm:col-span-2 bg-stone-50/80 p-3.5 rounded-2xl border border-stone-200/90 space-y-2">
@@ -1975,8 +2149,51 @@ function InvoiceModal({
 
   const handlePrintInvoice = () => {
     const content = document.getElementById('invoice-modal-content');
+    const now = new Date();
+    const padTimePart = (value: number) => String(value).padStart(2, '0');
+    const timestamp = `${now.getFullYear()}-${padTimePart(now.getMonth() + 1)}-${padTimePart(now.getDate())}_${padTimePart(now.getHours())}-${padTimePart(now.getMinutes())}-${padTimePart(now.getSeconds())}`;
+    const filenamePart = (value: string) => value.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').trim();
+    const invoiceFilename = [
+      'Invoice',
+      invoice?.invoiceNumber || 'RR-Jaggery',
+      invoice?.orderNumber,
+      timestamp,
+    ].filter((value): value is string => Boolean(value)).map(filenamePart).join('_');
+    const escapedTitle = invoiceFilename.replace(/[&<>"']/g, character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[character] ?? character);
+
+    const printWithInvoiceTitle = (printAction: () => void, targetWindow: Window = window) => {
+      const originalTitle = document.title;
+      let restored = false;
+      const restoreTitle = () => {
+        if (restored) return;
+        restored = true;
+        document.title = originalTitle;
+        window.removeEventListener('afterprint', restoreTitle);
+        targetWindow.removeEventListener('afterprint', restoreTitle);
+      };
+
+      document.title = invoiceFilename;
+      window.addEventListener('afterprint', restoreTitle);
+      targetWindow.addEventListener('afterprint', restoreTitle);
+      try {
+        printAction();
+      } catch {
+        if (targetWindow !== window) {
+          window.print();
+        } else {
+          restoreTitle();
+        }
+      }
+    };
+
     if (!content) {
-      window.print();
+      printWithInvoiceTitle(() => window.print());
       return;
     }
 
@@ -1995,7 +2212,7 @@ function InvoiceModal({
 
     const frameDoc = printFrame.contentWindow?.document || printFrame.contentDocument;
     if (!frameDoc) {
-      window.print();
+      printWithInvoiceTitle(() => window.print());
       return;
     }
 
@@ -2006,7 +2223,7 @@ function InvoiceModal({
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Invoice - ${invoice?.invoiceNumber || 'RR-Jaggery'}</title>
+          <title>${escapedTitle}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @page { size: A4 portrait; margin: 12mm; }
@@ -2021,11 +2238,14 @@ function InvoiceModal({
     frameDoc.close();
 
     setTimeout(() => {
-      try {
-        printFrame.contentWindow?.focus();
-        printFrame.contentWindow?.print();
-      } catch {
-        window.print();
+      const printWindow = printFrame.contentWindow;
+      if (printWindow) {
+        printWithInvoiceTitle(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, printWindow);
+      } else {
+        printWithInvoiceTitle(() => window.print());
       }
     }, 450);
   };
@@ -5830,6 +6050,7 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [activeInvoiceOrderId, setActiveInvoiceOrderId] = useState<string | null>(null);
   const [cart, setCart] = useState<Cart | null>(null);
@@ -5928,11 +6149,16 @@ export function App() {
     }
   }
 
-  const handleLogout = useCallback(() => {
+  const performLogout = useCallback(() => {
+    setIsLogoutConfirmationOpen(false);
     clearAuthState();
     setAuth({ token: null, user: null });
     setCart(null);
     setView('storefront');
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setIsLogoutConfirmationOpen(true);
   }, []);
 
   useEffect(() => {
@@ -5940,13 +6166,13 @@ export function App() {
 
     const checkSession = () => {
       if (localStorage.getItem(TOKEN_KEY) !== auth.token) {
-        handleLogout();
+        performLogout();
         return true;
       }
       const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
       const elapsed = Date.now() - lastActivity;
       if (!lastActivity || elapsed < 0 || elapsed >= AUTH_INACTIVITY_TIMEOUT_MS) {
-        handleLogout();
+        performLogout();
         return true;
       }
       return false;
@@ -5972,7 +6198,7 @@ export function App() {
       window.clearInterval(intervalId);
       window.removeEventListener('storage', checkSession);
     };
-  }, [auth.token, handleLogout]);
+  }, [auth.token, performLogout]);
 
   function handleOrderPlaced(order: Order) {
     setIsCheckoutOpen(false);
@@ -6405,6 +6631,51 @@ export function App() {
         onLogin={handleLogin}
       />
 
+      {isLogoutConfirmationOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+          onClick={event => {
+            if (event.target === event.currentTarget) {
+              setIsLogoutConfirmationOpen(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-confirmation-title"
+            aria-describedby="logout-confirmation-description"
+            className="w-full max-w-sm rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-gray-200"
+          >
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+              <LogOut className="h-5 w-5" />
+            </div>
+            <h2 id="logout-confirmation-title" className="text-center text-lg font-bold text-gray-900">
+              Are you sure you want to log out?
+            </h2>
+            <p id="logout-confirmation-description" className="mt-2 text-center text-sm text-gray-600">
+              You will need to sign in again to access your account.
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => setIsLogoutConfirmationOpen(false)}
+                className="min-h-11 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              >
+                No, stay logged in
+              </button>
+              <button
+                type="button"
+                onClick={performLogout}
+                className="min-h-11 flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2"
+              >
+                Yes, log out
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Footer */}
       {view !== 'admin' && (
         <footer className="bg-emerald-950 text-white border-t border-emerald-900 py-10 px-4 sm:px-6 lg:px-8 mt-auto pb-24 sm:pb-10">
@@ -6459,7 +6730,7 @@ export function App() {
           </div>
 
           <div className="max-w-7xl mx-auto border-t border-emerald-900 pt-6 text-center text-[11px] text-emerald-300/80">
-            <p>© {new Date().getFullYear()} RR Jaggery Traders • Unified Commercial & Mill ERP Platform (Sprint 3 / Sprint 10 Production). All rights reserved.</p>
+            <p>© {new Date().getFullYear()} RR Jaggery Traders • All rights reserved.</p>
           </div>
         </footer>
       )}

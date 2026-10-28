@@ -161,8 +161,11 @@ public class RegistrationEmailSender {
 
                       <!-- Highlighted OTP Box -->
                       <div style="text-align: center; margin: 26px 0; padding: 22px 16px; background-color: #ecfdf5; border: 2px dashed #059669; border-radius: 14px;">
-                        <span style="font-size: 38px; font-weight: 800; letter-spacing: 12px; color: #064e3b; display: inline-block; padding-left: 12px; font-family: 'Courier New', Courier, monospace;">
+                        <span style="font-size: 38px; font-weight: 800; letter-spacing: 12px; color: #064e3b; display: inline-block; padding-left: 12px; font-family: 'Courier New', Courier, monospace; cursor: pointer; -webkit-user-select: all; user-select: all;">
                           {{CODE}}
+                        </span>
+                        <span style="display: block; margin-top: 8px; font-size: 12px; line-height: 1.5; color: #047857;">
+                          Tap or click the code to select it, then choose Copy.
                         </span>
                         <div style="margin-top: 10px; font-size: 12.5px; color: #047857; font-weight: 600;">
                           &#9201; Valid for {{EXPIRY}} minutes
