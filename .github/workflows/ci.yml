@@ -35,6 +35,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Lint Frontend
+        working-directory: frontend
+        run: npm run lint
+
       - name: Build Frontend Production Bundle
         working-directory: frontend
         run: npm run build
@@ -97,26 +101,187 @@ jobs:
       - name: Validate Docker Compose (production)
         run: test -f compose.production.yaml
 
-      - name: Check compose.production.yaml has no Redis
+      - name: Validate Production Compose Structure
         run: |
-          if grep -qi "redis" compose.production.yaml; then
-            echo "FAIL: Redis found in compose.production.yaml - violates Sprint 9"
+          set -euo pipefail
+
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          env_file="$temp_dir/compose.env"
+          printf '%s\n' \
+            'DB_PASSWORD=CI_PLACEHOLDER_ONLY' \
+            'RR_AUTH_DB_PASSWORD=CI_PLACEHOLDER_ONLY' \
+            'RR_COMMERCE_DB_PASSWORD=CI_PLACEHOLDER_ONLY' \
+            'RR_CUSTFIN_DB_PASSWORD=CI_PLACEHOLDER_ONLY' \
+            'RR_INVPROC_DB_PASSWORD=CI_PLACEHOLDER_ONLY' \
+            'RR_PRODUCTION_DB_PASSWORD=CI_PLACEHOLDER_ONLY' \
+            'JWT_SECRET=CI_PLACEHOLDER_ONLY' > "$env_file"
+
+          expected_services='["auth-service","commerce-service","customer-finance-service","gateway","inventory-procurement-service","postgres","production-service"]'
+          required_volumes=("postgres_data" "uploads_data" "certbot_data" "ssl_certs")
+          prohibited_publish_services=("postgres" "auth-service" "commerce-service" "customer-finance-service" "inventory-procurement-service" "production-service")
+
+          validate_compose() {
+            local compose_file="$1"
+            local rendered_config="$temp_dir/rendered.json"
+            local declared_volumes
+
+            declared_volumes="$(awk '
+              {
+                line = $0
+                sub(/\r$/, "", line)
+              }
+              line ~ /^volumes:[[:space:]]*($|#)/ {
+                in_volumes = 1
+                next
+              }
+              in_volumes && line ~ /^[^[:space:]#]/ { exit }
+              in_volumes && line ~ /^  [A-Za-z0-9_-]+:[[:space:]]*($|#)/ {
+                sub(/^  /, "", line)
+                sub(/:.*/, "", line)
+                print line
+              }
+            ' "$compose_file")"
+
+            for volume in "${required_volumes[@]}"; do
+              if ! grep -Fxq "$volume" <<< "$declared_volumes"; then
+                echo "::error::Required persistent volume declaration '$volume' is missing."
+                return 1
+              fi
+            done
+
+            if ! docker compose --env-file "$env_file" --project-directory "$GITHUB_WORKSPACE" \
+              -f "$compose_file" config --format json > "$rendered_config"; then
+              echo "::error::Docker Compose could not render $compose_file."
+              return 1
+            fi
+
+            if ! jq -e --argjson expected "$expected_services" \
+              '.services | length == ($expected | length)' "$rendered_config" > /dev/null; then
+              echo "::error::Production Compose must define exactly seven services."
+              return 1
+            fi
+            if ! jq -e --argjson expected "$expected_services" \
+              '.services | (keys | sort) == $expected' "$rendered_config" > /dev/null; then
+              echo "::error::Production Compose service names do not match the approved set."
+              return 1
+            fi
+
+            for volume in "${required_volumes[@]}"; do
+              if ! jq -e --arg volume "$volume" '.volumes | has($volume)' "$rendered_config" > /dev/null; then
+                echo "::error::Required persistent volume '$volume' is not present in the rendered Compose configuration."
+                return 1
+              fi
+            done
+
+            for service in "${prohibited_publish_services[@]}"; do
+              if ! jq -e --arg service "$service" \
+                '(.services[$service].ports // []) | length == 0' "$rendered_config" > /dev/null; then
+                echo "::error::Service '$service' must not publish ports to the host."
+                return 1
+              fi
+            done
+
+            assert_volume_mount() {
+              local service="$1"
+              local volume="$2"
+              local target="$3"
+              if ! jq -e --arg service "$service" --arg volume "$volume" --arg target "$target" \
+                '(.services[$service].volumes // []) | any(.type == "volume" and .source == $volume and .target == $target)' \
+                "$rendered_config" > /dev/null; then
+                echo "::error::Expected volume '$volume' mount at '$target' on '$service' is missing."
+                return 1
+              fi
+            }
+
+            assert_volume_mount "postgres" "postgres_data" "/var/lib/postgresql/data" || return 1
+            assert_volume_mount "commerce-service" "uploads_data" "/app/uploads" || return 1
+            assert_volume_mount "gateway" "uploads_data" "/var/www/uploads" || return 1
+            assert_volume_mount "gateway" "certbot_data" "/var/www/certbot" || return 1
+            assert_volume_mount "gateway" "ssl_certs" "/etc/nginx/ssl" || return 1
+          }
+
+          expect_rejection() {
+            local description="$1"
+            local fixture="$2"
+            local expected_message="$3"
+            local output_file="$temp_dir/rejection-output.log"
+
+            if validate_compose "$fixture" > "$output_file" 2>&1; then
+              echo "::error::Compose validator accepted the negative fixture: $description."
+              return 1
+            fi
+            if grep -Fq -- "Docker Compose could not render" "$output_file"; then
+              echo "::error::Compose validator failed with a generic Compose rendering error while testing $description."
+              cat "$output_file"
+              return 1
+            fi
+            if ! grep -Fq -- "$expected_message" "$output_file"; then
+              echo "::error::Compose validator did not emit the expected rejection for $description."
+              cat "$output_file"
+              return 1
+            fi
+            echo "PASS: Compose validator rejected $description."
+          }
+
+          validate_compose "compose.production.yaml"
+          echo "PASS: Production Compose structure is valid."
+
+          sed 's/production-service/renamed-production-service/g' \
+            compose.production.yaml > "$temp_dir/missing-service.yaml"
+          expect_rejection "a missing expected service" "$temp_dir/missing-service.yaml" \
+            "Production Compose service names do not match the approved set."
+
+          awk '
+            {
+              line = $0
+              sub(/\r$/, "", line)
+              print line
+              if (line ~ /^services:[[:space:]]*$/) {
+                print "  redis:"
+                print "    image: redis:alpine"
+              }
+            }
+          ' compose.production.yaml > "$temp_dir/unexpected-service.yaml"
+          if ! docker compose --env-file "$env_file" --project-directory "$GITHUB_WORKSPACE" \
+            -f "$temp_dir/unexpected-service.yaml" config --format json > "$temp_dir/unexpected-service.json"; then
+            echo "::error::Unexpected-service fixture could not be rendered."
             exit 1
           fi
-          echo "PASS: No Redis in production compose"
+          if ! jq -e '.services | has("redis")' "$temp_dir/unexpected-service.json" > /dev/null; then
+            echo "::error::Rendered unexpected-service fixture does not contain redis."
+            exit 1
+          fi
+          echo "PASS: Rendered unexpected-service fixture contains redis."
+          expect_rejection "an unexpected service" "$temp_dir/unexpected-service.yaml" \
+            "Production Compose must define exactly seven services."
 
-      - name: Verify exactly 7 services in production compose
-        run: |
-          COUNT=$(grep -c "^  [a-z]" compose.production.yaml || true)
-          echo "Service-like entries: $COUNT"
-          # Just confirm no Redis and no legacy services
-          for LEGACY in finance-service notification-service customer-ledger-service inventory-service procurement-service; do
-            if grep -q "container_name: rr-$LEGACY" compose.production.yaml 2>/dev/null; then
-              echo "FAIL: Legacy service $LEGACY found in production compose"
-              exit 1
-            fi
-          done
-          echo "PASS: No legacy services in production compose"
+          awk '
+            {
+              line = $0
+              sub(/\r$/, "", line)
+              if (line == "  ssl_certs:") next
+              print line
+            }
+          ' compose.production.yaml > "$temp_dir/missing-volume.yaml"
+          expect_rejection "a missing required persistent volume declaration" "$temp_dir/missing-volume.yaml" \
+            "Required persistent volume declaration 'ssl_certs' is missing."
+
+          awk '
+            {
+              line = $0
+              sub(/\r$/, "", line)
+              if (line == "    container_name: rr-postgres") {
+                print line
+                print "    ports:"
+                print "      - \"5432:5432\""
+                next
+              }
+              print line
+            }
+          ' compose.production.yaml > "$temp_dir/published-port.yaml"
+          expect_rejection "a prohibited PostgreSQL host-port publication" "$temp_dir/published-port.yaml" \
+            "Service 'postgres' must not publish ports to the host."
 
   # ────────────────────────────────────────────────────────────────
   # Job 4: Production Deploy
